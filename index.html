@@ -421,32 +421,32 @@ var curSeed = "";
    Включаются перед забегом и меняют правила. Каждый даёт прибавку
    к множителю очков; те, что упрощают игру, — отнимают. */
 var MODS = [
-  { k:"fast",    n:"Завучи не спят",    d:"завучи на 40% быстрее",            m: 20 },
-  { k:"crowd",   n:"Толпа на перемене", d:"на каждом уровне лишние завучи",   m: 25 },
-  { k:"nostomp", n:"Хрупкий",           d:"на голову завучу не прыгнуть",     m: 25 },
-  { k:"ice",     n:"Мыли полы",         d:"скользко, тормозить нечем",        m: 15 },
-  { k:"heavy",   n:"Тяжёлый рюкзак",    d:"прыжок ниже",                      m: 15 },
-  { k:"dark",    n:"Свет выключили",    d:"видно только вокруг себя",         m: 30 },
-  { k:"hungry",  n:"Голод",             d:"выход откроется на все пирожки",   m: 20 },
-  { k:"rush",    n:"Скорый звонок",     d:"времени на треть меньше",          m: 20 },
-  { k:"onelife", n:"Одна жизнь",        d:"первое падение — конец забега",    m: 40 },
-  { k:"long",    n:"Долгая перемена",   d:"времени в полтора раза больше",    m:-25 },
-  { k:"sneak",   n:"Новые кроссовки",   d:"бежишь быстрее, прыгаешь выше",    m:-20 },
-  { k:"empty",   n:"Завуч в отпуске",   d:"завучей нет совсем",               m:-35 },
-  { k:"mirror",  n:"Зеркало",           d:"управление наоборот",              m: 15 },
-  { k:"glass",   n:"Стеклянные доски",  d:"доски рассыпаются под ногами",     m: 25 },
-  { k:"fastgame",n:"Перемена бежит",    d:"вся игра быстрее на 20%",          m: 25 },
-  { k:"nobox",   n:"Шкафчики пусты",    d:"предметов не будет",               m: 20 },
-  { k:"jumpy",   n:"Прыгучие завучи",   d:"завучи подпрыгивают",              m: 20 },
-  { k:"dbljump", n:"Двойной прыжок",    d:"второй прыжок в воздухе всегда",   m:-25 },
-  { k:"magnet",  n:"Магнит",            d:"пирожки сами летят в руки",        m:-15 },
-  { k:"startbag",n:"Портфель на старте",d:"каждый уровень начинаешь со щитом",m:-15 },
-  { k:"skipclass",n:"Прогульщик",      d:"уроки пропускаются совсем",          m:-15 },
-  { k:"strict",  n:"Строгий учитель",  d:"на уроке меньше времени и поблажек", m: 20 },
-  { k:"exam",    n:"Контрольная",      d:"зачёт только без единой ошибки",     m: 20 },
-  { k:"dbllesson",n:"Двойной урок",    d:"перед каждым этажом два урока",      m: 25 },
-  { k:"easyclass",n:"Любимый предмет", d:"зачёт ставят почти за что угодно",   m:-20 },
-  { k:"favorite",n:"Любимчик учителя", d:"за зачёт +30 секунд и 200 очков",    m:-15 }
+  { k:"fast",    n:"Завучи не спят",    d:"завучи на 40% быстрее",            m: 20, grp:"hard" },
+  { k:"crowd",   n:"Толпа на перемене", d:"на каждом уровне лишние завучи",   m: 25, grp:"hard" },
+  { k:"nostomp", n:"Хрупкий",           d:"на голову завучу не прыгнуть",     m: 25, grp:"hard" },
+  { k:"ice",     n:"Мыли полы",         d:"скользко, тормозить нечем",        m: 15, grp:"hard" },
+  { k:"heavy",   n:"Тяжёлый рюкзак",    d:"прыжок ниже",                      m: 15, grp:"hard" },
+  { k:"dark",    n:"Свет выключили",    d:"видно только вокруг себя",         m: 30, grp:"hard" },
+  { k:"hungry",  n:"Голод",             d:"выход откроется на все пирожки",   m: 20, grp:"hard" },
+  { k:"rush",    n:"Скорый звонок",     d:"времени на треть меньше",          m: 20, grp:"hard" },
+  { k:"onelife", n:"Одна жизнь",        d:"первое падение — конец забега",    m: 40, grp:"hard" },
+  { k:"long",    n:"Долгая перемена",   d:"времени в полтора раза больше",    m:-25, grp:"easy" },
+  { k:"sneak",   n:"Новые кроссовки",   d:"бежишь быстрее, прыгаешь выше",    m:-20, grp:"easy" },
+  { k:"empty",   n:"Завуч в отпуске",   d:"завучей нет совсем",               m:-35, grp:"easy" },
+  { k:"mirror",  n:"Зеркало",           d:"управление наоборот",              m: 15, grp:"hard" },
+  { k:"glass",   n:"Стеклянные доски",  d:"доски рассыпаются под ногами",     m: 25, grp:"hard" },
+  { k:"fastgame",n:"Перемена бежит",    d:"вся игра быстрее на 20%",          m: 25, grp:"hard" },
+  { k:"nobox",   n:"Шкафчики пусты",    d:"предметов не будет",               m: 20, grp:"hard" },
+  { k:"jumpy",   n:"Прыгучие завучи",   d:"завучи подпрыгивают",              m: 20, grp:"hard" },
+  { k:"dbljump", n:"Двойной прыжок",    d:"второй прыжок в воздухе всегда",   m:-25, grp:"easy" },
+  { k:"magnet",  n:"Магнит",            d:"пирожки сами летят в руки",        m:-15, grp:"easy" },
+  { k:"startbag",n:"Портфель на старте",d:"каждый уровень начинаешь со щитом",m:-15, grp:"easy" },
+  { k:"skipclass",n:"Прогульщик",      d:"уроки пропускаются совсем",          m:-15, grp:"class" },
+  { k:"strict",  n:"Строгий учитель",  d:"на уроке меньше времени и поблажек", m: 20, grp:"class" },
+  { k:"exam",    n:"Контрольная",      d:"зачёт только без единой ошибки",     m: 20, grp:"class" },
+  { k:"dbllesson",n:"Двойной урок",    d:"перед каждым этажом два урока",      m: 25, grp:"class" },
+  { k:"easyclass",n:"Любимый предмет", d:"зачёт ставят почти за что угодно",   m:-20, grp:"class" },
+  { k:"favorite",n:"Любимчик учителя", d:"за зачёт +30 секунд и 200 очков",    m:-15, grp:"class" }
 ];
 var modOn = {};
 
@@ -973,6 +973,7 @@ function doButton(id){
   else if(id.indexOf("ans") === 0){ lessonAnswer(+id.slice(3)); }
   else if(id === "tab_hard"){ G.modTab = "hard"; }
   else if(id === "tab_easy"){ G.modTab = "easy"; }
+  else if(id === "tab_class"){ G.modTab = "class"; }
   else if(id === "mods_back"){ G.state = G.back || "menu"; G.back = null; }
   else if(id === "mods_clear"){ modOn = {}; modSave(); applySource(); }
   else if(id.indexOf("mod_") === 0){
@@ -2972,8 +2973,11 @@ function modCell(m, x, y, w, h){
 }
 
 function modList(kind){
-  var out = [], i;
-  for(i=0;i<MODS.length;i++) if((kind === "hard") === (MODS[i].m > 0)) out.push(MODS[i]);
+  var out = [], i, g;
+  for(i=0;i<MODS.length;i++){
+    g = MODS[i].grp || (MODS[i].m > 0 ? "hard" : "easy");
+    if(g === kind) out.push(MODS[i]);
+  }
   return out;
 }
 function modCountOf(kind){
@@ -2990,14 +2994,20 @@ function drawMods(){
        VW/2, 56, 15, modCount() ? "#ffb98a" : "rgba(200,220,255,.6)", "center");
 
   var tab = G.modTab || "hard";
-  uiButton("tab_hard", 210, 66, 180, 32, "СЛОЖНЕЕ" + (modCountOf("hard") ? " · " + modCountOf("hard") : ""),
-           null, { size:14, sel: tab === "hard", selBorder:"#ffb98a" });
-  uiButton("tab_easy", 410, 66, 180, 32, "ПРОЩЕ" + (modCountOf("easy") ? " · " + modCountOf("easy") : ""),
-           null, { size:14, sel: tab === "easy", selBorder:"#8bffcf" });
+  uiButton("tab_hard", 130, 66, 172, 32, "СЛОЖНЕЕ" + (modCountOf("hard") ? " · " + modCountOf("hard") : ""),
+           null, { size:13, sel: tab === "hard", selBorder:"#ffb98a" });
+  uiButton("tab_easy", 314, 66, 172, 32, "ПРОЩЕ" + (modCountOf("easy") ? " · " + modCountOf("easy") : ""),
+           null, { size:13, sel: tab === "easy", selBorder:"#8bffcf" });
+  uiButton("tab_class", 498, 66, 172, 32, "УРОКИ" + (modCountOf("class") ? " · " + modCountOf("class") : ""),
+           null, { size:13, sel: tab === "class", selBorder:"#9fd8ff" });
 
   var list = modList(tab), i;
+  var rows = Math.max(1, Math.ceil(list.length / 2));
+  var top = 106, bottom = 414;                       // сетка сама ужимается под число карточек
+  var step = Math.min(46, (bottom - top) / rows);
+  var ch = Math.min(42, step - 4);
   for(i=0;i<list.length;i++)
-    modCell(list[i], (i % 2) ? 400 : 30, 108 + Math.floor(i/2)*46, 350, 42);
+    modCell(list[i], (i % 2) ? 400 : 30, top + Math.floor(i/2)*step, 350, ch);
 
   uiButton("mods_clear", 214, 428, 170, 36, "ВСЁ ВЫКЛ", null, { size:14 });
   uiButton("mods_back", 416, 428, 170, 36, "НАЗАД", null, { size:14, sel:true });
