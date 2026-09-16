@@ -309,7 +309,7 @@ function genLevel(rnd, idx, name, withKey){
     else if(f === "enemy"){ g[12][col] = "x"; col += 6; }
     else if(f === "fly"){ g[irnd(rnd,7,9)][col] = "v"; col += 4; }
     else if(f === "platform"){
-      w = irnd(rnd,3,5); row = irnd(rnd,9,10);
+      w = irnd(rnd,3,5); row = irnd(rnd,10,11);
       for(i=0;i<w;i++) g[row][col+i] = "=";
       coins(row-1, col+1, Math.min(w-1, irnd(rnd,1,3)));
       plats.push({ x:col + Math.floor(w/2), y:row-1 });
@@ -371,6 +371,51 @@ var ctx = cv.getContext("2d");
 var isTouch = false;                   // выставляется при инициализации ввода
 var curSrc = "classic";                // откуда берутся уровни: classic | seed
 var curSeed = "";
+
+/* ================== МОДИФИКАТОРЫ ==================
+   Включаются перед забегом и меняют правила. Каждый даёт прибавку
+   к множителю очков; те, что упрощают игру, — отнимают. */
+var MODS = [
+  { k:"fast",    n:"Завучи не спят",    d:"завучи на 40% быстрее",            m: 20 },
+  { k:"crowd",   n:"Толпа на перемене", d:"на каждом уровне лишние завучи",   m: 25 },
+  { k:"nostomp", n:"Хрупкий",           d:"на голову завучу не прыгнуть",     m: 25 },
+  { k:"ice",     n:"Мыли полы",         d:"скользко, тормозить нечем",        m: 15 },
+  { k:"heavy",   n:"Тяжёлый рюкзак",    d:"прыжок ниже",                      m: 15 },
+  { k:"dark",    n:"Свет выключили",    d:"видно только вокруг себя",         m: 30 },
+  { k:"hungry",  n:"Голод",             d:"выход откроется на все пирожки",   m: 20 },
+  { k:"rush",    n:"Скорый звонок",     d:"времени на треть меньше",          m: 20 },
+  { k:"onelife", n:"Одна жизнь",        d:"первое падение — конец забега",    m: 40 },
+  { k:"long",    n:"Долгая перемена",   d:"времени в полтора раза больше",    m:-25 },
+  { k:"sneak",   n:"Новые кроссовки",   d:"бежишь быстрее, прыгаешь выше",    m:-20 },
+  { k:"empty",   n:"Завуч в отпуске",   d:"завучей нет совсем",               m:-35 }
+];
+var modOn = {};
+function mod(k){ return !!modOn[k]; }
+function modMult(){
+  var sum = 0;
+  for(var i=0;i<MODS.length;i++) if(modOn[MODS[i].k]) sum += MODS[i].m;
+  return Math.max(0.1, 1 + sum/100);
+}
+function modCount(){ var n = 0, i; for(i=0;i<MODS.length;i++) if(modOn[MODS[i].k]) n++; return n; }
+function modSave(){
+  var on = [];
+  for(var i=0;i<MODS.length;i++) if(modOn[MODS[i].k]) on.push(MODS[i].k);
+  try{ localStorage.setItem("peremena_mods", on.join(",")); }catch(e){}
+}
+function modLoad(){
+  var raw = "";
+  try{ raw = localStorage.getItem("peremena_mods") || ""; }catch(e){}
+  raw.split(",").forEach(function(k){ if(k) modOn[k] = true; });
+}
+function runMax(){ return RUN_MAX * (mod("sneak") ? 1.18 : 1); }
+function jumpV(){ return JUMP_V * (mod("heavy") ? 0.92 : 1) * (mod("sneak") ? 1.06 : 1); }
+function timeLimit(){
+  var t = curDiff.time;
+  if(mod("rush")) t *= 0.67;
+  if(mod("long")) t *= 1.5;
+  return Math.round(t);
+}
+function oneLife(){ return curDiff.oneLife || mod("onelife"); }
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -421,13 +466,10 @@ function setKey(k, down){
 }
 function uiAction(){
   actx();
+  if(G.state === "mods"){ return; }
   if(G.state === "menu"){ startRun(G.pick); }
   else if(G.state === "win" || G.state === "over"){ startRun(curDiff.key); }
   else if(G.state === "paused"){ G.state = "play"; }
-  else if(G.state === "lobby"){
-    if(NET.host === NET.id) netSend({ t:"start", seed:curSeed, src:curSrc, mode:G.pick });
-    else { NET.ready = !NET.ready; netSend({ t:"ready", v:NET.ready }); }
-  }
 }
 function toMenu(){
   var pick = G.pick;
@@ -447,15 +489,19 @@ function doButton(id){
   else if(id === "restart"){ startRun(curDiff.key); }
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
   else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
-  else if(id === "net_open"){ netConnect(); G.state = "lobby"; }
-  else if(id === "net_leave"){ netLeave(); G.state = "menu"; }
-  else if(id === "net_ready"){ NET.ready = !NET.ready; netSend({ t:"ready", v:NET.ready }); }
-  else if(id === "net_start"){ netSend({ t:"start", seed:curSeed, src:curSrc, mode:G.pick }); }
-  else if(id === "lb_mode"){ G.pick = (G.pick === "hard") ? "normal" : "hard"; netSetup(); }
-  else if(id === "lb_src"){ curSrc = (curSrc === "seed") ? "classic" : "seed"; applySource(); netSetup(); }
+  else if(id === "mods_open"){ G.state = "mods"; }
+  else if(id === "mods_back"){ G.state = "menu"; }
+  else if(id === "mods_clear"){ modOn = {}; modSave(); applySource(); }
+  else if(id.indexOf("mod_") === 0){
+    var mk = id.slice(4);
+    modOn[mk] = !modOn[mk];
+    if(!modOn[mk]) delete modOn[mk];
+    modSave(); applySource();
+    tone(modOn[mk] ? 700 : 400, 0.08, "square", 0.05, modOn[mk] ? 200 : -150);
+  }
   else if(id === "src_classic"){ curSrc = "classic"; applySource(); }
   else if(id === "src_seed"){ curSrc = "seed"; applySource(); }
-  else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); netSetup(); sfx.key(); }
+  else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); sfx.key(); }
 }
 function canvasPoint(ev){
   var r = cv.getBoundingClientRect();
@@ -475,7 +521,12 @@ document.addEventListener("keydown", function(e){
   else if(c==="Space"||c==="ArrowUp"||c==="KeyW"||c==="KeyZ") setKey("jump",true);
   else if(c==="Enter") uiAction();
   else if(c==="KeyR"){ actx(); if(G.state==="play") killPlayer(true); else startRun(curDiff.key); }
-  else if(c==="KeyP"||c==="Escape"){ if(G.state==="play") G.state="paused"; else if(G.state==="paused") G.state="play"; }
+  else if(c==="KeyP"||c==="Escape"){
+    if(G.state==="play") G.state="paused";
+    else if(G.state==="paused") G.state="play";
+    else if(G.state==="mods") G.state="menu";
+  }
+  else if(c==="KeyO" && (G.state==="menu"||G.state==="mods")) G.state = (G.state==="mods") ? "menu" : "mods";
   else if(c==="KeyM"){ muted = !muted; }
 });
 document.addEventListener("keyup", function(e){
@@ -511,7 +562,7 @@ cv.addEventListener("pointerdown", function(ev){
       ev.preventDefault(); doButton(b.id); return;
     }
   }
-  if(G.state !== "play" && G.state !== "lobby") uiAction();
+  if(G.state !== "play" && G.state !== "mods") uiAction();
 });
 cv.addEventListener("contextmenu", function(e){ e.preventDefault(); });
 
@@ -535,14 +586,41 @@ function buildLevel(def){
     var ch = grid[i][j], px = j*TS, py = i*TS;
     if(ch === "o"){ lv.coins.push({x:px+8, y:py+8, w:16, h:16, got:false, ph:rnd(0,6.28)}); grid[i][j]="."; }
     else if(ch === "@"){ lv.start = {x:px+6, y:py+4}; grid[i][j]="."; }
-    else if(ch === "E"){ lv.door = {x:px+3, y:py-14, w:26, h:46, cx:px+16}; grid[i][j]="."; }
+    else if(ch === "E"){
+      lv.door = { x:px+3, y:py-14, w:26, h:46, cx:px+16 };
+      lv.doorHit = { x:px+1, y:py-96, w:30, h:128 };   // засчитываем и в прыжке над дверью
+      grid[i][j]=".";
+    }
     else if(ch === "K"){ lv.key = {x:px+8, y:py+10, w:16, h:14, got:false, ph:0}; lv.needKey=true; grid[i][j]="."; }
     else if(ch === "J"){ lv.pads.push({x:px+2, y:py+18, w:28, h:14, t:0}); grid[i][j]="."; }
-    else if(ch === "x"){ lv.enemies.push(makeEnemy(px+3, py+4, false)); grid[i][j]="."; }
-    else if(ch === "v"){ lv.enemies.push(makeEnemy(px+2, py+6, true)); grid[i][j]="."; }
+    else if(ch === "x"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, false)); grid[i][j]="."; }
+    else if(ch === "v"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+2, py+6, true)); grid[i][j]="."; }
     else if(ch === "^"){ lv.spikes.push({x:px+2, y:py+18, w:28, h:14}); }
   }
   lv.coinTotal = lv.coins.length;
+
+  /* «Толпа на перемене»: досыпаем завучей на свободные куски земли */
+  if(mod("crowd") && !mod("empty")){
+    var crnd = mulberry(hashSeed(def.name + "crowd")), extra = 2 + Math.round(lv.enemies.length * 0.6), tries = 0;
+    var occupied = function(cx, cy){
+      var k, e;
+      for(k=0;k<lv.enemies.length;k++){ e = lv.enemies[k]; if(Math.abs(e.x - cx*TS) < TS*3 && Math.abs(e.y - cy*TS) < TS*2) return true; }
+      for(k=0;k<lv.spikes.length;k++) if(Math.abs(lv.spikes[k].x - cx*TS) < TS*2) return true;
+      if(lv.door && Math.abs(lv.door.cx - cx*TS) < TS*3) return true;
+      return Math.abs(lv.start.x - cx*TS) < TS*4;
+    };
+    while(extra > 0 && tries++ < 400){
+      var cx = 4 + Math.floor(crnd()*(w-8)), cy = 0;
+      for(cy=1; cy<lv.h-1; cy++){
+        if(!isSolidChar(grid[cy][cx]) || grid[cy][cx] === "=") continue;
+        if(isSolidChar(grid[cy-1][cx]) || isSolidChar(grid[cy-2] ? grid[cy-2][cx] : ".")) continue;
+        if(occupied(cx, cy-1)) continue;
+        lv.enemies.push(makeEnemy(cx*TS+3, (cy-1)*TS+4, false));
+        extra--;
+        break;
+      }
+    }
+  }
 
   var ms = def.movers || [];
   for(i=0;i<ms.length;i++){
@@ -556,7 +634,7 @@ function buildLevel(def){
 
 function makeEnemy(x, y, fly){
   return { x:x, y:y, w:fly?28:26, h:fly?18:28,
-           vx: fly ? 1.5*curDiff.fly : 0.85*curDiff.enemy, vy:0,
+           vx: (fly ? 1.5*curDiff.fly : 0.85*curDiff.enemy) * (mod("fast") ? 1.4 : 1), vy:0,
            fly:fly, homeX:x, range: fly?999999:TS*curDiff.range, dead:false, deadT:0,
            dir:1, anim:0, hitWall:false };
 }
@@ -621,7 +699,7 @@ function puff(x, y, n, col, spd){
 /* ================== ИГРОВОЙ ЦИКЛ / СОСТОЯНИЕ ================== */
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
-           coins:0, coinsMax:0, deaths:0, timeLeft:curDiff.time,
+           coins:0, coinsMax:0, deaths:0, timeLeft:timeLimit(),
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal" };
 }
@@ -700,7 +778,6 @@ function camTarget(){
 
 function goOver(reason){
   G.state = "over"; G.overReason = reason;
-  if(NET.race && NET.on) netSend({ t:"lost" });
 }
 function killPlayer(silent){
   var p = G.player;
@@ -723,7 +800,7 @@ function updatePlayer(dt){
     p.vy = Math.min(p.vy + GRAV, MAXFALL);
     p.y += p.vy;
     if(p.deadT > 46){
-      if(curDiff.oneLife){ goOver("dead"); sfx.fail(); }
+      if(oneLife()){ goOver("dead"); sfx.fail(); }
       else spawnPlayer();
     }
     return;
@@ -740,17 +817,18 @@ function updatePlayer(dt){
   p.hitWall = false;
 
   var ix = (input.right?1:0) - (input.left?1:0);
-  var acc = 0.85;
+  var slip = mod("ice");
+  var acc = slip ? 0.42 : 0.85;
   if(ix){ p.vx += acc*ix; p.dir = ix; }
-  else { p.vx *= 0.80; if(Math.abs(p.vx) < 0.06) p.vx = 0; }
-  p.vx = clamp(p.vx, -RUN_MAX, RUN_MAX);
+  else { p.vx *= p.grounded && slip ? 0.975 : 0.80; if(Math.abs(p.vx) < 0.06) p.vx = 0; }
+  p.vx = clamp(p.vx, -runMax(), runMax());
 
   p.vy = Math.min(p.vy + GRAV, MAXFALL);
   if(p.coyote > 0) p.coyote--;
   if(p.jumpBuf > 0) p.jumpBuf--;
 
   if(p.jumpBuf > 0 && p.coyote > 0){
-    p.vy = JUMP_V; p.jumpBuf = 0; p.coyote = 0; p.jumping = true;
+    p.vy = jumpV(); p.jumpBuf = 0; p.coyote = 0; p.jumping = true;
     p.sqx = 0.78; p.sqy = 1.28;
     puff(p.x+p.w/2, p.y+p.h, 6, "#ffffff", 1.8);
     sfx.jump();
@@ -815,7 +893,7 @@ function updatePlayer(dt){
     var en = lv.enemies[i];
     if(en.dead) continue;
     if(!overlap(body, en)) continue;
-    if(!en.fly && p.vy > 1.2 && (p.y + p.h) - en.y < 18){
+    if(!en.fly && !mod("nostomp") && p.vy > 1.2 && (p.y + p.h) - en.y < 18){
       en.dead = true; en.deadT = 0;
       p.vy = -8.4; p.sqx = 1.2; p.sqy = 0.82;
       G.shake = 6;
@@ -824,11 +902,21 @@ function updatePlayer(dt){
     } else { killPlayer(); return; }
   }
   /* дверь */
-  if(lv.door && overlap(p, lv.door) && (!lv.needKey || G.hasKey)){
+  if(lv.doorHit && overlap(p, lv.doorHit) && doorOpen()){
     nextLevel();
   }
 }
 
+function coinsLeft(){
+  var lv = G.level, n = 0, i;
+  for(i=0;i<lv.coins.length;i++) if(!lv.coins[i].got) n++;
+  return n;
+}
+function doorOpen(){
+  if(G.level.needKey && !G.hasKey) return false;
+  if(mod("hungry") && coinsLeft() > 0) return false;
+  return true;
+}
 function updateEnemies(){
   var lv = G.level, i;
   for(i=0;i<lv.enemies.length;i++){
@@ -883,17 +971,21 @@ function nextLevel(){
   G.banner = 70;
   G.state = "clear";
 }
+function runPoints(){
+  var done = (G.state === "win") ? LEVELS.length : G.levelIndex;
+  return Math.max(0, done*100 + G.coins*10 + Math.floor(G.timeLeft)*2 - G.deaths*20);
+}
+function runScore(){ return Math.round(runPoints() * modMult()); }
 function finishRun(){
   G.state = "win";
   sfx.win();
   var used = curDiff.time - G.timeLeft;
-  if(NET.race && NET.on)
-    netSend({ t:"finish", time:Math.round(used), coins:G.coins, deaths:G.deaths });
   var best = bestScore(recKey(curDiff.key));
-  if(!best || used < best.time || (used === best.time && G.coins > best.coins)){
+  var sc = runScore();
+  if(!best || sc > (best.score || 0)){
     G.record = true;
     try{ localStorage.setItem("peremena_best_" + recKey(curDiff.key),
-      JSON.stringify({time:used, coins:G.coins, deaths:G.deaths})); }catch(e){}
+      JSON.stringify({ time:used, coins:G.coins, deaths:G.deaths, score:sc })); }catch(e){}
   }
   G.best = best;
 }
@@ -908,7 +1000,6 @@ function update(dtSec){
   if(G.hintT > 0) G.hintT--;
   if(G.hotT > 0) G.hotT--;
   if(G.penalty > 0) G.penalty--;
-  netTick();
 
   if(G.state === "play"){
     G.timeLeft -= dtSec;
@@ -1130,7 +1221,7 @@ function drawKey(){
 function drawDoor(){
   var d = G.level.door;
   if(!d) return;
-  var open = !G.level.needKey || G.hasKey;
+  var open = doorOpen();
   ctx.save();
   if(open){ ctx.shadowColor = "rgba(120,255,180,.85)"; ctx.shadowBlur = 16 + Math.sin(G.tick*0.09)*7; }
   ctx.fillStyle = "#5a3f28"; rrect(d.x-4, d.y-4, d.w+8, d.h+4, 6); ctx.fill();
@@ -1140,7 +1231,8 @@ function drawDoor(){
   ctx.fillStyle = "#ffd93d"; ctx.beginPath(); ctx.arc(d.x+d.w-6, d.y+d.h/2+4, 3, 0, 6.2832); ctx.fill();
   ctx.restore();
   text(open ? "ВЫХОД" : "ЗАКРЫТО", d.cx, d.y-9, 11, open ? "#e9fff3" : "#ffd6d6", "center");
-  if(!open){ text("нужен ключ", d.cx, d.y-22, 10, "#ffe9a8", "center", 600); }
+  if(!open) text(G.level.needKey && !G.hasKey ? "нужен ключ" : "собери все пирожки",
+                 d.cx, d.y-22, 10, "#ffe9a8", "center", 600);
 }
 
 function drawEnemy(e){
@@ -1267,198 +1359,6 @@ function drawParts(){
   ctx.globalAlpha = 1;
 }
 
-/* ================== ИГРА ПО СЕТИ ==================
-   Работает, когда страницу раздаёт server.js: все бегут один и тот же
-   набор уровней наперегонки и видят друг друга полупрозрачными. */
-var NET = {
-  avail: false, ws:null, on:false, race:false, id:0, host:0, color:"#3aa0e8",
-  name:"", players:[], ghosts:{}, results:null, note:"", noteT:0, ready:false
-};
-try{ NET.avail = (location.protocol === "http:" || location.protocol === "https:"); }catch(e){}
-
-var NET_NAMES = ["Рыжий","Быстрый","Голодный","Ловкий","Хитрый","Сонный","Дерзкий",
-                 "Новенький","Шустрый","Тихоня","Задира","Отличник"];
-function netName(){
-  var n = "";
-  try{ n = localStorage.getItem("peremena_name") || ""; }catch(e){}
-  if(!n){
-    n = NET_NAMES[Math.floor(Math.random()*NET_NAMES.length)] + " " + (1 + Math.floor(Math.random()*99));
-    try{ localStorage.setItem("peremena_name", n); }catch(e){}
-  }
-  return n;
-}
-function netSend(o){
-  if(NET.ws && NET.ws.readyState === 1){ try{ NET.ws.send(JSON.stringify(o)); }catch(e){} }
-}
-function netConnect(){
-  if(!NET.avail || NET.ws) return;
-  try{ NET.ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host); }
-  catch(e){ NET.avail = false; return; }
-  NET.ws.onopen = function(){
-    NET.on = true; NET.name = netName(); NET.ready = false;
-    netSend({ t:"hello", name:NET.name });
-  };
-  NET.ws.onmessage = function(ev){
-    var m = null; try{ m = JSON.parse(ev.data); }catch(e){ return; }
-    if(m) netHandle(m);
-  };
-  NET.ws.onclose = function(){
-    NET.on = false; NET.ws = null; NET.race = false; NET.ghosts = {};
-    NET.note = "связь с сервером потеряна"; NET.noteT = 260;
-    if(G && G.state === "lobby") G.state = "menu";
-  };
-  NET.ws.onerror = function(){};
-}
-function netLeave(){
-  NET.race = false; NET.ghosts = {}; NET.results = null;
-  if(NET.ws){ try{ NET.ws.close(); }catch(e){} NET.ws = null; }
-  NET.on = false; NET.players = [];
-}
-function netHandle(m){
-  if(m.t === "welcome"){
-    NET.id = m.id; NET.host = m.host; NET.color = m.color || NET.color; NET.players = m.players || [];
-    NET.raceOn = !!m.race;
-    if(NET.host === NET.id) netSetup(); else if(m.setup) netApplySetup(m.setup);
-  } else if(m.t === "room" || m.t === "board"){
-    if(m.host) NET.host = m.host;
-    NET.players = m.players || [];
-    NET.raceOn = !!m.race;
-    if(m.setup && NET.host !== NET.id) netApplySetup(m.setup);   // участники видят выбор ведущего
-  } else if(m.t === "start"){
-    NET.results = null; NET.ghosts = {}; NET.race = true;
-    curSeed = cleanSeed(m.seed) || curSeed;
-    curSrc = (m.src === "classic") ? "classic" : "seed";
-    G.pick = (m.mode === "hard") ? "hard" : "normal";
-    startRun(G.pick);
-  } else if(m.t === "pos"){
-    var g = NET.ghosts[m.id];
-    if(!g) g = NET.ghosts[m.id] = { rx:m.x, ry:m.y, anim:0 };
-    g.x = m.x; g.y = m.y; g.dir = m.d || 1; g.lvl = m.l;
-    g.dead = !!m.k; g.grounded = !!m.g; g.vx = m.vx || 0;
-    g.color = m.color; g.name = m.name; g.seen = Date.now();
-  } else if(m.t === "left"){
-    delete NET.ghosts[m.id];
-  } else if(m.t === "results"){
-    NET.results = m.list || []; NET.players = m.players || NET.players;
-    var me = NET.results.length && NET.results[NET.results.length-1].id === NET.id;
-    if(!me && NET.results.length === 1){
-      NET.note = NET.results[0].name + " уже на выходе!"; NET.noteT = 220;
-    }
-  } else if(m.t === "lost"){
-    if(m.id !== NET.id){ NET.note = m.name + " выбыл"; NET.noteT = 200; }
-  }
-}
-function netSetup(){                        // ведущий рассылает выбранные режим и уровни
-  if(NET.host !== NET.id) return;
-  netSend({ t:"setup", mode:G.pick, src:curSrc, seed:curSeed });
-}
-function netApplySetup(su){
-  if(su.mode && G) G.pick = su.mode;
-  var src = (su.src === "classic") ? "classic" : "seed";
-  var seed = cleanSeed(su.seed) || curSeed;
-  if(src !== curSrc || seed !== curSeed){ curSrc = src; curSeed = seed; applySource(); }
-}
-function netTick(){                          // вызывается из update()
-  if(NET.noteT > 0) NET.noteT--;
-  if(!NET.race || !NET.on || G.state !== "play" || !G.player) return;
-  var p = G.player;
-  if(G.tick % 3 === 0)                       // ~20 посылок в секунду
-    netSend({ t:"pos", x:Math.round(p.x), y:Math.round(p.y), d:p.dir, l:G.levelIndex,
-              k:p.dead?1:0, g:p.grounded?1:0, vx:Math.round(p.vx*10)/10 });
-  if(G.tick % 30 === 0)
-    netSend({ t:"progress", level:G.levelIndex, coins:G.coins });
-}
-function netPlace(){                         // какое место занял игрок
-  if(!NET.results) return 0;
-  for(var i=0;i<NET.results.length;i++) if(NET.results[i].id === NET.id) return i+1;
-  return 0;
-}
-
-function drawGhosts(){
-  var now = Date.now(), id, g;
-  for(id in NET.ghosts){
-    g = NET.ghosts[id];
-    if(!g || g.lvl !== G.levelIndex || now - g.seen > 4000) continue;
-    g.rx += (g.x - g.rx) * 0.35;
-    g.ry += (g.y - g.ry) * 0.35;
-    g.anim += Math.abs(g.vx || 0) * 0.22;
-    drawCharacter({ x:g.rx, y:g.ry, w:20, h:28, dir:g.dir, grounded:g.grounded,
-                    vx:g.vx, anim:g.anim, sqx:1, sqy:1, dead:g.dead },
-                  g.color || "#8899aa", 0.5);
-    text(g.name || "", g.rx + 10, g.ry - 40, 11, "rgba(10,20,35,.55)", "center", 700);
-    text(g.name || "", g.rx + 9, g.ry - 41, 11, g.color || "#ffffff", "center", 700);
-  }
-}
-
-function drawBoard(){
-  if(!NET.race || NET.players.length < 2) return;
-  var rows = Math.min(NET.players.length, 6);
-  var w = 196, h = 12 + rows*18, x = 14, y = 58, i, pl, yy;
-  ctx.fillStyle = "rgba(9,16,32,.55)";
-  rrect(x, y, w, h, 10); ctx.fill();
-  for(i=0;i<rows;i++){
-    pl = NET.players[i]; yy = y + 20 + i*18;
-    ctx.fillStyle = pl.color || "#8899aa";
-    rrect(x+9, yy-9, 8, 8, 2); ctx.fill();
-    var me = pl.id === NET.id;
-    text((pl.name || "?").slice(0,11) + (me ? " (ты)" : ""), x+24, yy, 11,
-         me ? "#ffffff" : "rgba(220,235,255,.8)", "left", me ? 700 : 600);
-    text(pl.done ? "финиш" : ("ур " + (pl.level+1) + " · " + pl.coins),
-         x+w-9, yy, 11, pl.done ? "#8bffcf" : "rgba(255,217,138,.9)", "right", 600);
-  }
-}
-
-function drawNote(){
-  if(NET.noteT <= 0 || !NET.note) return;
-  ctx.save();
-  ctx.globalAlpha = Math.min(1, NET.noteT/40);
-  ctx.font = "700 14px 'Segoe UI', system-ui, Arial, sans-serif";
-  var w = ctx.measureText(NET.note).width + 30;
-  ctx.fillStyle = "rgba(9,16,32,.7)";
-  rrect(VW/2 - w/2, 92, w, 30, 10); ctx.fill();
-  text(NET.note, VW/2, 112, 14, "#9fd8ff", "center");
-  ctx.restore();
-}
-
-function drawLobby(){
-  ctx.fillStyle = "rgba(4,10,22,.7)"; ctx.fillRect(0,0,VW,VH);
-  panel(700, 410);
-  shadowText("ПО СЕТИ", VW/2, 80, 34, "#9fd8ff", "center");
-  var host = (NET.host === NET.id);
-  text(!NET.on ? "подключаюсь к серверу…"
-                : (NET.players.length + " в комнате · ты " + (host ? "ведущий" : "участник")),
-       VW/2, 102, 13, "#dbe8ff", "center", 600);
-
-  var rows = Math.min(NET.players.length, 6), i, pl, yy;
-  for(i=0;i<rows;i++){
-    pl = NET.players[i]; yy = 132 + i*20;
-    ctx.fillStyle = pl.color || "#8899aa";
-    rrect(180, yy-9, 9, 9, 2); ctx.fill();
-    text((pl.name || "?") + (pl.id === NET.id ? " (ты)" : "") + (pl.id === NET.host ? " · ведущий" : ""),
-         198, yy, 13, pl.id === NET.id ? "#ffffff" : "rgba(220,235,255,.85)", "left", 600);
-    text(pl.ready ? "готов" : "ждёт", 620, yy, 12,
-         pl.ready ? "#8bffcf" : "rgba(200,220,255,.5)", "right", 600);
-  }
-  if(NET.raceOn)
-    text("забег уже идёт — дождись следующего", VW/2, 240, 12, "#ffd98a", "center", 600);
-  if(NET.players.length > rows)
-    text("и ещё " + (NET.players.length - rows), VW/2, 132 + rows*20, 12, "rgba(200,220,255,.6)", "center", 600);
-
-  if(host){
-    uiButton("lb_mode", 104, 256, 190, 44, DIFFS[G.pick].name, null, { size:15 });
-    uiButton("lb_src", 306, 256, 190, 44, curSrc === "seed" ? "СИД " + curSeed : "КЛАССИКА", null, { size:15 });
-    uiButton("seed_new", 508, 256, 190, 44, "НОВЫЙ СИД", null, { size:15 });
-    uiButton("net_start", 250, 312, 300, 52, "СТАРТ ЗАБЕГА", null, { size:20, sel:true });
-  } else {
-    text(DIFFS[G.pick].name + " · " + (curSrc === "seed" ? "сид " + curSeed : "классика"),
-         VW/2, 276, 14, "#ffd98a", "center", 600);
-    uiButton("net_ready", 250, 312, 300, 52, NET.ready ? "ГОТОВ ✓" : "Я ГОТОВ", null,
-             { size:20, sel:NET.ready });
-    text("забег запускает ведущий", VW/2, 296, 12, "rgba(200,220,255,.6)", "center", 600);
-  }
-  uiButton("net_leave", 300, 376, 200, 44, "НАЗАД", null, { size:16 });
-}
-
 /* ================== ИНТЕРФЕЙС ================== */
 function fmtTime(sec){
   sec = Math.max(0, Math.ceil(sec));
@@ -1543,7 +1443,7 @@ function drawHUD(){
 
   text(LEVELS[G.levelIndex].name, VW/2, 31, 17, "#ffffff", "center");
   text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length + " · " + curDiff.name +
-       (curSrc === "seed" ? " · сид " + curSeed : ""),
+       (curSrc === "seed" ? " · сид " + curSeed : "") + (modCount() ? " · ×" + modMult().toFixed(2) : ""),
        VW/2, 45, 11, curDiff.key === "hard" ? "rgba(255,190,190,.85)" : "rgba(220,235,255,.7)", "center", 600);
 
   drawPieIcon(VW-152, 28, 0.85);
@@ -1579,7 +1479,7 @@ function panel(w, h){
 
 function recLine(key, x, y){
   var b = bestScore(key);
-  text(b ? "рекорд " + fmtTime(b.time) + " · " + b.coins + " пирожков" : "ещё не пройден",
+  text(b ? (b.score ? "рекорд " + b.score + " очков" : "рекорд " + fmtTime(b.time)) : "ещё не пройден",
        x, y, 12, b ? "#8bffcf" : "rgba(200,220,255,.45)", "center", 600);
 }
 
@@ -1610,21 +1510,47 @@ function drawMenu(){
                : "← →  бежать      ПРОБЕЛ  прыжок      R  заново      P  пауза",
        VW/2, 336, 13, "rgba(200,220,255,.6)", "center", 600);
 
-  if(NET.avail){
-    uiButton("net_open", 306, 346, 190, 46, "ПО СЕТИ", null, { size:18, selBorder:"#9fd8ff" });
-    ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
-    text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
-         VW/2, 416, 16, "#ffffff", "center");
-    ctx.globalAlpha = 1;
-  } else {
-    ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
-    text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
-         VW/2, 372, 19, "#ffffff", "center");
-    ctx.globalAlpha = 1;
-    text("по сети: запусти node server.js и открой адрес из консоли",
-         VW/2, 404, 11, "rgba(200,220,255,.45)", "center", 600);
-  }
+  uiButton("mods_open", 296, 338, 210, 54, "МОДИФИКАТОРЫ", "очки × " + modMult().toFixed(2),
+           { size:15, sel: modCount() > 0, selBorder:"#ffb98a" });
+  ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
+  text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
+       VW/2, 424, 16, "#ffffff", "center");
+  ctx.globalAlpha = 1;
   iconBtn("sound", 674, 58, isTouch ? 54 : 44, "sound");
+}
+
+function modCell(m, x, y, w, h){
+  var on = mod(m.k), hot = (G.hotBtn === "mod_" + m.k && G.hotT > 0);
+  var tint = m.m > 0 ? "#ffb98a" : "#8bffcf";
+  ctx.fillStyle = hot ? "rgba(255,255,255,.3)" : (on ? "rgba(255,255,255,.16)" : "rgba(255,255,255,.06)");
+  rrect(x, y, w, h, 12); ctx.fill();
+  ctx.strokeStyle = on ? tint : "rgba(255,255,255,.18)";
+  ctx.lineWidth = on ? 2.4 : 1.4;
+  rrect(x, y, w, h, 12); ctx.stroke();
+  ctx.fillStyle = on ? tint : "rgba(255,255,255,.12)";
+  rrect(x+12, y+h/2-11, 22, 22, 6); ctx.fill();
+  if(on){
+    ctx.strokeStyle = "#14202c"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x+18, y+h/2); ctx.lineTo(x+22, y+h/2+5); ctx.lineTo(x+29, y+h/2-6);
+    ctx.stroke();
+  }
+  text(m.n, x+44, y+h/2-1, 15, on ? "#ffffff" : "rgba(230,240,255,.8)", "left", 700);
+  text(m.d, x+44, y+h/2+15, 11, "rgba(200,220,255,.55)", "left", 600);
+  text((m.m > 0 ? "+" : "") + m.m + "%", x+w-12, y+h/2+5, 15, tint, "right", 700);
+  G.buttons.push({ id:"mod_" + m.k, x:x, y:y, w:w, h:h });
+}
+
+function drawMods(){
+  ctx.fillStyle = "rgba(4,10,22,.72)"; ctx.fillRect(0,0,VW,VH);
+  panel(770, 450);
+  shadowText("МОДИФИКАТОРЫ", VW/2, 50, 26, "#ffd166", "center");
+  text("ОЧКИ × " + modMult().toFixed(2) + (modCount() ? "   ·   включено " + modCount() : "   ·   ничего не включено"),
+       VW/2, 76, 17, modCount() ? "#ffb98a" : "rgba(200,220,255,.6)", "center");
+  for(var i=0;i<MODS.length;i++)
+    modCell(MODS[i], (i % 2) ? 402 : 32, 94 + Math.floor(i/2)*54, 350, 50);
+  uiButton("mods_clear", 214, 424, 170, 38, "ВСЁ ВЫКЛ", null, { size:15 });
+  uiButton("mods_back", 416, 424, 170, 38, "НАЗАД", null, { size:15, sel:true });
 }
 
 function drawBanner(){
@@ -1659,27 +1585,17 @@ function drawWin(){
   shadowText("УСПЕЛ!", VW/2, 106, 46, "#8bffcf", "center");
   text(curDiff.key === "hard" ? "И это на ХАРДКОРЕ. Уважение." : "Звонок ещё не прозвенел, а ты уже герой перемены.",
        VW/2, 134, 15, "#dbe8ff", "center", 600);
-  text("Время в пути:  " + fmtTime(used), VW/2, 180, 20, "#ffffff", "center");
-  text("Пирожков:  " + G.coins + " / " + G.coinsMax, VW/2, 210, 20, "#ffd98a", "center");
-  text("Падений:  " + G.deaths, VW/2, 238, 18, "#ffb3b3", "center");
-  if(NET.race){
-    var place = netPlace(), i, rr;
-    text(place ? "МЕСТО " + place + " ИЗ " + Math.max(NET.players.length, NET.results ? NET.results.length : 1)
-               : "финиш засчитан", VW/2, 278, 22, place === 1 ? "#ffd166" : "#9fd8ff", "center");
-    for(i=0; NET.results && i < Math.min(3, NET.results.length); i++){
-      rr = NET.results[i];
-      text((i+1) + ". " + rr.name + " — " + fmtTime(rr.time) + " · " + rr.coins,
-           VW/2, 302 + i*17, 12, rr.id === NET.id ? "#ffffff" : "rgba(210,228,255,.7)", "center", 600);
-    }
-    endButtons(360);
-  } else {
-    text(r[0], VW/2, 284, 25, r[1], "center");
-    if(G.record) text("★ новый рекорд ★", VW/2, 310, 14, "#ffd166", "center", 600);
-    else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков",
-                         VW/2, 310, 13, "rgba(200,220,255,.7)", "center", 600);
-    if(curSrc === "seed") text("сид " + curSeed, VW/2, 330, 13, "#9fd8ff", "center", 600);
-    endButtons(348);
-  }
+  text("Время " + fmtTime(used) + "   ·   пирожков " + G.coins + "/" + G.coinsMax +
+       "   ·   падений " + G.deaths, VW/2, 172, 15, "#dbe8ff", "center", 600);
+  text(runScore() + " ОЧКОВ", VW/2, 214, 34, "#ffd166", "center");
+  text(runPoints() + " × " + modMult().toFixed(2) + (modCount() ? "  (модификаторов: " + modCount() + ")" : ""),
+       VW/2, 236, 12, "rgba(220,235,255,.7)", "center", 600);
+  text(r[0], VW/2, 278, 22, r[1], "center");
+  if(G.record) text("★ новый рекорд ★", VW/2, 302, 14, "#ffd166", "center", 600);
+  else if(G.best && G.best.score) text("рекорд: " + G.best.score + " очков", VW/2, 302, 13,
+                                       "rgba(200,220,255,.7)", "center", 600);
+  if(curSrc === "seed") text("сид " + curSeed, VW/2, 322, 13, "#9fd8ff", "center", 600);
+  endButtons(344);
 }
 
 function drawOver(){
@@ -1690,12 +1606,10 @@ function drawOver(){
   text(dead ? "В хардкоре жизнь одна — забег окончен."
             : "Перемена кончилась, а ты посреди коридора.",
        VW/2, 172, 15, "#ffd9d9", "center", 600);
-  text("Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins +
-       (dead ? "" : " · осталось " + fmtTime(G.timeLeft)),
-       VW/2, 212, 17, "#ffd98a", "center");
+  text("Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins,
+       VW/2, 206, 16, "#ffd98a", "center");
+  text(runScore() + " очков", VW/2, 232, 20, "#ffd166", "center");
   if(curSrc === "seed") text("сид " + curSeed, VW/2, 238, 13, "rgba(200,220,255,.7)", "center", 600);
-  if(NET.race) text("остальные ещё бегут — смотри таблицу после забега",
-                    VW/2, (curSrc === "seed" ? 256 : 238), 12, "#9fd8ff", "center", 600);
   endButtons(268);
 }
 
@@ -1731,22 +1645,27 @@ function render(){
     drawDoor();
     for(var i=0;i<G.level.enemies.length;i++) drawEnemy(G.level.enemies[i]);
     drawParts();
-    drawGhosts();
     if(G.player) drawPlayer();
     ctx.restore();
   }
 
+  if(mod("dark") && G.player && (G.state === "play" || G.state === "clear" || G.state === "paused")){
+    var lx = G.player.x + G.player.w/2 - G.cam, ly = G.player.y + G.player.h/2;
+    var lg = ctx.createRadialGradient(lx, ly, 30, lx, ly, 200);
+    lg.addColorStop(0, "rgba(5,9,18,0)");
+    lg.addColorStop(0.5, "rgba(5,9,18,.55)");
+    lg.addColorStop(1, "rgba(5,9,18,.94)");
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, VW, VH);
+  }
   if(G.flash > 0){
     ctx.fillStyle = "rgba(255,240,180," + (G.flash/12*0.35) + ")";
     ctx.fillRect(0,0,VW,VH);
   }
 
   syncPad();
-  if(G.state === "menu"){ drawMenu(); drawNote(); return; }
-  if(G.state === "lobby"){ drawLobby(); drawNote(); return; }
+  if(G.state === "menu"){ drawMenu(); return; }
+  if(G.state === "mods"){ drawMenu(); drawMods(); return; }
   drawHUD();
-  drawBoard();
-  drawNote();
   if(G.state === "clear") drawBanner();
   else if(G.state === "win") drawWin();
   else if(G.state === "over") drawOver();
@@ -1802,10 +1721,12 @@ window.PEREMENA_DEBUG = {
   gen: function(seed){ return genLevels(seed); },
   seed: function(){ return { src: curSrc, seed: curSeed }; },
   setSeed: setSeed,
-  net: function(){ return NET; },
-  place: function(){ return netPlace(); }
+  mods: function(){ return modOn; },
+  mult: modMult, points: runPoints, score: runScore,
+  jumpV: jumpV, runMax: runMax, doorOpen: doorOpen
 };
 
+modLoad();
 (function initSeed(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
