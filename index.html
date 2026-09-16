@@ -61,10 +61,10 @@
 var TS = 32, VW = 800, VH = 480;
 var GRAV = 0.62, MAXFALL = 13, JUMP_V = -12.2, PAD_V = -19, RUN_MAX = 4.4;
 var DIFFS = {
-  normal: { key:"normal", name:"Обычный", time:15*60, enemy:1, fly:1, range:3,
-            coyote:7, deathCost:0, tag:"15 минут · падения бесплатны" },
-  hard:   { key:"hard",  name:"ХАРДКОР", time:8*60, enemy:1.6, fly:1.45, range:4.5,
-            coyote:3, deathCost:12, tag:"8 минут · завучи злее · падение −12 сек" }
+  normal: { key:"normal", name:"Обычный", time:10*60, enemy:1, fly:1, range:3,
+            coyote:7, deathCost:0, oneLife:false, tag:"10 минут · падения бесплатны" },
+  hard:   { key:"hard",  name:"ХАРДКОР", time:6*60, enemy:1.6, fly:1.45, range:4.5,
+            coyote:3, deathCost:0, oneLife:true, tag:"6 минут · одна жизнь" }
 };
 var curDiff = DIFFS.normal;
 var SOLID = "#=";                      // символы-стены
@@ -74,7 +74,7 @@ var SOLID = "#=";                      // символы-стены
    @  старт        E  выход         o  пирожок
    ^  шипы         x  завуч         v  самолётик
    J  батут        K  ключ                            */
-var LEVELS = [
+var CAMPAIGN = [
 {
   name: "Звонок!", hint: "← → бежать   ПРОБЕЛ прыгать   R заново",
   hintTouch: "Слева — бежать, справа — прыжок",
@@ -218,10 +218,159 @@ var LEVELS = [
 }
 ];
 
+var LEVELS = CAMPAIGN;                 // активный набор уровней: кампания или сид
+
+/* ================== СЛУЧАЙНЫЕ УРОВНИ ПО СИДУ ==================
+   Генератор строит уровень слева направо вдоль земли, поэтому проход
+   есть всегда: ямы не шире 3 клеток, площадки — только на досягаемой
+   высоте, перед выходом всегда чистый участок. */
+var SEED_ABC = "ACDEFHJKLMNPRTUVWXY3479";
+var GEN_NAMES = ["Первый этаж","Раздевалка","Столовая","Актовый зал","Лестница",
+                 "Спортзал","Коридор","Библиотека","Кабинет труда","Чердак",
+                 "Крыша","Школьный двор","Рекреация","Кабинет химии"];
+var GEN_HINTS = ["Этого уровня ещё никто не видел","Сид сгенерил — тебе проходить",
+                 "Смотри под ноги","Тут может быть что угодно","Беги, не думай",
+                 "Звонок не ждёт"];
+
+function hashSeed(str){
+  var h = 2166136261, i;
+  str = String(str).toUpperCase();
+  for(i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randomSeed(){
+  var out = "", i;
+  for(i=0;i<5;i++) out += SEED_ABC.charAt(Math.floor(Math.random()*SEED_ABC.length));
+  return out;
+}
+function cleanSeed(str){
+  var out = "", i, ch;
+  str = String(str || "").toUpperCase();
+  for(i=0;i<str.length && out.length<8;i++){
+    ch = str.charAt(i);
+    if(SEED_ABC.indexOf(ch) >= 0 || /[0-9A-Z]/.test(ch)) out += ch;
+  }
+  return out;
+}
+function irnd(rnd, a, b){ return a + Math.floor(rnd()*(b-a+1)); }
+function pickOf(rnd, arr){ return arr[Math.floor(rnd()*arr.length)]; }
+
+function genLevel(rnd, idx, name, withKey){
+  var W = 40 + idx*2, H = 15, i, x, y;
+  var g = [], movers = [], plats = [];
+  for(y=0;y<H;y++){ g.push([]); for(x=0;x<W;x++) g[y].push("."); }
+  for(x=0;x<W;x++){ g[13][x] = "#"; g[14][x] = "#"; }
+  g[12][2] = "@";
+  var endCol = W - 4, col = 6;
+
+  function coins(row, from, n){
+    for(var k=0;k<n;k++) if(from+k > 2 && from+k < W-2 && g[row][from+k] === ".") g[row][from+k] = "o";
+  }
+  function carve(from, w){
+    for(var k=0;k<w;k++){ g[13][from+k] = "."; g[14][from+k] = "."; }
+  }
+
+  var pool = ["flat","coins","platform"];
+  if(idx >= 1) pool = pool.concat(["pit","enemy"]);
+  if(idx >= 2) pool = pool.concat(["spikes","enemy","platform"]);
+  if(idx >= 3) pool = pool.concat(["pad","pit"]);
+  if(idx >= 4) pool = pool.concat(["mover","fly","spikes"]);
+  if(idx >= 5) pool = pool.concat(["mover","fly","enemy"]);
+
+  while(col < endCol - 6){
+    var f = pickOf(rnd, pool), w, row;
+    if(f === "flat"){ col += irnd(rnd,3,5); }
+    else if(f === "coins"){ coins(12, col, irnd(rnd,2,3)); col += 5; }
+    else if(f === "pit" || f === "mover"){
+      var mover = (f === "mover");
+      w = mover ? irnd(rnd,4,5) : irnd(rnd, 2, idx >= 3 ? 3 : 2);
+      if(col + w > endCol - 6){ col += 3; continue; }
+      carve(col, w);
+      if(mover){
+        movers.push({ tx:col, ty:11, tw:3, axis:"x", dist:Math.max(2, w-3),
+                      speed:0.018 + rnd()*0.008, phase:rnd()*6.28 });
+        coins(10, col+1, 2);
+      } else if(rnd() < 0.5) coins(11, col, w);
+      col += w + 4;                     // запас на разбег перед следующей фичей
+    }
+    else if(f === "spikes"){
+      w = irnd(rnd,1,2);
+      for(i=0;i<w;i++) g[12][col+i] = "^";
+      col += w + 4;
+    }
+    else if(f === "enemy"){ g[12][col] = "x"; col += 6; }
+    else if(f === "fly"){ g[irnd(rnd,7,9)][col] = "v"; col += 4; }
+    else if(f === "platform"){
+      w = irnd(rnd,3,5); row = irnd(rnd,9,10);
+      for(i=0;i<w;i++) g[row][col+i] = "=";
+      coins(row-1, col+1, Math.min(w-1, irnd(rnd,1,3)));
+      plats.push({ x:col + Math.floor(w/2), y:row-1 });
+      col += w + 2;
+    }
+    else if(f === "pad"){
+      g[12][col] = "J";
+      var prow = irnd(rnd,5,6), pw = irnd(rnd,3,4), px = Math.max(1, col + irnd(rnd,-1,1));
+      for(i=0;i<pw;i++) if(px+i < W-1) g[prow][px+i] = "=";
+      coins(prow-1, px, Math.min(pw, 3));
+      plats.push({ x:px + 1, y:prow-1 });
+      col += pw + 3;
+    }
+  }
+
+  g[12][endCol] = "E";
+
+  /* ключ кладём на площадку, а если их нет — на ровную землю */
+  if(withKey){
+    if(plats.length){
+      var pl = plats[Math.floor(rnd()*plats.length)];
+      g[pl.y][pl.x] = "K";
+    } else {
+      for(x = Math.floor(endCol/2); x < endCol-2; x++)
+        if(g[12][x] === "." && g[13][x] === "#"){ g[12][x] = "K"; break; }
+    }
+  }
+
+  /* минимум пирожков, чтобы уровень не был пустым */
+  var got = 0;
+  for(y=0;y<H;y++) for(x=0;x<W;x++) if(g[y][x] === "o") got++;
+  for(i=0; got < 6 && i < 200; i++){
+    x = irnd(rnd, 4, endCol-2);
+    if(g[12][x] === "." && g[13][x] === "#"){ g[12][x] = "o"; got++; }
+  }
+
+  /* страховка: всё, что стоит на земле, должно стоять на твёрдом */
+  for(x=0;x<W;x++)
+    if("@Ex^JKo".indexOf(g[12][x]) >= 0 && g[13][x] !== "#"){ g[13][x] = "#"; g[14][x] = "#"; }
+
+  return { name:name, hint:pickOf(rnd, GEN_HINTS),
+           rows: g.map(function(r){ return r.join(""); }), movers:movers };
+}
+
+function genLevels(seed){
+  var rnd = mulberry(hashSeed(seed));
+  var names = GEN_NAMES.slice(), out = [], i, n;
+  var keyLevel = irnd(rnd, 2, 5);
+  for(i=0;i<7;i++){
+    n = names.length ? names.splice(Math.floor(rnd()*names.length), 1)[0] : "Этаж " + (i+1);
+    out.push(genLevel(rnd, i, n, i === keyLevel));
+  }
+  return out;
+}
+
 /* ================== СЛУЖЕБНОЕ ================== */
 var cv = document.getElementById("game");
 var ctx = cv.getContext("2d");
 var isTouch = false;                   // выставляется при инициализации ввода
+var curSrc = "classic";                // откуда берутся уровни: classic | seed
+var curSeed = "";
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -255,6 +404,7 @@ var sfx = {
   key:   function(){ tone(700,0.09,"triangle",0.07,0); tone(1050,0.14,"triangle",0.07,0,0.09); },
   door:  function(){ [523,659,784,1046].forEach(function(f,i){ tone(f,0.16,"triangle",0.07,0,i*0.09); }); },
   win:   function(){ [523,659,784,1046,1318].forEach(function(f,i){ tone(f,0.28,"triangle",0.08,0,i*0.13); }); },
+  fail:  function(){ [392,330,262,196].forEach(function(f,i){ tone(f,0.3,"square",0.07,-40,i*0.16); }); },
   bell:  function(){ for(var i=0;i<5;i++){ tone(1200,0.22,"square",0.07,-200,i*0.24); tone(1600,0.22,"square",0.05,-260,i*0.24+0.02);} }
 };
 
@@ -293,6 +443,9 @@ function doButton(id){
   else if(id === "restart"){ startRun(curDiff.key); }
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
   else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
+  else if(id === "src_classic"){ curSrc = "classic"; applySource(); }
+  else if(id === "src_seed"){ curSrc = "seed"; applySource(); }
+  else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); sfx.key(); }
 }
 function canvasPoint(ev){
   var r = cv.getBoundingClientRect();
@@ -462,9 +615,47 @@ function newGame(){
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal" };
 }
-function startRun(mode){
+function recKey(dk){ return dk + (curSrc === "seed" ? "_" + curSeed : ""); }
+function syncSeedUrl(){
+  try{
+    localStorage.setItem("peremena_seed", curSeed);
+    localStorage.setItem("peremena_src", curSrc);
+  }catch(e){}
+  try{ location.hash = (curSrc === "seed") ? ("s=" + curSeed) : "classic"; }catch(e){}
+}
+function applySource(){                 // пересобрать набор уровней под текущий выбор
+  LEVELS = (curSrc === "seed") ? genLevels(curSeed) : CAMPAIGN;
+  syncSeedUrl();
+  if(G && G.state === "menu"){
+    G.level = buildLevel(LEVELS[0]);
+    G.coinsMax = 0;
+    for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
+    G.cam = 0;
+  }
+}
+function setSeed(sd, src){
+  sd = cleanSeed(sd);
+  if(!sd) return;
+  curSeed = sd;
+  curSrc = src || "seed";
+  applySource();
+}
+window.addEventListener("hashchange", function(){
+  var h = "";
+  try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){ return; }
+  if(/^s=/i.test(h)){
+    var sd = cleanSeed(h.slice(2));
+    if(sd && (sd !== curSeed || curSrc !== "seed")) setSeed(sd, "seed");
+  } else if(/^classic$/i.test(h) && curSrc !== "classic"){
+    curSrc = "classic"; applySource();
+  }
+});
+function startRun(mode, src){
   var st = G ? G.state : "menu";
   curDiff = DIFFS[mode] || DIFFS[(G && G.pick) || "normal"];
+  if(src) curSrc = src;
+  LEVELS = (curSrc === "seed") ? genLevels(curSeed) : CAMPAIGN;
+  syncSeedUrl();
   var pick = curDiff.key;
   G = newGame();
   G.pick = pick;
@@ -517,7 +708,10 @@ function updatePlayer(dt){
     p.deadT++;
     p.vy = Math.min(p.vy + GRAV, MAXFALL);
     p.y += p.vy;
-    if(p.deadT > 46) spawnPlayer();
+    if(p.deadT > 46){
+      if(curDiff.oneLife){ G.state = "over"; G.overReason = "dead"; sfx.fail(); }
+      else spawnPlayer();
+    }
     return;
   }
   if(p.spawnT > 0) p.spawnT--;
@@ -679,10 +873,10 @@ function finishRun(){
   G.state = "win";
   sfx.win();
   var used = curDiff.time - G.timeLeft;
-  var best = bestScore(curDiff.key);
+  var best = bestScore(recKey(curDiff.key));
   if(!best || used < best.time || (used === best.time && G.coins > best.coins)){
     G.record = true;
-    try{ localStorage.setItem("peremena_best_" + curDiff.key,
+    try{ localStorage.setItem("peremena_best_" + recKey(curDiff.key),
       JSON.stringify({time:used, coins:G.coins, deaths:G.deaths})); }catch(e){}
   }
   G.best = best;
@@ -702,7 +896,7 @@ function update(dtSec){
   if(G.state === "play"){
     G.timeLeft -= dtSec;
     if(G.timeLeft <= 0){
-      G.timeLeft = 0; G.state = "over"; sfx.bell(); G.shake = 20;
+      G.timeLeft = 0; G.state = "over"; G.overReason = "bell"; sfx.bell(); G.shake = 20;
     }
     updateMovers();
     updatePlayer(dtSec);
@@ -1134,7 +1328,8 @@ function drawHUD(){
   }
 
   text(LEVELS[G.levelIndex].name, VW/2, 31, 17, "#ffffff", "center");
-  text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length + " · " + curDiff.name,
+  text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length + " · " + curDiff.name +
+       (curSrc === "seed" ? " · сид " + curSeed : ""),
        VW/2, 45, 11, curDiff.key === "hard" ? "rgba(255,190,190,.85)" : "rgba(220,235,255,.7)", "center", 600);
 
   drawPieIcon(VW-152, 28, 0.85);
@@ -1175,29 +1370,37 @@ function recLine(key, x, y){
 }
 
 function drawMenu(){
-  ctx.fillStyle = "rgba(4,10,22,.6)"; ctx.fillRect(0,0,VW,VH);
-  panel(660, 440);
-  shadowText("ПЕРЕМЕНА", VW/2, 104, 52, "#ffd166", "center");
-  text("15 минут свободы", VW/2, 130, 17, "#9fd8ff", "center", 600);
+  ctx.fillStyle = "rgba(4,10,22,.62)"; ctx.fillRect(0,0,VW,VH);
+  panel(700, 400);
+  shadowText("ПЕРЕМЕНА", VW/2, 92, 44, "#ffd166", "center");
+  text("успей пробежать школу за перемену", VW/2, 114, 14, "#9fd8ff", "center", 600);
 
-  uiButton("mode_normal", 122, 152, 264, 92, "ОБЫЧНЫЙ", "15 минут · спокойно",
-           { sel: G.pick === "normal" });
-  uiButton("mode_hard", 414, 152, 264, 92, "ХАРДКОР", "8 минут · завучи злее",
-           { sel: G.pick === "hard", selBorder:"#ff8080", col:"#ffd0d0" });
-  recLine("normal", 254, 264);
-  recLine("hard", 546, 264);
+  uiButton("mode_normal", 122, 128, 264, 80, "ОБЫЧНЫЙ", DIFFS.normal.tag,
+           { sel: G.pick === "normal", size:24 });
+  uiButton("mode_hard", 414, 128, 264, 80, "ХАРДКОР", DIFFS.hard.tag,
+           { sel: G.pick === "hard", selBorder:"#ff8080", col:"#ffd0d0", size:24 });
+  recLine(recKey("normal"), 254, 226);
+  recLine(recKey("hard"), 546, 226);
 
-  text("Собери пирожки и добеги до выхода за 7 уровней,", VW/2, 300, 14, "#dbe8ff", "center", 600);
-  text("пока не прозвенел звонок на урок.", VW/2, 320, 14, "#dbe8ff", "center", 600);
+  uiButton("src_classic", 104, 240, 190, 52, "КЛАССИКА", null,
+           { size:17, sel: curSrc === "classic", selBorder:"#9fd8ff" });
+  uiButton("src_seed", 306, 240, 190, 52, "СИД " + curSeed, null,
+           { size:17, sel: curSrc === "seed", selBorder:"#9fd8ff" });
+  uiButton("seed_new", 508, 240, 190, 52, "НОВЫЙ СИД", null, { size:17 });
+  text(curSrc === "seed"
+        ? "7 случайных уровней по коду · один код — один и тот же набор"
+        : "7 авторских уровней · «сид» соберёт случайные",
+       VW/2, 312, 13, "rgba(200,220,255,.75)", "center", 600);
+
   text(isTouch ? "Слева внизу — бежать, справа — прыгать."
                : "← →  бежать      ПРОБЕЛ  прыжок      R  заново      P  пауза",
-       VW/2, 352, 13, "rgba(200,220,255,.75)", "center", 600);
+       VW/2, 336, 13, "rgba(200,220,255,.6)", "center", 600);
 
   ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
   text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
-       VW/2, 392, 19, "#ffffff", "center");
+       VW/2, 372, 19, "#ffffff", "center");
   ctx.globalAlpha = 1;
-  iconBtn("sound", 660, 66, isTouch ? 54 : 44, "sound");
+  iconBtn("sound", 674, 58, isTouch ? 54 : 44, "sound");
 }
 
 function drawBanner(){
@@ -1239,17 +1442,22 @@ function drawWin(){
   if(G.record) text("★ новый рекорд ★", VW/2, 310, 14, "#ffd166", "center", 600);
   else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков",
                        VW/2, 310, 13, "rgba(200,220,255,.7)", "center", 600);
-  endButtons(340);
+  if(curSrc === "seed") text("сид " + curSeed, VW/2, 330, 13, "#9fd8ff", "center", 600);
+  endButtons(348);
 }
 
 function drawOver(){
   ctx.fillStyle = "rgba(40,6,14,.68)"; ctx.fillRect(0,0,VW,VH);
   panel(620, 380);
-  shadowText("ДЗЫНЬ!", VW/2, 140, 46, "#ff8080", "center");
-  text("Перемена кончилась, а ты посреди коридора.", VW/2, 172, 15, "#ffd9d9", "center", 600);
+  var dead = G.overReason === "dead";
+  shadowText(dead ? "ПОПАЛСЯ!" : "ДЗЫНЬ!", VW/2, 140, 46, "#ff8080", "center");
+  text(dead ? "В хардкоре жизнь одна — забег окончен."
+            : "Перемена кончилась, а ты посреди коридора.",
+       VW/2, 172, 15, "#ffd9d9", "center", 600);
   text("Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins +
-       (curDiff.deathCost && G.deaths ? " · падений " + G.deaths : ""),
+       (dead ? "" : " · осталось " + fmtTime(G.timeLeft)),
        VW/2, 212, 17, "#ffd98a", "center");
+  if(curSrc === "seed") text("сид " + curSeed, VW/2, 238, 13, "rgba(200,220,255,.7)", "center", 600);
   endButtons(268);
 }
 
@@ -1347,8 +1555,26 @@ window.PEREMENA_DEBUG = {
   get: function(){ return G; },
   goto: function(i){ G.state = "play"; loadLevel(i); },
   start: startRun,
-  input: input
+  input: input,
+  levels: function(){ return LEVELS; },
+  gen: function(seed){ return genLevels(seed); },
+  seed: function(){ return { src: curSrc, seed: curSeed }; },
+  setSeed: setSeed
 };
+
+(function initSeed(){
+  var h = "";
+  try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
+  if(/^s=/i.test(h)){ curSeed = cleanSeed(h.slice(2)); curSrc = "seed"; }
+  else {
+    try{
+      curSeed = cleanSeed(localStorage.getItem("peremena_seed"));
+      if(!/^classic$/i.test(h)) curSrc = localStorage.getItem("peremena_src") || "classic";
+    }catch(e){}
+  }
+  if(!curSeed) curSeed = randomSeed();
+  LEVELS = (curSrc === "seed") ? genLevels(curSeed) : CAMPAIGN;
+})();
 
 G = newGame();
 G.coinsMax = 0;
