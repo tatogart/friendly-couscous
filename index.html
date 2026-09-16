@@ -441,7 +441,12 @@ var MODS = [
   { k:"dbljump", n:"Двойной прыжок",    d:"второй прыжок в воздухе всегда",   m:-25 },
   { k:"magnet",  n:"Магнит",            d:"пирожки сами летят в руки",        m:-15 },
   { k:"startbag",n:"Портфель на старте",d:"каждый уровень начинаешь со щитом",m:-15 },
-  { k:"skipclass",n:"Прогульщик",       d:"уроки пропускаются совсем",         m:-15 }
+  { k:"skipclass",n:"Прогульщик",      d:"уроки пропускаются совсем",          m:-15 },
+  { k:"strict",  n:"Строгий учитель",  d:"на уроке меньше времени и поблажек", m: 20 },
+  { k:"exam",    n:"Контрольная",      d:"зачёт только без единой ошибки",     m: 20 },
+  { k:"dbllesson",n:"Двойной урок",    d:"перед каждым этажом два урока",      m: 25 },
+  { k:"easyclass",n:"Любимый предмет", d:"зачёт ставят почти за что угодно",   m:-20 },
+  { k:"favorite",n:"Любимчик учителя", d:"за зачёт +30 секунд и 200 очков",    m:-15 }
 ];
 var modOn = {};
 
@@ -544,37 +549,133 @@ function buySkin(sk){
 var LESSON_NAMES = ["Математика","Русский язык","История","Физика",
                     "Биология","География","Литература","Геометрия"];
 var QUIZ = [
-  { q:"Сколько будет 7 × 8?",             a:["54","56","58"],                 r:1 },
-  { q:"Столица Франции?",                 a:["Лион","Марсель","Париж"],       r:2 },
-  { q:"H₂O — это…",                       a:["вода","соль","кислота"],        r:0 },
-  { q:"Сколько букв в русском алфавите?", a:["31","33","35"],                 r:1 },
-  { q:"Кто написал «Муму»?",              a:["Толстой","Тургенев","Чехов"],   r:1 },
-  { q:"Сколько будет 12 × 12?",           a:["124","144","148"],              r:1 },
-  { q:"Самая большая планета?",           a:["Юпитер","Сатурн","Земля"],      r:0 },
-  { q:"Площадь квадрата со стороной 6?",  a:["24","36","12"],                 r:1 },
-  { q:"В каком году полетел Гагарин?",    a:["1957","1961","1969"],           r:1 },
-  { q:"Сколько рёбер у куба?",            a:["8","10","12"],                  r:2 },
-  { q:"Какой газ нужен для дыхания?",     a:["азот","кислород","гелий"],      r:1 },
-  { q:"Сколько сторон у пятиугольника?",  a:["5","6","7"],                    r:0 }
+  /* математика */
+  { q:"Сколько будет 7 × 8?",              a:["56","54","58"] },
+  { q:"Сколько будет 12 × 12?",            a:["144","124","148"] },
+  { q:"Сколько будет 9 × 6?",              a:["54","56","48"] },
+  { q:"Сколько будет 15 + 27?",            a:["42","41","43"] },
+  { q:"Сколько будет 100 − 37?",           a:["63","67","73"] },
+  { q:"Чему равно 8²?",                    a:["64","16","72"] },
+  { q:"Сколько будет 144 ÷ 12?",           a:["12","14","11"] },
+  { q:"Сколько будет 25% от 80?",          a:["20","25","16"] },
+  { q:"Чему равно 3³?",                    a:["27","9","81"] },
+  { q:"Площадь квадрата со стороной 6?",   a:["36","24","12"] },
+  { q:"Периметр квадрата со стороной 5?",  a:["20","25","10"] },
+  { q:"Сколько будет 17 × 3?",             a:["51","48","54"] },
+  { q:"Чему равен корень из 81?",          a:["9","8","7"] },
+  { q:"Сколько минут в 2,5 часах?",        a:["150","120","165"] },
+  { q:"Сколько рёбер у куба?",             a:["12","8","10"] },
+  { q:"Сколько сторон у пятиугольника?",   a:["5","6","7"] },
+  { q:"Сумма углов треугольника?",         a:["180°","360°","90°"] },
+  { q:"Сколько будет 6 × 7 − 12?",         a:["30","32","28"] },
+  { q:"Половина от 96?",                   a:["48","46","44"] },
+  { q:"Сколько сантиметров в метре?",      a:["100","10","1000"] },
+  /* русский и литература */
+  { q:"Сколько букв в русском алфавите?",  a:["33","31","35"] },
+  { q:"Сколько падежей в русском языке?",  a:["6","5","7"] },
+  { q:"«Жи» и «ши» пиши с буквой…",        a:["и","ы","е"] },
+  { q:"«Не» с глаголами пишется…",         a:["раздельно","слитно","через дефис"] },
+  { q:"Сколько гласных букв в алфавите?",  a:["10","6","12"] },
+  { q:"«Быстро» — какая часть речи?",      a:["наречие","глагол","прилагательное"] },
+  { q:"Кто написал «Муму»?",               a:["Тургенев","Толстой","Чехов"] },
+  { q:"Кто написал «Войну и мир»?",        a:["Толстой","Достоевский","Гоголь"] },
+  { q:"Кто написал «Евгения Онегина»?",    a:["Пушкин","Лермонтов","Некрасов"] },
+  { q:"Кто написал «Мёртвые души»?",       a:["Гоголь","Тургенев","Пушкин"] },
+  { q:"Кто написал «Ревизора»?",           a:["Гоголь","Островский","Чехов"] },
+  { q:"Сколько букв не обозначают звука?", a:["2","1","3"] },
+  { q:"«Корова» — это слово…",             a:["словарное","проверяемое","с приставкой"] },
+  { q:"Что ставят в конце вопроса?",       a:["знак вопроса","точку","тире"] },
+  /* география */
+  { q:"Столица Франции?",                  a:["Париж","Лион","Марсель"] },
+  { q:"Столица Японии?",                   a:["Токио","Осака","Киото"] },
+  { q:"Самое глубокое озеро?",             a:["Байкал","Каспий","Онежское"] },
+  { q:"Самая длинная река мира?",          a:["Нил","Волга","Амазонка"] },
+  { q:"Сколько на Земле материков?",       a:["6","5","7"] },
+  { q:"Самый большой океан?",              a:["Тихий","Атлантический","Индийский"] },
+  { q:"Самая высокая гора мира?",          a:["Эверест","Эльбрус","Монблан"] },
+  { q:"На каком материке Египет?",         a:["Африка","Азия","Европа"] },
+  { q:"Сколько океанов на Земле?",         a:["4","3","5"] },
+  /* биология */
+  { q:"Какой газ нужен для дыхания?",      a:["кислород","азот","гелий"] },
+  { q:"Где идёт фотосинтез?",              a:["в листьях","в корнях","в стебле"] },
+  { q:"Что качает кровь?",                 a:["сердце","печень","лёгкие"] },
+  { q:"Самое большое животное?",           a:["синий кит","слон","жираф"] },
+  { q:"Сколько ног у паука?",              a:["8","6","10"] },
+  { q:"Орган слуха?",                      a:["ухо","нос","язык"] },
+  { q:"Что растение берёт из почвы?",      a:["воду","кислород","свет"] },
+  /* физика и химия */
+  { q:"При какой температуре кипит вода?", a:["100 °C","90 °C","120 °C"] },
+  { q:"При какой температуре тает лёд?",   a:["0 °C","−10 °C","5 °C"] },
+  { q:"H₂O — это…",                        a:["вода","соль","кислота"] },
+  { q:"В чём измеряют силу?",              a:["в ньютонах","в ваттах","в вольтах"] },
+  { q:"В чём измеряют силу тока?",         a:["в амперах","в омах","в джоулях"] },
+  { q:"Что притягивает предметы к Земле?", a:["притяжение","магнит","давление"] },
+  { q:"Скорость света примерно…",          a:["300 000 км/с","3 000 км/с","30 км/с"] },
+  /* история и космос */
+  { q:"В каком году полетел Гагарин?",     a:["1961","1957","1969"] },
+  { q:"Когда началась Великая Отечественная?", a:["1941","1939","1945"] },
+  { q:"Кто основал Петербург?",            a:["Пётр I","Иван Грозный","Екатерина II"] },
+  { q:"Год Куликовской битвы?",            a:["1380","1240","1480"] },
+  { q:"Год Крещения Руси?",                a:["988","1054","1147"] },
+  { q:"Самая большая планета?",            a:["Юпитер","Сатурн","Земля"] },
+  { q:"Спутник Земли?",                    a:["Луна","Марс","Венера"] },
+  { q:"Сколько планет в Солнечной системе?", a:["8","9","7"] },
+  { q:"Ближайшая к Солнцу планета?",       a:["Меркурий","Венера","Марс"] },
+  { q:"Сколько цветов в радуге?",          a:["7","5","9"] },
+  { q:"Сколько дней в високосном году?",   a:["366","365","364"] }
 ];
 
+function shuffleQuestion(src, r){
+  var a = src.a.slice(), i, j, t;
+  for(i = a.length - 1; i > 0; i--){              // тасуем Фишером — Йетсом
+    j = Math.floor(r() * (i + 1));
+    t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return { q: src.q, a: a, r: a.indexOf(src.a[0]) };   // верный ответ всегда первый в таблице
+}
+function lessonCfg(){
+  return {
+    strict: mod("strict"), exam: mod("exam"), easy: mod("easyclass"),
+    bonus: mod("favorite") ? 30 : 15,
+    pts:   mod("favorite") ? 200 : 100
+  };
+}
 function startLesson(i, force){
   var r = mulberry(hashSeed(curSeed + "les" + i + curDiff.key));
-  var kinds = ["copy","quiz","notes"];
-  var L = { kind: force || kinds[Math.floor(r()*3)], i:i, t:0, done:false, ok:false, endT:0,
-            subject: LESSON_NAMES[Math.floor(r()*LESSON_NAMES.length)] };
+  var kinds = ["copy","quiz","notes","canteen","pushups","sleep"];
+  var cfg = lessonCfg();
+  var L = { kind: force || kinds[Math.floor(r()*kinds.length)], i:i, t:0, done:false, ok:false, endT:0,
+            cfg: cfg, subject: LESSON_NAMES[Math.floor(r()*LESSON_NAMES.length)] };
   if(L.kind === "copy"){
-    L.prog = 0; L.phase = "away"; L.pt = 100; L.strikes = 0; L.stun = 0; L.limit = 34*60;
+    L.prog = 0; L.phase = "away"; L.pt = 100; L.strikes = 0; L.stun = 0;
+    L.limit = (cfg.strict ? 28 : 34)*60;
+    L.maxStrikes = cfg.exam ? 2 : (cfg.easy ? 5 : 3);
   } else if(L.kind === "quiz"){
     L.qs = []; L.used = {};
     while(L.qs.length < 3){
       var qi = Math.floor(r()*QUIZ.length);
       if(L.used[qi]) continue;
-      L.used[qi] = 1; L.qs.push(QUIZ[qi]);
+      L.used[qi] = 1;
+      L.qs.push(shuffleQuestion(QUIZ[qi], r));       // варианты каждый раз в новом порядке
     }
-    L.qi = 0; L.right = 0; L.per = 9*60; L.qt = L.per; L.pick = -1; L.pickT = 0;
-  } else {
+    L.qi = 0; L.right = 0; L.per = cfg.strict ? 6*60 : 9*60; L.qt = L.per; L.pick = -1; L.pickT = 0;
+    L.need = cfg.exam ? 3 : (cfg.easy ? 1 : 2);
+  } else if(L.kind === "notes"){
     L.notes = []; L.spawn = 20; L.left = 12; L.hits = 0; L.miss = 0; L.pop = 0; L.popT = 0;
+    L.need = cfg.exam ? 10 : (cfg.easy ? 5 : 8);
+    L.speed = cfg.strict ? 4.1 : 3.1;
+  } else if(L.kind === "canteen"){
+    L.tray = VW/2; L.items = []; L.caught = 0; L.bad = 0; L.left = 14;
+    L.spawn = 25; L.fall = cfg.strict ? 3.6 : 2.8;
+    L.need = cfg.exam ? 12 : (cfg.easy ? 5 : 9);
+  } else if(L.kind === "pushups"){
+    L.reps = 0; L.down = 0; L.next = "left";
+    L.limit = (cfg.strict ? 16 : 22)*60;
+    L.need = cfg.exam ? 18 : (cfg.easy ? 8 : 13);
+  } else {
+    L.eye = 100; L.blink = 0; L.zzz = 0;
+    L.limit = (cfg.strict ? 28 : 22)*60;
+    L.drain = cfg.strict ? 0.42 : 0.3;
   }
   G.lesson = L;
   G.state = "lesson";
@@ -584,7 +685,7 @@ function lessonEnd(ok){
   var L = G.lesson;
   if(L.done) return;
   L.done = true; L.ok = ok; L.endT = 100;
-  if(ok){ G.timeLeft += 15; G.bonusPts += 100; sfx.win(); }
+  if(ok){ G.timeLeft += L.cfg.bonus; G.bonusPts += L.cfg.pts; sfx.win(); }
   else { G.timeLeft = Math.max(8, G.timeLeft - 10); sfx.fail(); }
 }
 function lessonAnswer(n){
@@ -597,6 +698,24 @@ function lessonAnswer(n){
 function lessonPress(k){
   var L = G.lesson;
   if(!L || L.done) return;
+  if(L.kind === "pushups" && (k === "left" || k === "right")){
+    if(k === L.next){
+      L.reps++; L.down = 12;
+      L.next = (k === "left") ? "right" : "left";
+      puff(VW/2, 330, 4, "#8bffcf", 2);
+      tone(300 + (L.reps % 6)*30, 0.06, "square", 0.05, 80);
+      if(L.reps >= L.need) lessonEnd(true);
+    } else {
+      G.shake = 5; sfx.hurt();
+    }
+    return;
+  }
+  if(L.kind === "sleep" && k === "jump"){
+    L.eye = Math.min(100, L.eye + 11);
+    L.blink = 8;
+    tone(520, 0.05, "triangle", 0.04, 120);
+    return;
+  }
   if(L.kind === "notes" && (k === "left" || k === "right")){
     var lane = (k === "left") ? 0 : 1, i, nt, best = -1, bd = 99, d;
     for(i=0;i<L.notes.length;i++){
@@ -620,23 +739,26 @@ function lessonUpdate(){
   if(!L) return;
   L.t++;
   if(L.done){
-    if(--L.endT <= 0){ G.state = "play"; G.wipe = 26; }
+    if(--L.endT <= 0){
+      if(mod("dbllesson") && !L.second){ startLesson(L.i + 100, null); G.lesson.second = true; }
+      else { G.state = "play"; G.wipe = 26; }
+    }
     return;
   }
   if(L.kind === "copy"){
     if(L.stun > 0) L.stun--;
     if(--L.pt <= 0){
-      if(L.phase === "away"){ L.phase = "turn"; L.pt = 32; }
-      else if(L.phase === "turn"){ L.phase = "watch"; L.pt = 60 + Math.floor(Math.random()*70); }
-      else { L.phase = "away"; L.pt = 80 + Math.floor(Math.random()*90); }
+      if(L.phase === "away"){ L.phase = "turn"; L.pt = L.cfg.strict ? 20 : 32; }
+      else if(L.phase === "turn"){ L.phase = "watch"; L.pt = (L.cfg.strict ? 80 : 60) + Math.floor(Math.random()*70); }
+      else { L.phase = "away"; L.pt = (L.cfg.strict ? 50 : 80) + Math.floor(Math.random()*90); }
     }
     if(input.jump && L.stun <= 0){
       if(L.phase === "watch"){
         L.strikes++; L.stun = 40;
         L.prog = Math.max(0, L.prog - 16);
         G.shake = 12; sfx.hurt();
-        toast(L.strikes >= 3 ? "Попался!" : "Учитель смотрит!");
-        if(L.strikes >= 3) lessonEnd(false);
+        toast(L.strikes >= L.maxStrikes ? "Попался!" : "Учитель смотрит!");
+        if(L.strikes >= L.maxStrikes) lessonEnd(false);
       } else {
         L.prog += 0.8;
         if(L.t % 6 === 0) puff(VW/2 + rnd(-40,40), 336, 2, "#ffd166", 1);
@@ -648,11 +770,49 @@ function lessonUpdate(){
     if(L.pickT > 0){
       if(--L.pickT <= 0){
         L.pick = -1; L.qi++; L.qt = L.per;
-        if(L.qi >= L.qs.length) lessonEnd(L.right >= 2);
+        if(L.qi >= L.qs.length) lessonEnd(L.right >= L.need);
       }
       return;
     }
     if(--L.qt <= 0){ L.pick = 9; L.pickT = 45; sfx.hurt(); }
+  } else if(L.kind === "canteen"){
+    var it, k2;
+    L.tray += ((input.right?1:0) - (input.left?1:0)) * 6;
+    L.tray = clamp(L.tray, 70, VW-70);
+    if(L.left > 0 && --L.spawn <= 0){
+      L.spawn = (L.cfg.strict ? 20 : 28) + Math.floor(Math.random()*16);
+      L.items.push({ x: rnd(90, VW-90), y:-20, bad: Math.random() < 0.22, sp:0 });
+      L.left--;
+    }
+    for(k2=L.items.length-1; k2>=0; k2--){
+      it = L.items[k2];
+      it.y += L.fall; it.sp += 0.08;
+      if(it.y > VH-158 && it.y < VH-116 && Math.abs(it.x - L.tray) < 48){
+        L.items.splice(k2,1);
+        if(it.bad){
+          L.bad++; L.caught = Math.max(0, L.caught - 1);
+          G.shake = 6; sfx.hurt(); toast("Тряпка в подносе!");
+        } else {
+          L.caught++; sfx.coin();
+          puff(it.x, VH-140, 7, "#ffd166", 2.2);
+        }
+        continue;
+      }
+      if(it.y > VH + 20) L.items.splice(k2,1);
+    }
+    if(L.left <= 0 && !L.items.length) lessonEnd(L.caught >= L.need);
+  } else if(L.kind === "pushups"){
+    if(L.down > 0) L.down--;
+    if(--L.limit <= 0) lessonEnd(L.reps >= L.need);
+  } else if(L.kind === "sleep"){
+    if(L.blink > 0) L.blink--;
+    L.eye -= L.drain;
+    if(L.eye < 40 && L.t % 24 === 0){
+      G.parts.push({ x:VW/2 + rnd(-30,30), y:250, vx:rnd(-0.3,0.3), vy:-0.7,
+                     life:60, max:60, col:"#9fd8ff", s:4, g:0 });
+    }
+    if(L.eye <= 0) lessonEnd(false);
+    else if(--L.limit <= 0) lessonEnd(true);
   } else {
     if(L.popT > 0) L.popT--;
     if(L.left > 0 && --L.spawn <= 0){
@@ -662,11 +822,11 @@ function lessonUpdate(){
     }
     for(i=L.notes.length-1; i>=0; i--){
       nt = L.notes[i];
-      nt.x -= 3.1;
+      nt.x -= L.speed;
       if(nt.hit && nt.x < 190){ L.notes.splice(i,1); continue; }
       if(!nt.hit && nt.x < 165){ L.notes.splice(i,1); L.miss++; L.pop = -1; L.popT = 14; }
     }
-    if(L.left <= 0 && !L.notes.length) lessonEnd(L.hits >= 8);
+    if(L.left <= 0 && !L.notes.length) lessonEnd(L.hits >= L.need);
   }
 }
 
@@ -2918,14 +3078,14 @@ function drawLesson(){
     pg.addColorStop(0, "#ffd166"); pg.addColorStop(1, "#8bffcf");
     ctx.fillStyle = pg; rrect(243, VH-93, Math.max(4, 324*L.prog/100), 20, 7); ctx.fill();
     text("СПИСАНО " + Math.floor(L.prog) + "%", 405, VH-78, 13, "#0d1626", "center");
-    for(i=0;i<3;i++){
+    for(i=0;i<L.maxStrikes;i++){
       ctx.fillStyle = i < L.strikes ? "#ff6b6b" : "rgba(255,255,255,.22)";
       ctx.beginPath(); ctx.arc(600 + i*22, VH-83, 7, 0, 6.2832); ctx.fill();
     }
     text("замечания", 600, VH-58, 10, "rgba(255,180,180,.7)", "left", 600);
     ctx.fillStyle = "rgba(255,255,255,.12)"; rrect(240, VH-112, 330, 6, 3); ctx.fill();
     ctx.fillStyle = "rgba(159,216,255,.7)";
-    rrect(240, VH-112, 330 * Math.max(0, L.limit/(34*60)), 6, 3); ctx.fill();
+    rrect(240, VH-112, 330 * Math.max(0, L.limit/((L.cfg.strict?28:34)*60)), 6, 3); ctx.fill();
   }
   else if(L.kind === "quiz"){
     var qi = Math.min(L.qi, L.qs.length - 1);          // после последнего ответа индекс уже за краем
@@ -2947,10 +3107,76 @@ function drawLesson(){
     }
     text(isTouch ? "жми ответ" : "жми 1, 2 или 3 — или мышкой", VW/2, 412, 12, "rgba(200,220,255,.6)", "center", 600);
   }
+  else if(L.kind === "canteen"){
+    text("Большая перемена. Лови булки, тряпки — мимо!", VW/2, 116, 15, "rgba(230,240,255,.85)", "center", 600);
+    text("поймано " + L.caught + " · нужно " + L.need, VW/2, 142, 14,
+         L.caught >= L.need ? "#8bffcf" : "rgba(255,217,138,.9)", "center", 700);
+    for(i=0;i<L.items.length;i++){
+      var it2 = L.items[i];
+      if(it2.bad){
+        ctx.fillStyle = "#7f8c9b"; rrect(it2.x-11, it2.y-8, 22, 16, 5); ctx.fill();
+        ctx.fillStyle = "#657483"; ctx.fillRect(it2.x-8, it2.y-4, 16, 3);
+      } else {
+        drawBun(it2.x, it2.y, 1);
+      }
+    }
+    ctx.fillStyle = "#b9c6d8"; rrect(L.tray-48, VH-152, 96, 12, 5); ctx.fill();
+    ctx.fillStyle = "#8c9aad"; rrect(L.tray-42, VH-142, 84, 8, 4); ctx.fill();
+    text(isTouch ? "двигай ◀ ▶" : "двигай поднос ← →", VW/2, VH-96, 13, "rgba(220,235,255,.7)", "center", 600);
+  }
+  else if(L.kind === "pushups"){
+    text("Физра. Отжимания по команде физрука!", VW/2, 116, 15, "rgba(230,240,255,.85)", "center", 600);
+    gradText(L.reps + " / " + L.need, VW/2, 180, 40, "#dfffe8", "#3fd39a");
+    var dn = L.down / 12;
+    ctx.save();
+    ctx.translate(VW/2, 300 + dn*14);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 26, 46, 6, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = skinBy(curSkin).shirt;
+    rrect(-40, -6, 76, 20, 8); ctx.fill();
+    ctx.fillStyle = "#f6d3ac";
+    ctx.beginPath(); ctx.arc(44, 2, 12, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = skinBy(curSkin).hair;
+    ctx.beginPath(); ctx.arc(44, -1, 12, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#2f3e56";
+    ctx.fillRect(-42, 8, 12, 16 - dn*8); ctx.fillRect(24, 8, 12, 16 - dn*8);
+    ctx.restore();
+    var nx = L.next === "left" ? VW/2 - 70 : VW/2 + 70;
+    ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.2);
+    ctx.fillStyle = "#ffd166";
+    rrect(nx - 34, 360, 68, 46, 12); ctx.fill();
+    ctx.globalAlpha = 1;
+    text(L.next === "left" ? "←" : "→", nx, 392, 26, "#0d1626", "center");
+    text(isTouch ? "жми ◀ и ▶ по очереди" : "жми ← и → по очереди", VW/2, VH-70, 13, "rgba(220,235,255,.7)", "center", 600);
+    ctx.fillStyle = "rgba(255,255,255,.14)"; rrect(240, VH-48, 330, 8, 4); ctx.fill();
+    ctx.fillStyle = L.limit < 300 ? "#ff8080" : "#9fd8ff";
+    rrect(240, VH-48, 330 * Math.max(0, L.limit/((L.cfg.strict?16:22)*60)), 8, 4); ctx.fill();
+  }
+  else if(L.kind === "sleep"){
+    text("Последний урок. Главное — не уснуть.", VW/2, 116, 15, "rgba(230,240,255,.85)", "center", 600);
+    var eyeK = clamp(1 - L.eye/100, 0, 1);
+    ctx.fillStyle = "rgba(6,10,20,.92)";
+    ctx.fillRect(0, 0, VW, VH*0.45*eyeK);
+    ctx.fillRect(0, VH - VH*0.45*eyeK, VW, VH*0.45*eyeK);
+    ctx.fillStyle = "rgba(9,16,32,.55)"; rrect(240, 300, 330, 26, 9); ctx.fill();
+    var eg = ctx.createLinearGradient(240, 0, 570, 0);
+    eg.addColorStop(0, L.eye < 35 ? "#ff6b6b" : "#ffd166"); eg.addColorStop(1, "#8bffcf");
+    ctx.fillStyle = eg; rrect(243, 303, Math.max(4, 324*Math.max(0,L.eye)/100), 20, 7); ctx.fill();
+    text("БОДРОСТЬ " + Math.max(0, Math.round(L.eye)) + "%", 405, 319, 13, "#0d1626", "center");
+    ctx.globalAlpha = 0.6 + 0.4*Math.sin(G.tick*0.14);
+    text(isTouch ? "жми ▲ почаще" : "жми ПРОБЕЛ почаще", VW/2, 360, 16, "#ffffff", "center");
+    ctx.globalAlpha = 1;
+    text("продержись " + Math.ceil(L.limit/60) + " сек", VW/2, 386, 13, "rgba(220,235,255,.7)", "center", 600);
+    if(L.eye < 45){
+      ctx.globalAlpha = 0.5 + 0.3*Math.sin(G.tick*0.1);
+      text("Z Z Z", VW/2 + 120, 240, 22, "#9fd8ff", "center");
+      ctx.globalAlpha = 1;
+    }
+  }
   else {
     text("Диктант. Успевай записывать за учителем.", VW/2+40, 120, 15, "rgba(230,240,255,.85)", "center", 600);
-    text("записано " + L.hits + " из 12 · нужно 8", VW/2+40, 146, 13,
-         L.hits >= 8 ? "#8bffcf" : "rgba(220,235,255,.7)", "center", 700);
+    text("записано " + L.hits + " из 12 · нужно " + L.need, VW/2+40, 146, 13,
+         L.hits >= L.need ? "#8bffcf" : "rgba(220,235,255,.7)", "center", 700);
     for(i=0;i<2;i++){
       y = 200 + i*70;
       ctx.fillStyle = "rgba(9,16,32,.35)"; rrect(150, y-26, VW-180, 52, 10); ctx.fill();
@@ -2977,8 +3203,9 @@ function drawLesson(){
   if(L.done){
     ctx.fillStyle = "rgba(4,10,22,.72)"; ctx.fillRect(0,0,VW,VH);
     panel(520, 250, L.ok ? "rgba(139,255,207,.9)" : "rgba(255,120,120,.9)");
-    var head = L.ok ? (L.kind === "copy" ? "СПИСАЛ!" : (L.kind === "quiz" ? "ОТВЕТИЛ!" : "ЗАПИСАЛ!"))
-                    : "НЕ ВЫШЛО";
+    var heads = { copy:"СПИСАЛ!", quiz:"ОТВЕТИЛ!", notes:"ЗАПИСАЛ!",
+                  canteen:"НАЕЛСЯ!", pushups:"ЗАЧЁТ ПО ФИЗРЕ!", sleep:"НЕ УСНУЛ!" };
+    var head = L.ok ? (heads[L.kind] || "ЗАЧЁТ!") : "НЕ ВЫШЛО";
     gradText(head, VW/2, 210, 40, L.ok ? "#dfffe8" : "#ffd9d9", L.ok ? "#3fd39a" : "#e05050");
     text(L.ok ? "Учитель отпустил пораньше" : "Учитель задержал после урока",
          VW/2, 240, 14, "rgba(220,235,255,.8)", "center", 600);
@@ -3310,7 +3537,7 @@ window.PEREMENA_DEBUG = {
   jumpV: jumpV, runMax: runMax, doorOpen: doorOpen, useItem: useItem,
   stats: function(){ return STATS; }, skin: function(){ return curSkin; },
   near: function(){ return hubNear(); }, hub: enterHub, ring: ringBell,
-  lesson: startLesson, answer: lessonAnswer
+  lesson: startLesson, answer: lessonAnswer, quiz: function(){ return QUIZ; }
 };
 
 modLoad();
