@@ -424,6 +424,10 @@ function uiAction(){
   if(G.state === "menu"){ startRun(G.pick); }
   else if(G.state === "win" || G.state === "over"){ startRun(curDiff.key); }
   else if(G.state === "paused"){ G.state = "play"; }
+  else if(G.state === "lobby"){
+    if(NET.host === NET.id) netSend({ t:"start", seed:curSeed, src:curSrc, mode:G.pick });
+    else { NET.ready = !NET.ready; netSend({ t:"ready", v:NET.ready }); }
+  }
 }
 function toMenu(){
   var pick = G.pick;
@@ -443,9 +447,15 @@ function doButton(id){
   else if(id === "restart"){ startRun(curDiff.key); }
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
   else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
+  else if(id === "net_open"){ netConnect(); G.state = "lobby"; }
+  else if(id === "net_leave"){ netLeave(); G.state = "menu"; }
+  else if(id === "net_ready"){ NET.ready = !NET.ready; netSend({ t:"ready", v:NET.ready }); }
+  else if(id === "net_start"){ netSend({ t:"start", seed:curSeed, src:curSrc, mode:G.pick }); }
+  else if(id === "lb_mode"){ G.pick = (G.pick === "hard") ? "normal" : "hard"; netSetup(); }
+  else if(id === "lb_src"){ curSrc = (curSrc === "seed") ? "classic" : "seed"; applySource(); netSetup(); }
   else if(id === "src_classic"){ curSrc = "classic"; applySource(); }
   else if(id === "src_seed"){ curSrc = "seed"; applySource(); }
-  else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); sfx.key(); }
+  else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); netSetup(); sfx.key(); }
 }
 function canvasPoint(ev){
   var r = cv.getBoundingClientRect();
@@ -501,7 +511,7 @@ cv.addEventListener("pointerdown", function(ev){
       ev.preventDefault(); doButton(b.id); return;
     }
   }
-  if(G.state !== "play") uiAction();
+  if(G.state !== "play" && G.state !== "lobby") uiAction();
 });
 cv.addEventListener("contextmenu", function(e){ e.preventDefault(); });
 
@@ -688,6 +698,10 @@ function camTarget(){
   return clamp(p.x + p.w/2 - VW/2, 0, max);
 }
 
+function goOver(reason){
+  G.state = "over"; G.overReason = reason;
+  if(NET.race && NET.on) netSend({ t:"lost" });
+}
 function killPlayer(silent){
   var p = G.player;
   if(p.dead) return;
@@ -709,7 +723,7 @@ function updatePlayer(dt){
     p.vy = Math.min(p.vy + GRAV, MAXFALL);
     p.y += p.vy;
     if(p.deadT > 46){
-      if(curDiff.oneLife){ G.state = "over"; G.overReason = "dead"; sfx.fail(); }
+      if(curDiff.oneLife){ goOver("dead"); sfx.fail(); }
       else spawnPlayer();
     }
     return;
@@ -873,6 +887,8 @@ function finishRun(){
   G.state = "win";
   sfx.win();
   var used = curDiff.time - G.timeLeft;
+  if(NET.race && NET.on)
+    netSend({ t:"finish", time:Math.round(used), coins:G.coins, deaths:G.deaths });
   var best = bestScore(recKey(curDiff.key));
   if(!best || used < best.time || (used === best.time && G.coins > best.coins)){
     G.record = true;
@@ -892,11 +908,12 @@ function update(dtSec){
   if(G.hintT > 0) G.hintT--;
   if(G.hotT > 0) G.hotT--;
   if(G.penalty > 0) G.penalty--;
+  netTick();
 
   if(G.state === "play"){
     G.timeLeft -= dtSec;
     if(G.timeLeft <= 0){
-      G.timeLeft = 0; G.state = "over"; G.overReason = "bell"; sfx.bell(); G.shake = 20;
+      G.timeLeft = 0; goOver("bell"); sfx.bell(); G.shake = 20;
     }
     updateMovers();
     updatePlayer(dtSec);
@@ -1183,8 +1200,11 @@ function drawEnemy(e){
 function drawPlayer(){
   var p = G.player;
   var blink = p.dead ? 1 : (p.spawnT > 0 && (G.tick%6<3) ? 0.45 : 1);
+  drawCharacter(p, "#3aa0e8", blink);
+}
+function drawCharacter(p, shirt, alpha){
   ctx.save();
-  ctx.globalAlpha = blink;
+  ctx.globalAlpha = alpha;
   ctx.translate(p.x + p.w/2, p.y + p.h);
   ctx.scale(p.sqx, p.sqy);
   ctx.fillStyle = "rgba(0,0,0,.2)";
@@ -1203,10 +1223,12 @@ function drawPlayer(){
   ctx.fillStyle = "#7a4ec4";
   rrect(-11*p.dir - (p.dir>0?0:0), -26, 8, 15, 3); ctx.fill();
   /* корпус */
-  ctx.fillStyle = "#3aa0e8";
+  ctx.fillStyle = shirt;
   rrect(-9, -26, 18, 18, 5); ctx.fill();
-  ctx.fillStyle = "#63bdf5";
+  ctx.globalAlpha = alpha * 0.55;
+  ctx.fillStyle = "#ffffff";
   rrect(-9, -26, 18, 6, 4); ctx.fill();
+  ctx.globalAlpha = alpha;
   /* руки */
   ctx.fillStyle = "#f0c9a0";
   var armY = air ? -24 : -19 + walk*0.4;
@@ -1243,6 +1265,198 @@ function drawParts(){
     ctx.fillRect(q.x, q.y, q.s, q.s);
   }
   ctx.globalAlpha = 1;
+}
+
+/* ================== ИГРА ПО СЕТИ ==================
+   Работает, когда страницу раздаёт server.js: все бегут один и тот же
+   набор уровней наперегонки и видят друг друга полупрозрачными. */
+var NET = {
+  avail: false, ws:null, on:false, race:false, id:0, host:0, color:"#3aa0e8",
+  name:"", players:[], ghosts:{}, results:null, note:"", noteT:0, ready:false
+};
+try{ NET.avail = (location.protocol === "http:" || location.protocol === "https:"); }catch(e){}
+
+var NET_NAMES = ["Рыжий","Быстрый","Голодный","Ловкий","Хитрый","Сонный","Дерзкий",
+                 "Новенький","Шустрый","Тихоня","Задира","Отличник"];
+function netName(){
+  var n = "";
+  try{ n = localStorage.getItem("peremena_name") || ""; }catch(e){}
+  if(!n){
+    n = NET_NAMES[Math.floor(Math.random()*NET_NAMES.length)] + " " + (1 + Math.floor(Math.random()*99));
+    try{ localStorage.setItem("peremena_name", n); }catch(e){}
+  }
+  return n;
+}
+function netSend(o){
+  if(NET.ws && NET.ws.readyState === 1){ try{ NET.ws.send(JSON.stringify(o)); }catch(e){} }
+}
+function netConnect(){
+  if(!NET.avail || NET.ws) return;
+  try{ NET.ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host); }
+  catch(e){ NET.avail = false; return; }
+  NET.ws.onopen = function(){
+    NET.on = true; NET.name = netName(); NET.ready = false;
+    netSend({ t:"hello", name:NET.name });
+  };
+  NET.ws.onmessage = function(ev){
+    var m = null; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+    if(m) netHandle(m);
+  };
+  NET.ws.onclose = function(){
+    NET.on = false; NET.ws = null; NET.race = false; NET.ghosts = {};
+    NET.note = "связь с сервером потеряна"; NET.noteT = 260;
+    if(G && G.state === "lobby") G.state = "menu";
+  };
+  NET.ws.onerror = function(){};
+}
+function netLeave(){
+  NET.race = false; NET.ghosts = {}; NET.results = null;
+  if(NET.ws){ try{ NET.ws.close(); }catch(e){} NET.ws = null; }
+  NET.on = false; NET.players = [];
+}
+function netHandle(m){
+  if(m.t === "welcome"){
+    NET.id = m.id; NET.host = m.host; NET.color = m.color || NET.color; NET.players = m.players || [];
+    NET.raceOn = !!m.race;
+    if(NET.host === NET.id) netSetup(); else if(m.setup) netApplySetup(m.setup);
+  } else if(m.t === "room" || m.t === "board"){
+    if(m.host) NET.host = m.host;
+    NET.players = m.players || [];
+    NET.raceOn = !!m.race;
+    if(m.setup && NET.host !== NET.id) netApplySetup(m.setup);   // участники видят выбор ведущего
+  } else if(m.t === "start"){
+    NET.results = null; NET.ghosts = {}; NET.race = true;
+    curSeed = cleanSeed(m.seed) || curSeed;
+    curSrc = (m.src === "classic") ? "classic" : "seed";
+    G.pick = (m.mode === "hard") ? "hard" : "normal";
+    startRun(G.pick);
+  } else if(m.t === "pos"){
+    var g = NET.ghosts[m.id];
+    if(!g) g = NET.ghosts[m.id] = { rx:m.x, ry:m.y, anim:0 };
+    g.x = m.x; g.y = m.y; g.dir = m.d || 1; g.lvl = m.l;
+    g.dead = !!m.k; g.grounded = !!m.g; g.vx = m.vx || 0;
+    g.color = m.color; g.name = m.name; g.seen = Date.now();
+  } else if(m.t === "left"){
+    delete NET.ghosts[m.id];
+  } else if(m.t === "results"){
+    NET.results = m.list || []; NET.players = m.players || NET.players;
+    var me = NET.results.length && NET.results[NET.results.length-1].id === NET.id;
+    if(!me && NET.results.length === 1){
+      NET.note = NET.results[0].name + " уже на выходе!"; NET.noteT = 220;
+    }
+  } else if(m.t === "lost"){
+    if(m.id !== NET.id){ NET.note = m.name + " выбыл"; NET.noteT = 200; }
+  }
+}
+function netSetup(){                        // ведущий рассылает выбранные режим и уровни
+  if(NET.host !== NET.id) return;
+  netSend({ t:"setup", mode:G.pick, src:curSrc, seed:curSeed });
+}
+function netApplySetup(su){
+  if(su.mode && G) G.pick = su.mode;
+  var src = (su.src === "classic") ? "classic" : "seed";
+  var seed = cleanSeed(su.seed) || curSeed;
+  if(src !== curSrc || seed !== curSeed){ curSrc = src; curSeed = seed; applySource(); }
+}
+function netTick(){                          // вызывается из update()
+  if(NET.noteT > 0) NET.noteT--;
+  if(!NET.race || !NET.on || G.state !== "play" || !G.player) return;
+  var p = G.player;
+  if(G.tick % 3 === 0)                       // ~20 посылок в секунду
+    netSend({ t:"pos", x:Math.round(p.x), y:Math.round(p.y), d:p.dir, l:G.levelIndex,
+              k:p.dead?1:0, g:p.grounded?1:0, vx:Math.round(p.vx*10)/10 });
+  if(G.tick % 30 === 0)
+    netSend({ t:"progress", level:G.levelIndex, coins:G.coins });
+}
+function netPlace(){                         // какое место занял игрок
+  if(!NET.results) return 0;
+  for(var i=0;i<NET.results.length;i++) if(NET.results[i].id === NET.id) return i+1;
+  return 0;
+}
+
+function drawGhosts(){
+  var now = Date.now(), id, g;
+  for(id in NET.ghosts){
+    g = NET.ghosts[id];
+    if(!g || g.lvl !== G.levelIndex || now - g.seen > 4000) continue;
+    g.rx += (g.x - g.rx) * 0.35;
+    g.ry += (g.y - g.ry) * 0.35;
+    g.anim += Math.abs(g.vx || 0) * 0.22;
+    drawCharacter({ x:g.rx, y:g.ry, w:20, h:28, dir:g.dir, grounded:g.grounded,
+                    vx:g.vx, anim:g.anim, sqx:1, sqy:1, dead:g.dead },
+                  g.color || "#8899aa", 0.5);
+    text(g.name || "", g.rx + 10, g.ry - 40, 11, "rgba(10,20,35,.55)", "center", 700);
+    text(g.name || "", g.rx + 9, g.ry - 41, 11, g.color || "#ffffff", "center", 700);
+  }
+}
+
+function drawBoard(){
+  if(!NET.race || NET.players.length < 2) return;
+  var rows = Math.min(NET.players.length, 6);
+  var w = 196, h = 12 + rows*18, x = 14, y = 58, i, pl, yy;
+  ctx.fillStyle = "rgba(9,16,32,.55)";
+  rrect(x, y, w, h, 10); ctx.fill();
+  for(i=0;i<rows;i++){
+    pl = NET.players[i]; yy = y + 20 + i*18;
+    ctx.fillStyle = pl.color || "#8899aa";
+    rrect(x+9, yy-9, 8, 8, 2); ctx.fill();
+    var me = pl.id === NET.id;
+    text((pl.name || "?").slice(0,11) + (me ? " (ты)" : ""), x+24, yy, 11,
+         me ? "#ffffff" : "rgba(220,235,255,.8)", "left", me ? 700 : 600);
+    text(pl.done ? "финиш" : ("ур " + (pl.level+1) + " · " + pl.coins),
+         x+w-9, yy, 11, pl.done ? "#8bffcf" : "rgba(255,217,138,.9)", "right", 600);
+  }
+}
+
+function drawNote(){
+  if(NET.noteT <= 0 || !NET.note) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, NET.noteT/40);
+  ctx.font = "700 14px 'Segoe UI', system-ui, Arial, sans-serif";
+  var w = ctx.measureText(NET.note).width + 30;
+  ctx.fillStyle = "rgba(9,16,32,.7)";
+  rrect(VW/2 - w/2, 92, w, 30, 10); ctx.fill();
+  text(NET.note, VW/2, 112, 14, "#9fd8ff", "center");
+  ctx.restore();
+}
+
+function drawLobby(){
+  ctx.fillStyle = "rgba(4,10,22,.7)"; ctx.fillRect(0,0,VW,VH);
+  panel(700, 410);
+  shadowText("ПО СЕТИ", VW/2, 80, 34, "#9fd8ff", "center");
+  var host = (NET.host === NET.id);
+  text(!NET.on ? "подключаюсь к серверу…"
+                : (NET.players.length + " в комнате · ты " + (host ? "ведущий" : "участник")),
+       VW/2, 102, 13, "#dbe8ff", "center", 600);
+
+  var rows = Math.min(NET.players.length, 6), i, pl, yy;
+  for(i=0;i<rows;i++){
+    pl = NET.players[i]; yy = 132 + i*20;
+    ctx.fillStyle = pl.color || "#8899aa";
+    rrect(180, yy-9, 9, 9, 2); ctx.fill();
+    text((pl.name || "?") + (pl.id === NET.id ? " (ты)" : "") + (pl.id === NET.host ? " · ведущий" : ""),
+         198, yy, 13, pl.id === NET.id ? "#ffffff" : "rgba(220,235,255,.85)", "left", 600);
+    text(pl.ready ? "готов" : "ждёт", 620, yy, 12,
+         pl.ready ? "#8bffcf" : "rgba(200,220,255,.5)", "right", 600);
+  }
+  if(NET.raceOn)
+    text("забег уже идёт — дождись следующего", VW/2, 240, 12, "#ffd98a", "center", 600);
+  if(NET.players.length > rows)
+    text("и ещё " + (NET.players.length - rows), VW/2, 132 + rows*20, 12, "rgba(200,220,255,.6)", "center", 600);
+
+  if(host){
+    uiButton("lb_mode", 104, 256, 190, 44, DIFFS[G.pick].name, null, { size:15 });
+    uiButton("lb_src", 306, 256, 190, 44, curSrc === "seed" ? "СИД " + curSeed : "КЛАССИКА", null, { size:15 });
+    uiButton("seed_new", 508, 256, 190, 44, "НОВЫЙ СИД", null, { size:15 });
+    uiButton("net_start", 250, 312, 300, 52, "СТАРТ ЗАБЕГА", null, { size:20, sel:true });
+  } else {
+    text(DIFFS[G.pick].name + " · " + (curSrc === "seed" ? "сид " + curSeed : "классика"),
+         VW/2, 276, 14, "#ffd98a", "center", 600);
+    uiButton("net_ready", 250, 312, 300, 52, NET.ready ? "ГОТОВ ✓" : "Я ГОТОВ", null,
+             { size:20, sel:NET.ready });
+    text("забег запускает ведущий", VW/2, 296, 12, "rgba(200,220,255,.6)", "center", 600);
+  }
+  uiButton("net_leave", 300, 376, 200, 44, "НАЗАД", null, { size:16 });
 }
 
 /* ================== ИНТЕРФЕЙС ================== */
@@ -1396,10 +1610,20 @@ function drawMenu(){
                : "← →  бежать      ПРОБЕЛ  прыжок      R  заново      P  пауза",
        VW/2, 336, 13, "rgba(200,220,255,.6)", "center", 600);
 
-  ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
-  text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
-       VW/2, 372, 19, "#ffffff", "center");
-  ctx.globalAlpha = 1;
+  if(NET.avail){
+    uiButton("net_open", 306, 346, 190, 46, "ПО СЕТИ", null, { size:18, selBorder:"#9fd8ff" });
+    ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
+    text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
+         VW/2, 416, 16, "#ffffff", "center");
+    ctx.globalAlpha = 1;
+  } else {
+    ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
+    text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
+         VW/2, 372, 19, "#ffffff", "center");
+    ctx.globalAlpha = 1;
+    text("по сети: запусти node server.js и открой адрес из консоли",
+         VW/2, 404, 11, "rgba(200,220,255,.45)", "center", 600);
+  }
   iconBtn("sound", 674, 58, isTouch ? 54 : 44, "sound");
 }
 
@@ -1438,12 +1662,24 @@ function drawWin(){
   text("Время в пути:  " + fmtTime(used), VW/2, 180, 20, "#ffffff", "center");
   text("Пирожков:  " + G.coins + " / " + G.coinsMax, VW/2, 210, 20, "#ffd98a", "center");
   text("Падений:  " + G.deaths, VW/2, 238, 18, "#ffb3b3", "center");
-  text(r[0], VW/2, 284, 25, r[1], "center");
-  if(G.record) text("★ новый рекорд ★", VW/2, 310, 14, "#ffd166", "center", 600);
-  else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков",
-                       VW/2, 310, 13, "rgba(200,220,255,.7)", "center", 600);
-  if(curSrc === "seed") text("сид " + curSeed, VW/2, 330, 13, "#9fd8ff", "center", 600);
-  endButtons(348);
+  if(NET.race){
+    var place = netPlace(), i, rr;
+    text(place ? "МЕСТО " + place + " ИЗ " + Math.max(NET.players.length, NET.results ? NET.results.length : 1)
+               : "финиш засчитан", VW/2, 278, 22, place === 1 ? "#ffd166" : "#9fd8ff", "center");
+    for(i=0; NET.results && i < Math.min(3, NET.results.length); i++){
+      rr = NET.results[i];
+      text((i+1) + ". " + rr.name + " — " + fmtTime(rr.time) + " · " + rr.coins,
+           VW/2, 302 + i*17, 12, rr.id === NET.id ? "#ffffff" : "rgba(210,228,255,.7)", "center", 600);
+    }
+    endButtons(360);
+  } else {
+    text(r[0], VW/2, 284, 25, r[1], "center");
+    if(G.record) text("★ новый рекорд ★", VW/2, 310, 14, "#ffd166", "center", 600);
+    else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков",
+                         VW/2, 310, 13, "rgba(200,220,255,.7)", "center", 600);
+    if(curSrc === "seed") text("сид " + curSeed, VW/2, 330, 13, "#9fd8ff", "center", 600);
+    endButtons(348);
+  }
 }
 
 function drawOver(){
@@ -1458,6 +1694,8 @@ function drawOver(){
        (dead ? "" : " · осталось " + fmtTime(G.timeLeft)),
        VW/2, 212, 17, "#ffd98a", "center");
   if(curSrc === "seed") text("сид " + curSeed, VW/2, 238, 13, "rgba(200,220,255,.7)", "center", 600);
+  if(NET.race) text("остальные ещё бегут — смотри таблицу после забега",
+                    VW/2, (curSrc === "seed" ? 256 : 238), 12, "#9fd8ff", "center", 600);
   endButtons(268);
 }
 
@@ -1493,6 +1731,7 @@ function render(){
     drawDoor();
     for(var i=0;i<G.level.enemies.length;i++) drawEnemy(G.level.enemies[i]);
     drawParts();
+    drawGhosts();
     if(G.player) drawPlayer();
     ctx.restore();
   }
@@ -1503,8 +1742,11 @@ function render(){
   }
 
   syncPad();
-  if(G.state === "menu"){ drawMenu(); return; }
+  if(G.state === "menu"){ drawMenu(); drawNote(); return; }
+  if(G.state === "lobby"){ drawLobby(); drawNote(); return; }
   drawHUD();
+  drawBoard();
+  drawNote();
   if(G.state === "clear") drawBanner();
   else if(G.state === "win") drawWin();
   else if(G.state === "over") drawOver();
@@ -1559,7 +1801,9 @@ window.PEREMENA_DEBUG = {
   levels: function(){ return LEVELS; },
   gen: function(seed){ return genLevels(seed); },
   seed: function(){ return { src: curSrc, seed: curSeed }; },
-  setSeed: setSeed
+  setSeed: setSeed,
+  net: function(){ return NET; },
+  place: function(){ return netPlace(); }
 };
 
 (function initSeed(){
