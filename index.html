@@ -684,6 +684,10 @@ function doButton(id){
   else if(id === "src_seed"){ curSrc = "seed"; applySource(); }
   else if(id === "seed_new"){ curSeed = randomSeed(); curSrc = "seed"; applySource(); sfx.key(); }
 }
+function trackMouse(ev){
+  var pt = canvasPoint(ev);
+  G.mx = pt.x; G.my = pt.y;
+}
 function canvasPoint(ev){
   var r = cv.getBoundingClientRect();
   return { x:(ev.clientX - r.left) * VW / r.width, y:(ev.clientY - r.top) * VH / r.height };
@@ -747,6 +751,8 @@ cv.addEventListener("pointerdown", function(ev){
   if(G.state !== "play" && G.state !== "mods") uiAction();
 });
 cv.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+cv.addEventListener("pointermove", function(ev){ if(ev.pointerType !== "touch") trackMouse(ev); });
+cv.addEventListener("pointerleave", function(){ G.mx = -999; G.my = -999; });
 
 /* ================== ЗАГРУЗКА УРОВНЯ ================== */
 function isSolidChar(ch){ return SOLID.indexOf(ch) >= 0; }
@@ -938,6 +944,7 @@ function puff(x, y, n, col, spd){
 /* ================== ИГРОВОЙ ЦИКЛ / СОСТОЯНИЕ ================== */
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
+           mx:-999, my:-999, stateT:0, lastState:"", wipe:0, scoreShown:0,
            coins:0, coinsMax:0, deaths:0, timeLeft:timeLimit(),
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
@@ -981,6 +988,7 @@ window.addEventListener("hashchange", function(){
 });
 function startRun(mode, src){
   var st = G ? G.state : "menu";
+  var wipe = 34;
   curDiff = DIFFS[mode] || DIFFS[(G && G.pick) || "normal"];
   if(src) curSrc = src;
   LEVELS = (curSrc === "seed") ? genLevels(curSeed) : CAMPAIGN;
@@ -993,6 +1001,7 @@ function startRun(mode, src){
   G.coinsMax = 0;
   for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
   loadLevel(0);
+  G.wipe = wipe;
   if(st === "menu") sfx.door();
 }
 function enterHub(){
@@ -1001,6 +1010,7 @@ function enterHub(){
   G = newGame();
   G.pick = keep;
   G.state = "hub";
+  G.wipe = 30;
   G.level = buildLevel(HUB);
   G.hintT = 260;
   for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
@@ -1425,6 +1435,9 @@ function update(dtSec){
   if(G.flash > 0) G.flash--;
   if(G.hintT > 0) G.hintT--;
   if(G.hotT > 0) G.hotT--;
+  if(G.state !== G.lastState){ G.lastState = G.state; G.stateT = 0; }
+  G.stateT++;
+  if(G.wipe > 0) G.wipe--;
   if(G.penalty > 0) G.penalty--;
 
   if(G.toastT > 0) G.toastT--;
@@ -1459,6 +1472,8 @@ function update(dtSec){
     }
   } else {
     updateParts();
+    if(G.state === "menu" || G.state === "mods" || G.state === "skins" ||
+       G.state === "iteminfo" || G.state === "records") menuDrift();
   }
 }
 
@@ -2196,23 +2211,67 @@ function drawBellIcon(x, y, s, col){
 }
 
 /* ---- кнопки прямо на канвасе: работают и мышью, и пальцем ---- */
+function hovered(x, y, w, h){
+  return !isTouch && G.mx >= x && G.mx <= x + w && G.my >= y && G.my <= y + h;
+}
+function gradText(str, x, y, size, c1, c2, align){
+  var g = ctx.createLinearGradient(0, y - size, 0, y + size*0.3);
+  g.addColorStop(0, c1); g.addColorStop(1, c2);
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
+  text(str, x, y, size, "rgba(0,0,0,.45)", align || "center");
+  ctx.restore();
+  text(str, x, y, size, g, align || "center");
+}
 function uiButton(id, x, y, w, h, label, sub, o){
   o = o || {};
   var hot = (G.hotBtn === id && G.hotT > 0);
   var sel = !!o.sel;
+  var hov = hovered(x, y, w, h);
+  var tint = o.selBorder || (sel ? "#8bffcf" : "#9fd8ff");
+  var lift = hot ? -1 : (hov ? -2 : 0);
+  var k = hot ? 0.975 : (hov ? 1.025 : 1);
+  if(hov || sel) G.uiHover = true;
+
   ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,.28)";
-  rrect(x+3, y+5, w, h, 16); ctx.fill();
-  ctx.fillStyle = hot ? (o.hot || "rgba(255,255,255,.42)")
-                      : (sel ? (o.selBg || "rgba(255,255,255,.26)") : (o.bg || "rgba(255,255,255,.13)"));
-  rrect(x, y, w, h, 16); ctx.fill();
-  ctx.strokeStyle = sel ? (o.selBorder || "#8bffcf") : "rgba(255,255,255,.42)";
-  ctx.lineWidth = sel ? 3 : 2;
-  rrect(x, y, w, h, 16); ctx.stroke();
-  ctx.restore();
+  ctx.translate(x + w/2, y + h/2 + lift);
+  ctx.scale(k, k);
+  ctx.translate(-w/2, -h/2);
+
+  ctx.fillStyle = "rgba(0,0,0,.35)";
+  rrect(2, 6, w, h, 15); ctx.fill();
+
+  var g = ctx.createLinearGradient(0, 0, 0, h);
+  if(sel){ g.addColorStop(0, "rgba(255,255,255,.34)"); g.addColorStop(1, "rgba(255,255,255,.14)"); }
+  else if(hov){ g.addColorStop(0, "rgba(255,255,255,.26)"); g.addColorStop(1, "rgba(255,255,255,.1)"); }
+  else { g.addColorStop(0, "rgba(255,255,255,.16)"); g.addColorStop(1, "rgba(255,255,255,.05)"); }
+  ctx.fillStyle = g;
+  rrect(0, 0, w, h, 15); ctx.fill();
+
+  if(sel || hov){                                  // свечение по контуру
+    ctx.save();
+    ctx.shadowColor = tint; ctx.shadowBlur = sel ? 16 : 10;
+    ctx.strokeStyle = tint; ctx.lineWidth = sel ? 2.4 : 1.8;
+    rrect(0.5, 0.5, w-1, h-1, 15); ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = "rgba(255,255,255,.3)"; ctx.lineWidth = 1.4;
+    rrect(0.5, 0.5, w-1, h-1, 15); ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(255,255,255,.22)";        // блик сверху
+  rrect(6, 3, w-12, Math.min(12, h*0.3), 8); ctx.fill();
+  if(sel){                                         // уголки-акценты
+    ctx.strokeStyle = tint; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(9, 15); ctx.lineTo(9, 9); ctx.lineTo(15, 9);
+    ctx.moveTo(w-15, h-9); ctx.lineTo(w-9, h-9); ctx.lineTo(w-9, h-15);
+    ctx.stroke();
+  }
   var fs = o.size || 22;
-  text(label, x + w/2, y + h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center");
-  if(sub) text(sub, x + w/2, y + h/2 + 22, 13, "rgba(226,238,255,.8)", "center", 600);
+  text(label, w/2, h/2 + (sub ? -2 : fs*0.36) + 1, fs, "rgba(0,0,0,.4)", "center");
+  text(label, w/2, h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center");
+  if(sub) text(sub, w/2, h/2 + 22, 13, "rgba(226,238,255,.82)", "center", 600);
+  ctx.restore();
   G.buttons.push({ id:id, x:x, y:y, w:w, h:h });
 }
 function iconBtn(id, x, y, s, kind){
@@ -2315,30 +2374,89 @@ function drawToast(){
   ctx.restore();
 }
 
+function drawVignette(){
+  var g = ctx.createRadialGradient(VW/2, VH/2, VH*0.45, VW/2, VH/2, VH*0.95);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(4,8,18,.45)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+}
+function drawCursor(){
+  if(isTouch) return;
+  var want = G.uiHover ? "pointer" : "default";
+  if(cv.style.cursor !== want) cv.style.cursor = want;
+}
+function menuDrift(){                                  // фон меню живёт сам по себе
+  if(!G.level) return;
+  var max = Math.max(1, G.level.w*TS - VW);
+  G.cam = (G.cam + 0.32) % max;
+  var i, q;
+  for(i=G.parts.length; i<26; i++)
+    G.parts.push({ x:rnd(0,VW), y:rnd(0,VH), vx:rnd(-0.12,0.12), vy:rnd(-0.5,-0.18),
+                   life:9999, max:9999, col:"#ffd98a", s:rnd(2,4), g:0, menu:true });
+  for(i=0;i<G.parts.length;i++){
+    q = G.parts[i];
+    if(!q.menu) continue;
+    q.x += q.vx; q.y += q.vy;
+    if(q.y < -10){ q.y = VH + 8; q.x = rnd(0, VW); }
+  }
+}
+function drawMenuGlow(){
+  var i, q;
+  ctx.save();
+  for(i=0;i<G.parts.length;i++){
+    q = G.parts[i];
+    if(!q.menu) continue;
+    ctx.globalAlpha = 0.25 + 0.2*Math.sin(G.tick*0.04 + i);
+    drawBun(q.x, q.y, q.s/9);
+  }
+  ctx.restore();
+}
+
 function drawHUD(){
   ctx.save();
   ctx.fillStyle = "rgba(9,16,32,.52)";
   rrect(10, 10, VW-20, 40, 12); ctx.fill();
 
+  var full = Math.max(1, timeLimit());
+  var frac = clamp(G.timeLeft / full, 0, 1);
   var low = G.timeLeft < (curDiff.key === "hard" ? 60 : 120);
   var col = low ? (G.tick%30 < 15 ? "#ff8080" : "#ffd0d0") : "#eaf6ff";
-  drawBellIcon(36, 28, 0.85, col);
-  text(fmtTime(G.timeLeft), 54, 37, 22, col);
-  text("до конца перемены", 132, 36, 12, "rgba(220,235,255,.7)", "left", 600);
+  ctx.fillStyle = "rgba(255,255,255,.1)";
+  rrect(22, 36, 200, 7, 4); ctx.fill();
+  var bar = ctx.createLinearGradient(22, 0, 222, 0);
+  bar.addColorStop(0, low ? "#ff6b6b" : "#8bffcf");
+  bar.addColorStop(1, low ? "#ffb08a" : "#9fd8ff");
+  ctx.fillStyle = bar;
+  rrect(22, 36, Math.max(6, 200*frac), 7, 4); ctx.fill();
+  drawBellIcon(36, 24, 0.8, col);
+  text(fmtTime(G.timeLeft), 54, 32, 21, col);
+  text("до звонка", 140, 31, 11, "rgba(220,235,255,.65)", "left", 600);
   if(G.penalty > 0){
     ctx.globalAlpha = Math.min(1, G.penalty/40);
     text("−" + curDiff.deathCost + " сек", 62, 70, 20, "#ff8a8a", "left");
     ctx.globalAlpha = 1;
   }
 
-  text(LEVELS[G.levelIndex].name, VW/2, 31, 17, "#ffffff", "center");
-  text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length + " · " + curDiff.name +
-       (curSrc === "seed" ? " · сид " + curSeed : "") + (modCount() ? " · ×" + modMult().toFixed(2) : ""),
-       VW/2, 45, 11, curDiff.key === "hard" ? "rgba(255,190,190,.85)" : "rgba(220,235,255,.7)", "center", 600);
+  text(LEVELS[G.levelIndex].name, VW/2, 28, 17, "#ffffff", "center");
+  var dots = LEVELS.length, dw = 10, dx = VW/2 - (dots*dw)/2, di;
+  for(di=0; di<dots; di++){
+    ctx.fillStyle = di < G.levelIndex ? "#8bffcf" : (di === G.levelIndex ? "#ffd166" : "rgba(255,255,255,.22)");
+    ctx.beginPath(); ctx.arc(dx + di*dw + 4, 39, di === G.levelIndex ? 3.6 : 2.6, 0, 6.2832); ctx.fill();
+  }
 
-  drawPieIcon(VW-152, 28, 0.85);
-  text(G.coins + " / " + G.coinsMax, VW-134, 34, 19, "#ffd98a");
-  if(G.deaths > 0) text("падений: " + G.deaths, VW-24, 46, 11, "rgba(255,180,180,.8)", "right", 600);
+  if(G.coins !== G.coinsLast){ G.coinsLast = G.coins; G.coinPop = 12; }
+  if(G.coinPop > 0) G.coinPop--;
+  var pop = 1 + (G.coinPop > 0 ? G.coinPop/40 : 0);
+  drawPieIcon(VW-152, 28, 0.85 * pop);
+  ctx.save();
+  ctx.translate(VW-134, 34); ctx.scale(pop, pop); ctx.translate(-(VW-134), -34);
+  text(G.coins + " / " + G.coinsMax, VW-134, 34, 19, G.coinPop > 0 ? "#ffffff" : "#ffd98a");
+  ctx.restore();
+  var info = curDiff.name + (modCount() ? "  ×" + modMult().toFixed(2) : "") +
+             (curSrc === "seed" ? "  сид " + curSeed : "") +
+             (G.deaths ? "  падений " + G.deaths : "");
+  text(info, VW-24, 46, 10.5,
+       curDiff.key === "hard" ? "rgba(255,190,190,.8)" : "rgba(220,235,255,.6)", "right", 600);
   ctx.restore();
 
   if(G.state === "play" || G.state === "clear" || G.state === "paused") drawSlot();
@@ -2362,11 +2480,41 @@ function drawHUD(){
   }
 }
 
-function panel(w, h){
-  ctx.fillStyle = "rgba(6,12,26,.85)";
-  rrect(VW/2-w/2, VH/2-h/2, w, h, 22); ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,.14)"; ctx.lineWidth = 2;
-  rrect(VW/2-w/2, VH/2-h/2, w, h, 22); ctx.stroke();
+function uiEase(){                                  // плавное появление экрана
+  var t = Math.min(1, (G.stateT || 0) / 11);
+  return 1 - Math.pow(1 - t, 3);
+}
+function panel(w, h, accent){
+  var e = uiEase();
+  var x = VW/2 - w/2, y = VH/2 - h/2 + (1 - e) * 16;
+  ctx.save();
+  ctx.globalAlpha = e;
+  ctx.translate(VW/2, VH/2);
+  ctx.scale(0.97 + 0.03*e, 0.97 + 0.03*e);
+  ctx.translate(-VW/2, -VH/2);
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 14;
+  ctx.fillStyle = "rgba(8,14,28,.9)";
+  rrect(x, y, w, h, 24); ctx.fill();
+  ctx.restore();
+
+  var g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, "rgba(90,130,190,.22)");
+  g.addColorStop(0.45, "rgba(20,32,56,.12)");
+  g.addColorStop(1, "rgba(8,14,28,.28)");
+  ctx.fillStyle = g; rrect(x, y, w, h, 24); ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 1.5;
+  rrect(x+0.5, y+0.5, w-1, h-1, 24); ctx.stroke();
+
+  var line = ctx.createLinearGradient(x, y, x + w, y);   // светящаяся полоса сверху
+  line.addColorStop(0, "rgba(255,255,255,0)");
+  line.addColorStop(0.5, accent || "rgba(159,216,255,.85)");
+  line.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = line; ctx.fillRect(x + 28, y + 1, w - 56, 2);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 function recLine(key, x, y){
@@ -2376,10 +2524,16 @@ function recLine(key, x, y){
 }
 
 function drawMenu(){
-  ctx.fillStyle = "rgba(4,10,22,.62)"; ctx.fillRect(0,0,VW,VH);
-  panel(710, 424);
-  shadowText("ПЕРЕМЕНА", VW/2, 78, 40, "#ffd166", "center");
-  text("успей пробежать школу за перемену", VW/2, 98, 13, "#9fd8ff", "center", 600);
+  ctx.fillStyle = "rgba(4,10,22,.55)"; ctx.fillRect(0,0,VW,VH);
+  drawMenuGlow();
+  panel(710, 424, "rgba(255,209,102,.9)");
+  gradText("ПЕРЕМЕНА", VW/2, 80, 44, "#fff3c4", "#f0a83a");
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = "rgba(159,216,255,.16)";
+  rrect(VW/2 - 150, 88, 300, 22, 11); ctx.fill();
+  ctx.restore();
+  text("успей пробежать школу за перемену", VW/2, 103, 12, "#9fd8ff", "center", 700);
 
   text("РЕЖИМ", 122, 122, 11, "rgba(200,220,255,.55)", "left", 700);
   uiButton("mode_normal", 122, 128, 264, 66, "ОБЫЧНЫЙ", DIFFS.normal.tag,
@@ -2419,8 +2573,11 @@ function drawMenu(){
 
 function modCell(m, x, y, w, h){
   var on = mod(m.k), hot = (G.hotBtn === "mod_" + m.k && G.hotT > 0);
+  var hv = hovered(x, y, w, h);
+  if(hv) G.uiHover = true;
   var tint = m.m > 0 ? "#ffb98a" : "#8bffcf";
-  ctx.fillStyle = hot ? "rgba(255,255,255,.3)" : (on ? "rgba(255,255,255,.16)" : "rgba(255,255,255,.06)");
+  ctx.fillStyle = hot ? "rgba(255,255,255,.3)"
+                      : (on ? "rgba(255,255,255,.16)" : (hv ? "rgba(255,255,255,.12)" : "rgba(255,255,255,.06)"));
   rrect(x, y, w, h, 12); ctx.fill();
   ctx.strokeStyle = on ? tint : "rgba(255,255,255,.18)";
   ctx.lineWidth = on ? 2.4 : 1.4;
@@ -2452,7 +2609,7 @@ function modCountOf(kind){
 function drawMods(){
   ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
   panel(780, 468);
-  shadowText("МОДИФИКАТОРЫ", VW/2, 34, 22, "#ffd166", "center");
+  gradText("МОДИФИКАТОРЫ", VW/2, 34, 24, "#fff3c4", "#f0a83a");
   text("ОЧКИ × " + modMult().toFixed(2) +
        (modCount() ? "   ·   включено " + modCount() + " из " + MODS.length : "   ·   ничего не включено"),
        VW/2, 56, 15, modCount() ? "#ffb98a" : "rgba(200,220,255,.6)", "center");
@@ -2497,7 +2654,7 @@ function drawHubHUD(){
 function drawSkins(){
   ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
   panel(780, 450);
-  shadowText("СКИНЫ", VW/2, 44, 24, "#ff9ff3", "center");
+  gradText("СКИНЫ", VW/2, 44, 26, "#ffe3fb", "#e86bd0");
   drawBun(VW/2 - 58, 63, 0.8);
   text(STATS.buns + " булок", VW/2 - 42, 70, 16, "#ffd98a", "left");
   var i, sk, cx, cy, on, has;
@@ -2506,7 +2663,10 @@ function drawSkins(){
     cx = 30 + (i % 3) * 248;
     cy = 86 + Math.floor(i/3) * 110;
     on = (curSkin === sk.k); has = owns(sk.k);
-    ctx.fillStyle = on ? "rgba(139,255,207,.16)" : (has ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.05)");
+    var hv = hovered(cx, cy, 236, 104);
+    if(hv) G.uiHover = true;
+    ctx.fillStyle = on ? "rgba(139,255,207,.16)"
+                       : (hv ? "rgba(255,255,255,.18)" : (has ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.05)"));
     rrect(cx, cy, 236, 104, 12); ctx.fill();
     ctx.strokeStyle = on ? "#8bffcf" : (has ? "rgba(159,216,255,.5)" : "rgba(255,255,255,.16)");
     ctx.lineWidth = on ? 2.6 : 1.4;
@@ -2533,7 +2693,7 @@ function drawSkins(){
 function drawItemInfo(){
   ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
   panel(700, 410);
-  shadowText("ПРЕДМЕТЫ", VW/2, 74, 24, "#8bffcf", "center");
+  gradText("ПРЕДМЕТЫ", VW/2, 74, 26, "#dfffe8", "#3fd39a");
   text("Лежат в школьных шкафчиках. В руках помещается один — " +
        (isTouch ? "жми кнопку «ПРЕДМЕТ»" : "применяй клавишей E"),
        VW/2, 96, 12, "rgba(210,228,255,.7)", "center", 600);
@@ -2554,7 +2714,7 @@ function drawItemInfo(){
 function drawRecords(){
   ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
   panel(720, 420);
-  shadowText("РЕКОРДЫ", VW/2, 68, 24, "#9fd8ff", "center");
+  gradText("РЕКОРДЫ", VW/2, 68, 26, "#e4f3ff", "#5aa8e0");
   var rows = [
     ["Забегов до конца", STATS.runs],
     ["Из них хардкор", STATS.hardRuns],
@@ -2589,8 +2749,8 @@ function drawBanner(){
   ctx.globalAlpha = Math.min(1, k*2);
   ctx.fillStyle = "rgba(6,12,26,.65)";
   rrect(VW/2-190, VH/2-46, 380, 92, 16); ctx.fill();
-  shadowText(G.allPies && coinsLeft() === 0 ? "Всё собрано!" : "Уровень пройден!",
-             VW/2, VH/2-4, 30, "#8bffcf", "center");
+  gradText(G.allPies && coinsLeft() === 0 ? "Всё собрано!" : "Уровень пройден!",
+           VW/2, VH/2-4, 30, "#dfffe8", "#3fd39a");
   text(G.levelIndex+1 < LEVELS.length ? "Дальше: " + LEVELS[G.levelIndex+1].name : "Последний рывок…",
        VW/2, VH/2+26, 15, "#dbe8ff", "center", 600);
   ctx.restore();
@@ -2614,14 +2774,18 @@ function drawWin(){
   panel(620, 430);
   var used = curDiff.time - G.timeLeft;
   var r = rankOf(used, G.coins, G.deaths);
-  shadowText("УСПЕЛ!", VW/2, 106, 46, "#8bffcf", "center");
+  gradText("УСПЕЛ!", VW/2, 106, 46, "#dfffe8", "#3fd39a");
   text(curDiff.key === "hard" ? "И это на ХАРДКОРЕ. Уважение." : "Звонок ещё не прозвенел, а ты уже герой перемены.",
        VW/2, 134, 15, "#dbe8ff", "center", 600);
   text("Время " + fmtTime(used) + "   ·   пирожков " + G.coins + "/" + G.coinsMax +
        "   ·   падений " + G.deaths +
        (G.allPies ? "   ·   уровней подчистую " + G.allPies : ""),
        VW/2, 172, 14, "#dbe8ff", "center", 600);
-  text(runScore() + " ОЧКОВ", VW/2, 214, 34, "#ffd166", "center");
+  var target = runScore();
+  G.scoreShown = G.scoreShown || 0;
+  G.scoreShown += (target - G.scoreShown) * 0.14;
+  if(target - G.scoreShown < 1) G.scoreShown = target;
+  gradText(Math.round(G.scoreShown) + " ОЧКОВ", VW/2, 214, 34, "#fff3c4", "#f0a83a");
   text(runPoints() + " × " + modMult().toFixed(2) + (modCount() ? "  (модификаторов: " + modCount() + ")" : ""),
        VW/2, 236, 12, "rgba(220,235,255,.7)", "center", 600);
   text(r[0], VW/2, 278, 22, r[1], "center");
@@ -2636,7 +2800,7 @@ function drawOver(){
   ctx.fillStyle = "rgba(40,6,14,.68)"; ctx.fillRect(0,0,VW,VH);
   panel(620, 380);
   var dead = G.overReason === "dead";
-  shadowText(dead ? "ПОПАЛСЯ!" : "ДЗЫНЬ!", VW/2, 140, 46, "#ff8080", "center");
+  gradText(dead ? "ПОПАЛСЯ!" : "ДЗЫНЬ!", VW/2, 140, 46, "#ffd9d9", "#e05050");
   text(dead ? "В хардкоре жизнь одна — забег окончен."
             : "Перемена кончилась, а ты посреди коридора.",
        VW/2, 172, 15, "#ffd9d9", "center", 600);
@@ -2650,7 +2814,7 @@ function drawOver(){
 function drawPaused(){
   ctx.fillStyle = "rgba(4,10,22,.66)"; ctx.fillRect(0,0,VW,VH);
   panel(520, 320);
-  shadowText("ПАУЗА", VW/2, 174, 38, "#9fd8ff", "center");
+  gradText("ПАУЗА", VW/2, 174, 40, "#e4f3ff", "#5aa8e0");
   uiButton("resume", 250, 200, 300, 62, "ПРОДОЛЖИТЬ", null, { size:22, sel:true });
   uiButton("restart", 250, 274, 142, 54, "СНАЧАЛА", null, { size:17 });
   uiButton("menu", 408, 274, 142, 54, "В МЕНЮ", null, { size:17 });
@@ -2662,6 +2826,7 @@ function render(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0,0,VW,VH);
   G.buttons = [];                       // кнопки собираются заново каждый кадр
+  G.uiHover = false;
 
   var cam = G.level ? G.cam : 0;
   drawBackground(cam);
@@ -2695,19 +2860,30 @@ function render(){
     lg.addColorStop(1, "rgba(5,9,18,.94)");
     ctx.fillStyle = lg; ctx.fillRect(0, 0, VW, VH);
   }
+  if(G.wipe > 0){
+    var wk = G.wipe / 34;
+    ctx.fillStyle = "#070d1a";
+    ctx.fillRect(0, 0, VW, VH * wk);
+    ctx.fillRect(0, VH - VH * wk, VW, VH * wk);
+    ctx.fillStyle = "rgba(159,216,255,.5)";
+    ctx.fillRect(0, VH * wk - 2, VW, 2);
+    ctx.fillRect(0, VH - VH * wk, VW, 2);
+  }
   if(G.flash > 0){
     ctx.fillStyle = "rgba(255,240,180," + (G.flash/12*0.35) + ")";
     ctx.fillRect(0,0,VW,VH);
   }
 
   syncPad();
-  if(G.state === "menu"){ drawMenu(); drawToast(); return; }
+  drawVignette();
+  if(G.state === "menu"){ drawMenu(); drawToast(); drawCursor(); return; }
   if(G.state === "mods"){ if(G.back === "hub"){ drawHubHUD(); } else drawMenu(); drawMods(); return; }
   if(G.state === "skins"){ drawHubHUD(); drawSkins(); drawToast(); return; }
   if(G.state === "iteminfo"){ drawHubHUD(); drawItemInfo(); return; }
   if(G.state === "records"){ drawHubHUD(); drawRecords(); return; }
   if(G.state === "hub"){ drawHubHUD(); drawToast(); return; }
   drawHUD();
+  drawCursor();
   if(G.state === "clear") drawBanner();
   else if(G.state === "win") drawWin();
   else if(G.state === "over") drawOver();
