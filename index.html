@@ -14,21 +14,38 @@
   canvas{background:#8ecff2;border-radius:16px;display:block;max-width:100%;max-height:100%;
     box-shadow:0 24px 70px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08) inset}
   #pad{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;
-    align-items:flex-end;padding:18px 22px;pointer-events:none;z-index:5}
-  #padL{display:flex;gap:14px}
-  .btn{pointer-events:auto;width:74px;height:74px;border-radius:50%;
-    background:rgba(255,255,255,.16);border:2px solid rgba(255,255,255,.4);
-    color:#fff;font-size:30px;font-weight:700;line-height:1;
+    align-items:flex-end;pointer-events:none;z-index:5;
+    padding:0 max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom))
+              max(16px, env(safe-area-inset-left));
+    transition:opacity .18s}
+  #padL{display:flex;gap:clamp(12px, 3vmin, 26px)}
+  .btn{pointer-events:auto;touch-action:none;
+    width:clamp(94px, 27vmin, 158px);height:clamp(94px, 27vmin, 158px);border-radius:50%;
+    background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.5);
+    color:#fff;font-size:clamp(30px, 9vmin, 52px);font-weight:700;line-height:1;
     display:flex;align-items:center;justify-content:center;user-select:none;
-    -webkit-user-select:none;backdrop-filter:blur(6px)}
-  .btn.jump{width:92px;height:92px;font-size:26px;background:rgba(120,220,160,.24);
-    border-color:rgba(150,255,190,.55)}
-  .btn.on{background:rgba(255,255,255,.38);transform:scale(.94)}
+    -webkit-user-select:none;backdrop-filter:blur(6px);
+    box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  .btn.jump{width:clamp(118px, 34vmin, 196px);height:clamp(118px, 34vmin, 196px);
+    background:rgba(90,225,160,.3);border-color:rgba(150,255,190,.7)}
+  .btn.on{background:rgba(255,255,255,.45);transform:scale(.93)}
   body.touch #pad{display:flex}
+  body.hidepad #pad{opacity:0;pointer-events:none}
+  body.touch #wrap{padding:0}
+  body.touch canvas{border-radius:0;box-shadow:none}
+  #rotate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    background:#0b1020;text-align:center;z-index:20;padding:24px}
+  #rotate b{display:block;font-size:26px;margin-bottom:10px}
+  #rotate span{color:#9fd8ff;font-size:15px}
+  @media (orientation:portrait){
+    body.touch #rotate{display:flex}
+    body.touch #pad{display:none}
+  }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="game" width="800" height="480"></canvas></div>
+<div id="rotate"><div><b>Поверни телефон ↻</b><span>в альбомной ориентации играть удобнее</span></div></div>
 <div id="pad">
   <div id="padL">
     <div class="btn" data-k="left">◀</div>
@@ -43,7 +60,13 @@
 /* ================== КОНСТАНТЫ ================== */
 var TS = 32, VW = 800, VH = 480;
 var GRAV = 0.62, MAXFALL = 13, JUMP_V = -12.2, PAD_V = -19, RUN_MAX = 4.4;
-var BREAK_SECONDS = 15 * 60;          // длина перемены
+var DIFFS = {
+  normal: { key:"normal", name:"Обычный", time:15*60, enemy:1, fly:1, range:3,
+            coyote:7, deathCost:0, tag:"15 минут · падения бесплатны" },
+  hard:   { key:"hard",  name:"ХАРДКОР", time:8*60, enemy:1.6, fly:1.45, range:4.5,
+            coyote:3, deathCost:12, tag:"8 минут · завучи злее · падение −12 сек" }
+};
+var curDiff = DIFFS.normal;
 var SOLID = "#=";                      // символы-стены
 
 /* ================== УРОВНИ ==================
@@ -54,6 +77,7 @@ var SOLID = "#=";                      // символы-стены
 var LEVELS = [
 {
   name: "Звонок!", hint: "← → бежать   ПРОБЕЛ прыгать   R заново",
+  hintTouch: "Слева — бежать, справа — прыжок",
   rows:[
   "........................................",
   "........................................",
@@ -197,6 +221,7 @@ var LEVELS = [
 /* ================== СЛУЖЕБНОЕ ================== */
 var cv = document.getElementById("game");
 var ctx = cv.getContext("2d");
+var isTouch = false;                   // выставляется при инициализации ввода
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -246,19 +271,47 @@ function setKey(k, down){
 }
 function uiAction(){
   actx();
-  if(G.state === "menu"){ startRun(); }
-  else if(G.state === "win" || G.state === "over"){ startRun(); }
+  if(G.state === "menu"){ startRun(G.pick); }
+  else if(G.state === "win" || G.state === "over"){ startRun(curDiff.key); }
   else if(G.state === "paused"){ G.state = "play"; }
+}
+function toMenu(){
+  var pick = G.pick;
+  G = newGame();
+  G.pick = pick;
+  G.level = buildLevel(LEVELS[0]);
+  for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
+}
+function doButton(id){
+  actx();
+  G.hotBtn = id; G.hotT = 9;
+  if(id === "mode_normal"){ G.pick = "normal"; startRun("normal"); }
+  else if(id === "mode_hard"){ G.pick = "hard"; startRun("hard"); }
+  else if(id === "again"){ startRun(curDiff.key); }
+  else if(id === "menu"){ toMenu(); }
+  else if(id === "resume"){ G.state = "play"; }
+  else if(id === "restart"){ startRun(curDiff.key); }
+  else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
+  else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
+}
+function canvasPoint(ev){
+  var r = cv.getBoundingClientRect();
+  return { x:(ev.clientX - r.left) * VW / r.width, y:(ev.clientY - r.top) * VH / r.height };
 }
 document.addEventListener("keydown", function(e){
   var c = e.code;
   if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].indexOf(c) >= 0) e.preventDefault();
   if(e.repeat) return;
+  if(G.state === "menu" && (c==="ArrowLeft"||c==="KeyA"||c==="ArrowRight"||c==="KeyD")){
+    G.pick = (c==="ArrowLeft"||c==="KeyA") ? "normal" : "hard"; return;
+  }
+  if(c==="Digit1") { G.pick = "normal"; if(G.state==="menu") startRun("normal"); return; }
+  if(c==="Digit2") { G.pick = "hard"; if(G.state==="menu") startRun("hard"); return; }
   if(c==="ArrowLeft"||c==="KeyA") setKey("left",true);
   else if(c==="ArrowRight"||c==="KeyD") setKey("right",true);
   else if(c==="Space"||c==="ArrowUp"||c==="KeyW"||c==="KeyZ") setKey("jump",true);
   else if(c==="Enter") uiAction();
-  else if(c==="KeyR"){ actx(); if(G.state==="play") killPlayer(true); else startRun(); }
+  else if(c==="KeyR"){ actx(); if(G.state==="play") killPlayer(true); else startRun(curDiff.key); }
   else if(c==="KeyP"||c==="Escape"){ if(G.state==="play") G.state="paused"; else if(G.state==="paused") G.state="play"; }
   else if(c==="KeyM"){ muted = !muted; }
 });
@@ -269,19 +322,35 @@ document.addEventListener("keyup", function(e){
   else if(c==="Space"||c==="ArrowUp"||c==="KeyW"||c==="KeyZ") setKey("jump",false);
 });
 (function touchSetup(){
-  if(!("ontouchstart" in window) && !navigator.maxTouchPoints) return;
+  isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  if(!isTouch) return;
   document.body.classList.add("touch");
   var btns = document.querySelectorAll(".btn");
   Array.prototype.forEach.call(btns, function(b){
     var k = b.getAttribute("data-k");
-    function on(e){ e.preventDefault(); b.classList.add("on"); setKey(k,true); }
-    function off(e){ e.preventDefault(); b.classList.remove("on"); setKey(k,false); }
-    b.addEventListener("touchstart", on, {passive:false});
-    b.addEventListener("touchend", off, {passive:false});
-    b.addEventListener("touchcancel", off, {passive:false});
+    b.addEventListener("pointerdown", function(e){
+      e.preventDefault();
+      b.setPointerCapture(e.pointerId);   // палец может съехать — кнопка не залипнет
+      b.classList.add("on"); setKey(k, true);
+    });
+    function off(e){ b.classList.remove("on"); setKey(k, false); }
+    b.addEventListener("pointerup", off);
+    b.addEventListener("pointercancel", off);
+    b.addEventListener("contextmenu", function(e){ e.preventDefault(); });
   });
 })();
-cv.addEventListener("pointerdown", function(){ if(G.state!=="play") uiAction(); else actx(); });
+cv.addEventListener("pointerdown", function(ev){
+  actx();
+  var pt = canvasPoint(ev), i, b;
+  for(i = G.buttons.length-1; i >= 0; i--){
+    b = G.buttons[i];
+    if(pt.x >= b.x && pt.x <= b.x+b.w && pt.y >= b.y && pt.y <= b.y+b.h){
+      ev.preventDefault(); doButton(b.id); return;
+    }
+  }
+  if(G.state !== "play") uiAction();
+});
+cv.addEventListener("contextmenu", function(e){ e.preventDefault(); });
 
 /* ================== ЗАГРУЗКА УРОВНЯ ================== */
 function isSolidChar(ch){ return SOLID.indexOf(ch) >= 0; }
@@ -295,7 +364,7 @@ function buildLevel(def){
     while(row.length < w) row += ".";
     grid.push(row.split(""));
   }
-  var lv = { name:def.name, hint:def.hint, w:w, h:grid.length, grid:grid,
+  var lv = { name:def.name, hint:(isTouch && def.hintTouch) ? def.hintTouch : def.hint, w:w, h:grid.length, grid:grid,
              coins:[], enemies:[], pads:[], spikes:[], movers:[], door:null,
              key:null, needKey:false, start:{x:64,y:64}, coinTotal:0 };
 
@@ -323,8 +392,9 @@ function buildLevel(def){
 }
 
 function makeEnemy(x, y, fly){
-  return { x:x, y:y, w:fly?28:26, h:fly?18:28, vx:fly?1.5:0.85, vy:0,
-           fly:fly, homeX:x, range: fly?999999:TS*3, dead:false, deadT:0,
+  return { x:x, y:y, w:fly?28:26, h:fly?18:28,
+           vx: fly ? 1.5*curDiff.fly : 0.85*curDiff.enemy, vy:0,
+           fly:fly, homeX:x, range: fly?999999:TS*curDiff.range, dead:false, deadT:0,
            dir:1, anim:0, hitWall:false };
 }
 
@@ -388,13 +458,17 @@ function puff(x, y, n, col, spd){
 /* ================== ИГРОВОЙ ЦИКЛ / СОСТОЯНИЕ ================== */
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
-           coins:0, coinsMax:0, deaths:0, timeLeft:BREAK_SECONDS,
+           coins:0, coinsMax:0, deaths:0, timeLeft:curDiff.time,
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
-           hasKey:false, tick:0 };
+           hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal" };
 }
-function startRun(){
+function startRun(mode){
   var st = G ? G.state : "menu";
+  curDiff = DIFFS[mode] || DIFFS[(G && G.pick) || "normal"];
+  var pick = curDiff.key;
   G = newGame();
+  G.pick = pick;
+  try{ localStorage.setItem("peremena_mode", pick); }catch(e){}
   G.state = "play";
   G.coinsMax = 0;
   for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
@@ -427,7 +501,10 @@ function killPlayer(silent){
   var p = G.player;
   if(p.dead) return;
   p.dead = true; p.deadT = 0; p.vy = -7; p.vx = 0;
-  if(!silent) G.deaths++;            // рестарт по R не считается падением
+  if(!silent){
+    G.deaths++;                      // рестарт по R не считается падением
+    if(curDiff.deathCost){ G.timeLeft = Math.max(0, G.timeLeft - curDiff.deathCost); G.penalty = 75; }
+  }
   G.shake = 14;
   puff(p.x+p.w/2, p.y+p.h/2, 22, "#ff6b6b", 4.5);
   if(!silent) sfx.hurt();
@@ -479,7 +556,7 @@ function updatePlayer(dt){
 
   if(p.grounded){
     p.jumping = false;
-    p.coyote = 7;
+    p.coyote = curDiff.coyote;
     if(p.sqy > 1){ p.sqx = 1.22; p.sqy = 0.8; puff(p.x+p.w/2, p.y+p.h, 5, "#ffffff", 1.6); }
   }
   p.sqx += (1 - p.sqx) * 0.18;
@@ -601,17 +678,17 @@ function nextLevel(){
 function finishRun(){
   G.state = "win";
   sfx.win();
-  var used = BREAK_SECONDS - G.timeLeft;
-  var best = null;
-  try{ best = JSON.parse(localStorage.getItem("peremena_best") || "null"); }catch(e){}
+  var used = curDiff.time - G.timeLeft;
+  var best = bestScore(curDiff.key);
   if(!best || used < best.time || (used === best.time && G.coins > best.coins)){
     G.record = true;
-    try{ localStorage.setItem("peremena_best", JSON.stringify({time:used, coins:G.coins, deaths:G.deaths})); }catch(e){}
+    try{ localStorage.setItem("peremena_best_" + curDiff.key,
+      JSON.stringify({time:used, coins:G.coins, deaths:G.deaths})); }catch(e){}
   }
   G.best = best;
 }
-function bestScore(){
-  try{ return JSON.parse(localStorage.getItem("peremena_best") || "null"); }catch(e){ return null; }
+function bestScore(key){
+  try{ return JSON.parse(localStorage.getItem("peremena_best_" + key) || "null"); }catch(e){ return null; }
 }
 
 function update(dtSec){
@@ -619,6 +696,8 @@ function update(dtSec){
   if(G.shake > 0) G.shake *= 0.88;
   if(G.flash > 0) G.flash--;
   if(G.hintT > 0) G.hintT--;
+  if(G.hotT > 0) G.hotT--;
+  if(G.penalty > 0) G.penalty--;
 
   if(G.state === "play"){
     G.timeLeft -= dtSec;
@@ -995,66 +1074,137 @@ function drawBellIcon(x, y, s, col){
   ctx.restore();
 }
 
+/* ---- кнопки прямо на канвасе: работают и мышью, и пальцем ---- */
+function uiButton(id, x, y, w, h, label, sub, o){
+  o = o || {};
+  var hot = (G.hotBtn === id && G.hotT > 0);
+  var sel = !!o.sel;
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  rrect(x+3, y+5, w, h, 16); ctx.fill();
+  ctx.fillStyle = hot ? (o.hot || "rgba(255,255,255,.42)")
+                      : (sel ? (o.selBg || "rgba(255,255,255,.26)") : (o.bg || "rgba(255,255,255,.13)"));
+  rrect(x, y, w, h, 16); ctx.fill();
+  ctx.strokeStyle = sel ? (o.selBorder || "#8bffcf") : "rgba(255,255,255,.42)";
+  ctx.lineWidth = sel ? 3 : 2;
+  rrect(x, y, w, h, 16); ctx.stroke();
+  ctx.restore();
+  var fs = o.size || 22;
+  text(label, x + w/2, y + h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center");
+  if(sub) text(sub, x + w/2, y + h/2 + 22, 13, "rgba(226,238,255,.8)", "center", 600);
+  G.buttons.push({ id:id, x:x, y:y, w:w, h:h });
+}
+function iconBtn(id, x, y, s, kind){
+  var hot = (G.hotBtn === id && G.hotT > 0);
+  ctx.save();
+  ctx.fillStyle = hot ? "rgba(255,255,255,.4)" : "rgba(9,16,32,.55)";
+  rrect(x, y, s, s, 13); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.5;
+  rrect(x, y, s, s, 13); ctx.stroke();
+  ctx.translate(x + s/2, y + s/2);
+  ctx.fillStyle = "#eaf6ff";
+  if(kind === "pause"){
+    if(G.state === "paused"){ ctx.beginPath(); ctx.moveTo(-5,-8); ctx.lineTo(9,0); ctx.lineTo(-5,8); ctx.closePath(); ctx.fill(); }
+    else { ctx.fillRect(-7,-8,5,16); ctx.fillRect(2,-8,5,16); }
+  } else {
+    ctx.beginPath(); ctx.moveTo(-8,-4); ctx.lineTo(-3,-4); ctx.lineTo(3,-9); ctx.lineTo(3,9); ctx.lineTo(-3,4); ctx.lineTo(-8,4);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#eaf6ff"; ctx.lineWidth = 2; ctx.lineCap = "round";
+    if(muted){ ctx.beginPath(); ctx.moveTo(6,-5); ctx.lineTo(12,5); ctx.moveTo(12,-5); ctx.lineTo(6,5); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(4,0,7,-0.9,0.9); ctx.stroke(); }
+  }
+  ctx.restore();
+  G.buttons.push({ id:id, x:x, y:y, w:s, h:s });
+}
+
 function drawHUD(){
   ctx.save();
   ctx.fillStyle = "rgba(9,16,32,.52)";
   rrect(10, 10, VW-20, 40, 12); ctx.fill();
 
-  var low = G.timeLeft < 120;
+  var low = G.timeLeft < (curDiff.key === "hard" ? 60 : 120);
   var col = low ? (G.tick%30 < 15 ? "#ff8080" : "#ffd0d0") : "#eaf6ff";
   drawBellIcon(36, 28, 0.85, col);
   text(fmtTime(G.timeLeft), 54, 37, 22, col);
   text("до конца перемены", 132, 36, 12, "rgba(220,235,255,.7)", "left", 600);
+  if(G.penalty > 0){
+    ctx.globalAlpha = Math.min(1, G.penalty/40);
+    text("−" + curDiff.deathCost + " сек", 62, 70, 20, "#ff8a8a", "left");
+    ctx.globalAlpha = 1;
+  }
 
   text(LEVELS[G.levelIndex].name, VW/2, 31, 17, "#ffffff", "center");
-  text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length, VW/2, 45, 11, "rgba(220,235,255,.7)", "center", 600);
+  text("уровень " + (G.levelIndex+1) + " / " + LEVELS.length + " · " + curDiff.name,
+       VW/2, 45, 11, curDiff.key === "hard" ? "rgba(255,190,190,.85)" : "rgba(220,235,255,.7)", "center", 600);
 
   drawPieIcon(VW-152, 28, 0.85);
   text(G.coins + " / " + G.coinsMax, VW-134, 34, 19, "#ffd98a");
   if(G.deaths > 0) text("падений: " + G.deaths, VW-24, 46, 11, "rgba(255,180,180,.8)", "right", 600);
+  ctx.restore();
+
+  if(G.state === "play" || G.state === "paused" || G.state === "clear"){
+    var s = isTouch ? 54 : 44;
+    iconBtn("pause", VW - s - 14, 58, s, "pause");
+    iconBtn("sound", VW - s*2 - 24, 58, s, "sound");
+  }
 
   if(G.hintT > 0 && G.state === "play"){
+    ctx.save();
     ctx.globalAlpha = Math.min(1, G.hintT/50);
-    ctx.fillStyle = "rgba(9,16,32,.55)";
+    ctx.fillStyle = "rgba(9,16,32,.6)";
     var t = G.level.hint;
     ctx.font = "600 14px 'Segoe UI', system-ui, Arial, sans-serif";
     var w = ctx.measureText(t).width + 28;
-    rrect(VW/2 - w/2, VH-54, w, 30, 10); ctx.fill();
-    text(t, VW/2, VH-34, 14, "#dbeaff", "center", 600);
-    ctx.globalAlpha = 1;
+    rrect(VW/2 - w/2, VH-56, w, 30, 10); ctx.fill();
+    text(t, VW/2, VH-36, 14, "#dbeaff", "center", 600);
+    ctx.restore();
   }
-  ctx.restore();
 }
 
 function panel(w, h){
-  ctx.fillStyle = "rgba(6,12,26,.82)";
-  rrect(VW/2-w/2, VH/2-h/2, w, h, 20); ctx.fill();
+  ctx.fillStyle = "rgba(6,12,26,.85)";
+  rrect(VW/2-w/2, VH/2-h/2, w, h, 22); ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,.14)"; ctx.lineWidth = 2;
-  rrect(VW/2-w/2, VH/2-h/2, w, h, 20); ctx.stroke();
+  rrect(VW/2-w/2, VH/2-h/2, w, h, 22); ctx.stroke();
+}
+
+function recLine(key, x, y){
+  var b = bestScore(key);
+  text(b ? "рекорд " + fmtTime(b.time) + " · " + b.coins + " пирожков" : "ещё не пройден",
+       x, y, 12, b ? "#8bffcf" : "rgba(200,220,255,.45)", "center", 600);
 }
 
 function drawMenu(){
-  ctx.fillStyle = "rgba(4,10,22,.55)"; ctx.fillRect(0,0,VW,VH);
-  panel(560, 340);
-  var y = VH/2 - 118;
-  shadowText("ПЕРЕМЕНА", VW/2, y, 54, "#ffd166", "center");
-  text("15 минут свободы", VW/2, y+30, 18, "#9fd8ff", "center", 600);
-  text("Собери все пирожки и добеги до выхода за 7 перемен-уровней,", VW/2, y+72, 14, "#dbe8ff", "center", 600);
-  text("пока не прозвенел звонок на урок.", VW/2, y+92, 14, "#dbe8ff", "center", 600);
-  text("← →  бежать      ПРОБЕЛ  прыжок      R  заново      P  пауза      M  звук", VW/2, y+130, 13, "rgba(200,220,255,.75)", "center", 600);
-  var b = bestScore();
-  if(b) text("Рекорд: " + fmtTime(b.time) + " · пирожков " + b.coins, VW/2, y+156, 13, "#8bffcf", "center", 600);
-  var pulse = 0.65 + 0.35*Math.sin(G.tick*0.08);
-  ctx.globalAlpha = pulse;
-  text("НАЖМИ ПРОБЕЛ", VW/2, y+196, 22, "#ffffff", "center");
+  ctx.fillStyle = "rgba(4,10,22,.6)"; ctx.fillRect(0,0,VW,VH);
+  panel(660, 440);
+  shadowText("ПЕРЕМЕНА", VW/2, 104, 52, "#ffd166", "center");
+  text("15 минут свободы", VW/2, 130, 17, "#9fd8ff", "center", 600);
+
+  uiButton("mode_normal", 122, 152, 264, 92, "ОБЫЧНЫЙ", "15 минут · спокойно",
+           { sel: G.pick === "normal" });
+  uiButton("mode_hard", 414, 152, 264, 92, "ХАРДКОР", "8 минут · завучи злее",
+           { sel: G.pick === "hard", selBorder:"#ff8080", col:"#ffd0d0" });
+  recLine("normal", 254, 264);
+  recLine("hard", 546, 264);
+
+  text("Собери пирожки и добеги до выхода за 7 уровней,", VW/2, 300, 14, "#dbe8ff", "center", 600);
+  text("пока не прозвенел звонок на урок.", VW/2, 320, 14, "#dbe8ff", "center", 600);
+  text(isTouch ? "Слева внизу — бежать, справа — прыгать."
+               : "← →  бежать      ПРОБЕЛ  прыжок      R  заново      P  пауза",
+       VW/2, 352, 13, "rgba(200,220,255,.75)", "center", 600);
+
+  ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
+  text(isTouch ? "Тапни режим — и побежали" : "ПРОБЕЛ — начать выбранный режим",
+       VW/2, 392, 19, "#ffffff", "center");
   ctx.globalAlpha = 1;
+  iconBtn("sound", 660, 66, isTouch ? 54 : 44, "sound");
 }
 
 function drawBanner(){
   var k = 1 - Math.abs(G.banner - 35)/35;
   ctx.save();
   ctx.globalAlpha = Math.min(1, k*2);
-  ctx.fillStyle = "rgba(6,12,26,.6)";
+  ctx.fillStyle = "rgba(6,12,26,.65)";
   rrect(VW/2-190, VH/2-46, 380, 92, 16); ctx.fill();
   shadowText("Уровень пройден!", VW/2, VH/2-4, 30, "#8bffcf", "center");
   text(G.levelIndex+1 < LEVELS.length ? "Дальше: " + LEVELS[G.levelIndex+1].name : "Последний рывок…",
@@ -1064,48 +1214,52 @@ function drawBanner(){
 
 function rankOf(used, coins, deaths){
   if(coins === G.coinsMax && deaths === 0) return ["ОТЛИЧНИК С МЕДАЛЬЮ", "#ffd166"];
-  if(coins >= G.coinsMax*0.8 && used < 8*60) return ["ОТЛИЧНИК", "#8bffcf"];
+  if(coins >= G.coinsMax*0.8 && used < curDiff.time*0.55) return ["ОТЛИЧНИК", "#8bffcf"];
   if(coins >= G.coinsMax*0.5) return ["ХОРОШИСТ", "#9fd8ff"];
   return ["ТРОЕЧНИК, НО ЖИВОЙ", "#ffb3b3"];
 }
 
+function endButtons(y){
+  uiButton("again", 140, y, 240, 64, "ЕЩЁ РАЗ", null, { size:22, selBg:"rgba(255,255,255,.2)" });
+  uiButton("menu", 420, y, 240, 64, "В МЕНЮ", null, { size:22 });
+}
+
 function drawWin(){
-  ctx.fillStyle = "rgba(4,10,22,.6)"; ctx.fillRect(0,0,VW,VH);
-  panel(580, 360);
-  var used = BREAK_SECONDS - G.timeLeft;
+  ctx.fillStyle = "rgba(4,10,22,.66)"; ctx.fillRect(0,0,VW,VH);
+  panel(620, 430);
+  var used = curDiff.time - G.timeLeft;
   var r = rankOf(used, G.coins, G.deaths);
-  var y = VH/2 - 128;
-  shadowText("УСПЕЛ!", VW/2, y, 50, "#8bffcf", "center");
-  text("Звонок ещё не прозвенел, а ты уже герой перемены.", VW/2, y+30, 15, "#dbe8ff", "center", 600);
-  text("Время в пути:  " + fmtTime(used), VW/2, y+76, 20, "#ffffff", "center");
-  text("Пирожков:  " + G.coins + " / " + G.coinsMax, VW/2, y+106, 20, "#ffd98a", "center");
-  text("Падений:  " + G.deaths, VW/2, y+136, 18, "#ffb3b3", "center");
-  text(r[0], VW/2, y+182, 26, r[1], "center");
-  if(G.record) text("★ новый рекорд ★", VW/2, y+208, 14, "#ffd166", "center", 600);
-  else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков", VW/2, y+208, 13, "rgba(200,220,255,.7)", "center", 600);
-  ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
-  text("ПРОБЕЛ — ещё разок", VW/2, y+248, 18, "#ffffff", "center");
-  ctx.globalAlpha = 1;
+  shadowText("УСПЕЛ!", VW/2, 106, 46, "#8bffcf", "center");
+  text(curDiff.key === "hard" ? "И это на ХАРДКОРЕ. Уважение." : "Звонок ещё не прозвенел, а ты уже герой перемены.",
+       VW/2, 134, 15, "#dbe8ff", "center", 600);
+  text("Время в пути:  " + fmtTime(used), VW/2, 180, 20, "#ffffff", "center");
+  text("Пирожков:  " + G.coins + " / " + G.coinsMax, VW/2, 210, 20, "#ffd98a", "center");
+  text("Падений:  " + G.deaths, VW/2, 238, 18, "#ffb3b3", "center");
+  text(r[0], VW/2, 284, 25, r[1], "center");
+  if(G.record) text("★ новый рекорд ★", VW/2, 310, 14, "#ffd166", "center", 600);
+  else if(G.best) text("рекорд: " + fmtTime(G.best.time) + " · " + G.best.coins + " пирожков",
+                       VW/2, 310, 13, "rgba(200,220,255,.7)", "center", 600);
+  endButtons(340);
 }
 
 function drawOver(){
-  ctx.fillStyle = "rgba(40,6,14,.62)"; ctx.fillRect(0,0,VW,VH);
-  panel(540, 280);
-  var y = VH/2 - 90;
-  shadowText("ДЗЫНЬ!", VW/2, y, 50, "#ff8080", "center");
-  text("Перемена кончилась. Ты стоишь посреди коридора,", VW/2, y+34, 15, "#ffd9d9", "center", 600);
-  text("а звонок звенит прямо над ухом.", VW/2, y+56, 15, "#ffd9d9", "center", 600);
-  text("Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins, VW/2, y+96, 17, "#ffd98a", "center");
-  ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.08);
-  text("ПРОБЕЛ — попробовать снова", VW/2, y+140, 18, "#ffffff", "center");
-  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(40,6,14,.68)"; ctx.fillRect(0,0,VW,VH);
+  panel(620, 380);
+  shadowText("ДЗЫНЬ!", VW/2, 140, 46, "#ff8080", "center");
+  text("Перемена кончилась, а ты посреди коридора.", VW/2, 172, 15, "#ffd9d9", "center", 600);
+  text("Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins +
+       (curDiff.deathCost && G.deaths ? " · падений " + G.deaths : ""),
+       VW/2, 212, 17, "#ffd98a", "center");
+  endButtons(268);
 }
 
 function drawPaused(){
-  ctx.fillStyle = "rgba(4,10,22,.6)"; ctx.fillRect(0,0,VW,VH);
-  panel(420, 180);
-  shadowText("ПАУЗА", VW/2, VH/2-6, 40, "#9fd8ff", "center");
-  text("P или ПРОБЕЛ — продолжить · R — сначала", VW/2, VH/2+36, 14, "#dbe8ff", "center", 600);
+  ctx.fillStyle = "rgba(4,10,22,.66)"; ctx.fillRect(0,0,VW,VH);
+  panel(520, 320);
+  shadowText("ПАУЗА", VW/2, 174, 38, "#9fd8ff", "center");
+  uiButton("resume", 250, 200, 300, 62, "ПРОДОЛЖИТЬ", null, { size:22, sel:true });
+  uiButton("restart", 250, 274, 142, 54, "СНАЧАЛА", null, { size:17 });
+  uiButton("menu", 408, 274, 142, 54, "В МЕНЮ", null, { size:17 });
 }
 
 /* ================== КАДР ================== */
@@ -1113,6 +1267,7 @@ function render(){
   var dpr = Math.min(2, window.devicePixelRatio || 1);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0,0,VW,VH);
+  G.buttons = [];                       // кнопки собираются заново каждый кадр
 
   var cam = G.level ? G.cam : 0;
   drawBackground(cam);
@@ -1139,6 +1294,7 @@ function render(){
     ctx.fillRect(0,0,VW,VH);
   }
 
+  syncPad();
   if(G.state === "menu"){ drawMenu(); return; }
   drawHUD();
   if(G.state === "clear") drawBanner();
@@ -1154,6 +1310,22 @@ function resize(){
   cv.style.width = ""; cv.style.height = "";
 }
 window.addEventListener("resize", resize);
+
+var padShown = null;
+function syncPad(){                              // джойстик нужен только в самой игре
+  var show = (G.state === "play" || G.state === "clear");
+  if(show === padShown) return;
+  padShown = show;
+  document.body.classList.toggle("hidepad", !show);
+}
+var mqPortrait = window.matchMedia ? window.matchMedia("(orientation: portrait)") : null;
+function orientCheck(){
+  if(isTouch && mqPortrait && mqPortrait.matches && G && G.state === "play") G.state = "paused";
+}
+if(mqPortrait){
+  if(mqPortrait.addEventListener) mqPortrait.addEventListener("change", orientCheck);
+  else if(mqPortrait.addListener) mqPortrait.addListener(orientCheck);
+}
 document.addEventListener("visibilitychange", function(){
   if(document.hidden && G && G.state === "play") G.state = "paused";
 });
@@ -1183,6 +1355,7 @@ G.coinsMax = 0;
 for(var li=0; li<LEVELS.length; li++) G.coinsMax += buildLevel(LEVELS[li]).coinTotal;
 G.level = buildLevel(LEVELS[0]);
 G.player = null;
+try{ G.pick = localStorage.getItem("peremena_mode") || "normal"; }catch(e){}
 resize();
 requestAnimationFrame(frame);
 })();
