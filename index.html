@@ -226,6 +226,35 @@ var CAMPAIGN = [
 }
 ];
 
+/* школьный холл: ходилка со стендами, откуда начинается забег */
+var HUB = {
+  name: "Школьный холл", theme: "hall", hint: "Подойди к стенду и нажми E",
+  hintTouch: "Подойди к стенду и жми «ПРЕДМЕТ»",
+  rows:[
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..................................",
+  "..@....S.....I.....M.....T.....X..",
+  "##################################",
+  "##################################"]
+};
+var STAND_INFO = {
+  S: { n:"СКИНЫ",        s:"skins",    c:"#ff9ff3" },
+  I: { n:"ПРЕДМЕТЫ",     s:"iteminfo", c:"#8bffcf" },
+  M: { n:"МОДИФИКАТОРЫ", s:"mods",     c:"#ffb98a" },
+  T: { n:"РЕКОРДЫ",      s:"records",  c:"#9fd8ff" },
+  X: { n:"НА ПЕРЕМЕНУ",  s:"start",    c:"#ffd166" }
+};
+
 var LEVELS = CAMPAIGN;                 // активный набор уровней: кампания или сид
 
 /* ================== СЛУЧАЙНЫЕ УРОВНИ ПО СИДУ ==================
@@ -288,7 +317,7 @@ function genLevel(rnd, idx, name, withKey){
 
   var pool = ["flat","coins","platform","locker"];
   if(idx >= 1) pool = pool.concat(["pit","enemy"]);
-  if(idx >= 2) pool = pool.concat(["spikes","enemy","platform"]);
+  if(idx >= 2) pool = pool.concat(["spikes","enemy","platform","ball","bell"]);
   if(idx >= 3) pool = pool.concat(["pad","pit"]);
   if(idx >= 4) pool = pool.concat(["mover","fly","spikes"]);
   if(idx >= 5) pool = pool.concat(["mover","fly","enemy"]);
@@ -316,6 +345,8 @@ function genLevel(rnd, idx, name, withKey){
     }
     else if(f === "enemy"){ g[12][col] = "x"; col += 6; }
     else if(f === "locker"){ g[12][col] = "?"; col += 4; }
+    else if(f === "ball"){ g[12][col] = "m"; col += 4; }
+    else if(f === "bell"){ g[12][col] = "B"; col += 4; }
     else if(f === "fly"){ g[irnd(rnd,7,9)][col] = "v"; col += 4; }
     else if(f === "platform"){
       w = irnd(rnd,3,5); row = irnd(rnd,10,11);
@@ -357,7 +388,7 @@ function genLevel(rnd, idx, name, withKey){
 
   /* страховка: всё, что стоит на земле, должно стоять на твёрдом */
   for(x=0;x<W;x++)
-    if("@Ex^JKo?".indexOf(g[12][x]) >= 0 && g[13][x] !== "#"){ g[13][x] = "#"; g[14][x] = "#"; }
+    if("@Ex^JKo?mB".indexOf(g[12][x]) >= 0 && g[13][x] !== "#"){ g[13][x] = "#"; g[14][x] = "#"; }
 
   return { name:name, hint:pickOf(rnd, GEN_HINTS),
            rows: g.map(function(r){ return r.join(""); }), movers:movers };
@@ -407,6 +438,99 @@ var MODS = [
   { k:"startbag",n:"Портфель на старте",d:"каждый уровень начинаешь со щитом",m:-15 }
 ];
 var modOn = {};
+
+/* ================== ЛОКАЦИИ ==================
+   Каждый уровень рисуется в своей теме: своё небо/стены, свои тайлы
+   и свой набор школьного реквизита на заднем плане. */
+var THEMES = {
+  yard:    { n:"Школьный двор", deco:"yard", sky:["#3d7ec4","#7cc0ea","#cfeaf7"],
+             ground:"#8a5a35", cap:"#4fb05e", cap2:"#63c972", grass:true,
+             plank:"#c08b4a", plank2:"#e0a95f",
+             signs:["НЕ БЕГАТЬ ПО ДВОРУ","СУББОТНИК В СУББОТУ"] },
+  hall:    { n:"Коридор", deco:"hall", sky:["#27384d","#3c5771","#6c8ba8"],
+             ground:"#6a5747", cap:"#cfd8e3", cap2:"#eef3f8",
+             plank:"#a9773f", plank2:"#d09b55",
+             signs:["НЕ БЕГАТЬ ПО КОРИДОРАМ","ДЕЖУРНЫЙ ПО ЭТАЖУ","СМЕНКА ОБЯЗАТЕЛЬНА"] },
+  canteen: { n:"Столовая", deco:"canteen", sky:["#5a3b2c","#8a5b3f","#d8b08a"],
+             ground:"#7a4f36", cap:"#f0d7b8", cap2:"#fff0dc",
+             plank:"#b8823f", plank2:"#e3ab5e",
+             signs:["ПИРОЖКИ С 11:00","РУКИ МОЙ ПЕРЕД ЕДОЙ","КОМПОТ КОНЧИЛСЯ"] },
+  gym:     { n:"Спортзал", deco:"gym", sky:["#3a4a63","#5b6f8c","#9fb0c6"],
+             ground:"#a5703c", cap:"#d9a45e", cap2:"#f0c07a",
+             plank:"#c08b4a", plank2:"#e0a95f",
+             signs:["ФИЗРУК СЛЕДИТ","ЗАЧЁТ ПО КАНАТУ","ЛЫЖИ В ЯНВАРЕ"] },
+  library: { n:"Библиотека", deco:"library", sky:["#33241c","#55392a","#8a6647"],
+             ground:"#5d4430", cap:"#8d6a4a", cap2:"#a9815d",
+             plank:"#9c6b3a", plank2:"#c08b4a",
+             signs:["ТИШЕ!","СДАЙ УЧЕБНИК","ЧИТАЛЬНЫЙ ЗАЛ"] },
+  boiler:  { n:"Подвал", deco:"boiler", sky:["#10151d","#1c2633","#2e3d4f"],
+             ground:"#4a4a52", cap:"#6b6b74", cap2:"#85858f",
+             plank:"#6b5a43", plank2:"#8a7554",
+             signs:["ПОСТОРОННИМ ВХОД ВОСПРЕЩЁН","ОСТОРОЖНО, ТРУБЫ"] },
+  roof:    { n:"Крыша", deco:"roof", sky:["#2b3a6b","#7a5aa0","#f0a06a"],
+             ground:"#6e6e78", cap:"#9aa3ad", cap2:"#b7c0c9",
+             plank:"#8a8a94", plank2:"#a9a9b3",
+             signs:["ВЫХОД НА КРЫШУ ЗАКРЫТ","ТУТ БЫЛ 9 «Б»"] }
+};
+var THEME_BY_NAME = {
+  "Звонок!":"yard", "Столовая":"canteen", "Лестница":"hall", "Коридор":"hall",
+  "Спортзал":"gym", "Библиотека":"library", "Крыша школы":"roof",
+  "Первый этаж":"hall", "Раздевалка":"hall", "Актовый зал":"hall", "Рекреация":"hall",
+  "Кабинет труда":"boiler", "Чердак":"boiler", "Крыша":"roof", "Школьный двор":"yard",
+  "Кабинет химии":"library"
+};
+function themeOf(def){
+  return THEMES[def.theme || THEME_BY_NAME[def.name] || "yard"] || THEMES.yard;
+}
+
+/* ================== СКИНЫ ==================
+   Открываются за школьные «достижения», статистика копится между забегами. */
+var SKINS = [
+  { k:"pupil", n:"Школьник",     d:"обычный такой",          shirt:"#3aa0e8", hair:"#4a3524", acc:"none",    price:0 },
+  { k:"punk",  n:"Двоечник",     d:"кепка задом наперёд",    shirt:"#2f3e56", hair:"#c0392b", acc:"cap",     price:40 },
+  { k:"honor", n:"Отличница",    d:"бант и белая блузка",    shirt:"#f4f6fb", hair:"#8a5a2f", acc:"bow",     price:70 },
+  { k:"nerd",  n:"Ботаник",      d:"очки и жилетка",         shirt:"#7a4ec4", hair:"#2f2418", acc:"glasses", price:100 },
+  { k:"sport", n:"Физрук",       d:"свисток на шее",         shirt:"#e0553f", hair:"#3a2a1c", acc:"whistle", price:140 },
+  { k:"work",  n:"Трудовик",     d:"роба и кепка",           shirt:"#3f8f5f", hair:"#5a4630", acc:"cap",     price:180 },
+  { k:"spy",   n:"Завуч",        d:"костюм и галстук",       shirt:"#56688c", hair:"#8b7a63", acc:"tie",     price:240 },
+  { k:"grad",  n:"Выпускник",    d:"лента через плечо",      shirt:"#1f2b45", hair:"#3a2a1c", acc:"ribbon",  price:320 },
+  { k:"ghost", n:"Призрак школы",d:"поговаривают, он с 90-х",shirt:"#d7e6ff", hair:"#a9c2e0", acc:"none", ghost:true, price:450 }
+];
+var STATS = { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0, falls:0, best:0, owned:["pupil"] };
+var curSkin = "pupil";
+function statLoad(){
+  try{
+    var raw = JSON.parse(localStorage.getItem("peremena_stats") || "null");
+    if(raw){
+      for(var k in STATS) if(k !== "owned" && typeof raw[k] === "number") STATS[k] = raw[k];
+      if(raw.owned && raw.owned.length) STATS.owned = raw.owned;
+    }
+    curSkin = localStorage.getItem("peremena_skin") || "pupil";
+  }catch(e){}
+  if(!owns(curSkin)) curSkin = "pupil";
+}
+function statSave(){
+  try{
+    localStorage.setItem("peremena_stats", JSON.stringify(STATS));
+    localStorage.setItem("peremena_skin", curSkin);
+  }catch(e){}
+}
+function stat(k, n){ STATS[k] = (STATS[k] || 0) + (n || 1); }
+function skinBy(k){
+  for(var i=0;i<SKINS.length;i++) if(SKINS[i].k === k) return SKINS[i];
+  return SKINS[0];
+}
+function owns(k){ return STATS.owned.indexOf(k) >= 0; }
+function buySkin(sk){
+  if(owns(sk.k)){ curSkin = sk.k; statSave(); sfx.key(); toast("Надет: " + sk.n); return; }
+  if(STATS.buns < sk.price){ toast("Не хватает булок: нужно " + sk.price); sfx.hurt(); return; }
+  STATS.buns -= sk.price;
+  STATS.owned.push(sk.k);
+  curSkin = sk.k;
+  statSave();
+  sfx.win();
+  toast("Куплено: " + sk.n + "!");
+}
 
 /* ================== ПРЕДМЕТЫ ==================
    Лежат в школьных шкафчиках. В руках помещается один,
@@ -504,7 +628,10 @@ var input = { left:false, right:false, jump:false };
 var G = null;
 
 function setKey(k, down){
-  if(k === "item"){ if(down){ actx(); useItem(); } return; }
+  if(k === "item"){
+    if(down){ actx(); if(G.state === "hub") hubUse(); else if(!ringBell()) useItem(); }
+    return;
+  }
   if(k === "jump"){
     if(down && !input.jump && G && G.player) G.player.jumpBuf = 8;
     input.jump = down;
@@ -537,10 +664,14 @@ function doButton(id){
   else if(id === "restart"){ startRun(curDiff.key); }
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
   else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
-  else if(id === "mods_open"){ G.state = "mods"; G.modTab = G.modTab || "hard"; }
+  else if(id === "mods_open"){ G.back = "menu"; G.state = "mods"; G.modTab = G.modTab || "hard"; }
+  else if(id === "hub_open"){ enterHub(); }
+  else if(id === "back"){ G.state = G.back || "menu"; G.back = null; }
+  else if(id === "to_hub"){ enterHub(); }
+  else if(id.indexOf("skin_") === 0){ buySkin(skinBy(id.slice(5))); }
   else if(id === "tab_hard"){ G.modTab = "hard"; }
   else if(id === "tab_easy"){ G.modTab = "easy"; }
-  else if(id === "mods_back"){ G.state = "menu"; }
+  else if(id === "mods_back"){ G.state = G.back || "menu"; G.back = null; }
   else if(id === "mods_clear"){ modOn = {}; modSave(); applySource(); }
   else if(id.indexOf("mod_") === 0){
     var mk = id.slice(4);
@@ -629,8 +760,10 @@ function buildLevel(def){
     while(row.length < w) row += ".";
     grid.push(row.split(""));
   }
-  var lv = { name:def.name, hint:(isTouch && def.hintTouch) ? def.hintTouch : def.hint, w:w, h:grid.length, grid:grid,
-             coins:[], enemies:[], pads:[], spikes:[], movers:[], lockers:[], door:null,
+  var lv = { name:def.name, theme:themeOf(def),
+             hint:(isTouch && def.hintTouch) ? def.hintTouch : def.hint, w:w, h:grid.length, grid:grid,
+             coins:[], enemies:[], pads:[], spikes:[], movers:[], lockers:[], stands:[],
+             balls:[], bells:[], door:null,
              crack:{}, broke:{},
              key:null, needKey:false, start:{x:64,y:64}, coinTotal:0 };
 
@@ -650,6 +783,9 @@ function buildLevel(def){
     else if(ch === "x"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, false)); grid[i][j]="."; }
     else if(ch === "v"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+2, py+6, true)); grid[i][j]="."; }
     else if(ch === "^"){ lv.spikes.push({x:px+2, y:py+18, w:28, h:14}); }
+    else if(STAND_INFO[ch]){ lv.stands.push({ x:px-6, y:py-40, w:44, h:72, kind:ch }); grid[i][j]="."; }
+    else if(ch === "m"){ lv.balls.push({ x:px+6, y:py+8, w:20, h:20, vx:0, vy:0, spin:0, cool:0 }); grid[i][j]="."; }
+    else if(ch === "B"){ lv.bells.push({ x:px+4, y:py+2, w:24, h:26, used:false, t:0 }); grid[i][j]="."; }
     else if(ch === "?"){ lv.lockers.push({ x:px+3, y:py+1, w:26, h:31, open:false, t:0, item:null }); grid[i][j]="."; }
   }
   lv.coinTotal = lv.coins.length;
@@ -671,6 +807,34 @@ function buildLevel(def){
     }
   }
   if(mod("nobox")) lv.lockers = [];
+
+  /* мяч и кнопка звонка — школьные приколы, ставим на свободную землю */
+  function freeSpot(seed, minFrom){
+    var r = mulberry(hashSeed(def.name + seed)), guard = 0, gx, q, ok;
+    while(guard++ < 260){
+      gx = 5 + Math.floor(r()*(w-10));
+      if(grid[12][gx] !== "." || grid[13][gx] !== "#") continue;
+      if(Math.abs(gx*TS - lv.start.x) < TS*(minFrom || 3)) continue;
+      if(lv.door && Math.abs(gx*TS - lv.door.cx) < TS*3) continue;
+      ok = true;
+      for(q=0;q<lv.lockers.length;q++) if(Math.abs(lv.lockers[q].x - gx*TS) < TS*3) ok = false;
+      for(q=0;q<lv.spikes.length;q++) if(Math.abs(lv.spikes[q].x - gx*TS) < TS*2) ok = false;
+      for(q=0;q<lv.balls.length;q++) if(Math.abs(lv.balls[q].x - gx*TS) < TS*4) ok = false;
+      for(q=0;q<lv.bells.length;q++) if(Math.abs(lv.bells[q].x - gx*TS) < TS*4) ok = false;
+      if(ok) return gx;
+    }
+    return -1;
+  }
+  if(!lv.stands.length){
+    if(!lv.balls.length){
+      var bx = freeSpot("ball", 5);
+      if(bx > 0) lv.balls.push({ x:bx*TS+6, y:12*TS+8, w:20, h:20, vx:0, vy:0, spin:0, cool:0 });
+    }
+    if(!lv.bells.length && lv.enemies.length >= 2){
+      var kx = freeSpot("bell", 4);
+      if(kx > 0) lv.bells.push({ x:kx*TS+4, y:12*TS+2, w:24, h:26, used:false, t:0 });
+    }
+  }
 
   /* «Толпа на перемене»: досыпаем завучей на свободные куски земли */
   if(mod("crowd") && !mod("empty")){
@@ -778,7 +942,7 @@ function newGame(){
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
            item:null, buff:{ soda:0, gum:0, pass:0 }, shield:false,
-           combo:0, comboT:0, comboPts:0, bonusPts:0, allPies:0, toast:"", toastT:0, invul:0 };
+           combo:0, comboT:0, comboPts:0, bonusPts:0, allPies:0, toast:"", toastT:0, invul:0, freeze:0 };
 }
 function recKey(dk){ return dk + (curSrc === "seed" ? "_" + curSeed : ""); }
 function syncSeedUrl(){
@@ -831,6 +995,34 @@ function startRun(mode, src){
   loadLevel(0);
   if(st === "menu") sfx.door();
 }
+function enterHub(){
+  var keep = G ? G.pick : "normal";
+  curDiff = DIFFS[keep] || DIFFS.normal;
+  G = newGame();
+  G.pick = keep;
+  G.state = "hub";
+  G.level = buildLevel(HUB);
+  G.hintT = 260;
+  for(var i=0;i<LEVELS.length;i++) G.coinsMax += buildLevel(LEVELS[i]).coinTotal;
+  spawnPlayer();
+  G.cam = camTarget();
+}
+function hubNear(){
+  var st = G.level.stands, p = G.player, i;
+  if(!p) return null;
+  for(i=0;i<st.length;i++)
+    if(Math.abs((p.x + p.w/2) - (st[i].x + st[i].w/2)) < 34) return st[i];
+  return null;
+}
+function hubUse(){
+  var st = hubNear();
+  if(!st) return;
+  var info = STAND_INFO[st.kind];
+  sfx.box();
+  if(info.s === "start"){ startRun(G.pick); return; }
+  G.back = "hub";
+  G.state = info.s;
+}
 function loadLevel(i){
   G.levelIndex = i;
   G.level = buildLevel(LEVELS[i]);
@@ -856,12 +1048,16 @@ function camTarget(){
 
 function goOver(reason){
   G.state = "over"; G.overReason = reason;
+  var sc = runScore();
+  if(sc > STATS.best) STATS.best = sc;
+  statSave();
 }
 function toast(msg){ G.toast = msg; G.toastT = 110; }
 function useItem(){
   if(G.state !== "play" || !G.item || !G.player || G.player.dead) return;
   var k = G.item;
   G.item = null;
+  stat("items");
   if(k === "watch"){ G.timeLeft += 20; G.flash = 14; toast("+20 секунд"); }
   else if(k === "bag"){ G.shield = true; toast("Портфель наготове"); }
   else { G.buff[k] = ITEMS[k].t; toast(ITEMS[k].n + " действует"); }
@@ -887,7 +1083,7 @@ function killPlayer(silent){
   if(p.dead) return;
   p.dead = true; p.deadT = 0; p.vy = -7; p.vx = 0;
   if(!silent){
-    G.deaths++;                      // рестарт по R не считается падением
+    G.deaths++; stat("falls");       // рестарт по R не считается падением
     if(curDiff.deathCost){ G.timeLeft = Math.max(0, G.timeLeft - curDiff.deathCost); G.penalty = 75; }
   }
   G.shake = 14;
@@ -1000,7 +1196,7 @@ function updatePlayer(dt){
       if(dist < 120 && dist > 1){ c.x += dx/dist * 3.2; c.y += dy/dist * 3.2; }
     }
     if(overlap(p, c)){
-      c.got = true; G.coins++;
+      c.got = true; G.coins++; stat("pies"); stat("buns");
       G.combo = (G.comboT > 0) ? Math.min(5, G.combo + 1) : 1;
       G.comboT = 110;
       G.comboPts += 10 * (G.combo - 1);
@@ -1037,7 +1233,7 @@ function updatePlayer(dt){
     if(!overlap(body, en)) continue;
     if(G.buff.pass > 0 || G.invul > 0) continue;        // «Пропуск» и неуязвимость после удара
     if(!en.fly && !mod("nostomp") && p.vy > 1.2 && (p.y + p.h) - en.y < 18){
-      en.dead = true; en.deadT = 0;
+      en.dead = true; en.deadT = 0; stat("stomps");
       p.vy = -8.4; p.sqx = 1.2; p.sqy = 0.82;
       G.shake = 6;
       puff(en.x+en.w/2, en.y+en.h/2, 14, "#c8d6e5", 3);
@@ -1060,6 +1256,67 @@ function doorOpen(){
   if(mod("hungry") && coinsLeft() > 0) return false;
   return true;
 }
+function updateBalls(){
+  var lv = G.level, p = G.player, i, j, bl, en;
+  for(i=0;i<lv.balls.length;i++){
+    bl = lv.balls[i];
+    if(bl.cool > 0) bl.cool--;
+    bl.vy = Math.min(bl.vy + GRAV*0.8, 12);
+    bl.grounded = false;
+    bl.x += bl.vx; collideTiles(bl, "x");
+    if(bl.hitWall){ bl.vx = -bl.vxPrev * 0.55; bl.hitWall = false; }
+    bl.vxPrev = bl.vx;
+    bl.y += bl.vy; collideTiles(bl, "y");
+    if(bl.grounded){
+      if(bl.vyPrev > 3.5) bl.vy = -bl.vyPrev * 0.42;   // отскок
+      bl.vx *= 0.975;
+      if(Math.abs(bl.vx) < 0.05) bl.vx = 0;
+    }
+    bl.vyPrev = bl.vy;
+    bl.spin += bl.vx * 0.06;
+    if(bl.y > lv.h*TS + 60){                            // укатился в яму — возвращаем
+      bl.x = lv.start.x + 60; bl.y = lv.start.y; bl.vx = bl.vy = 0;
+    }
+    /* пинок игроком */
+    if(p && !p.dead && bl.cool <= 0 && overlap(p, bl)){
+      var dir = (p.x + p.w/2 < bl.x + bl.w/2) ? 1 : -1;
+      bl.vx = dir * (4 + Math.abs(p.vx) * 1.3);
+      bl.vy = -3.4;
+      bl.cool = 8;
+      puff(bl.x+10, bl.y+18, 5, "#ffffff", 1.6);
+      tone(320, 0.07, "square", 0.05, 120);
+    }
+    /* мяч сбивает завуча */
+    if(Math.abs(bl.vx) > 2.4){
+      for(j=0;j<lv.enemies.length;j++){
+        en = lv.enemies[j];
+        if(en.dead || !overlap(bl, en)) continue;
+        en.dead = true; en.deadT = 0; stat("stomps");
+        G.bonusPts += 20;
+        G.shake = 7;
+        bl.vx *= -0.5;
+        puff(en.x+13, en.y+14, 16, "#c8d6e5", 3.4);
+        toast("ГОООЛ! +20");
+        sfx.stomp();
+      }
+    }
+  }
+}
+function ringBell(){
+  var lv = G.level, p = G.player, i, bl;
+  for(i=0;i<lv.bells.length;i++){
+    bl = lv.bells[i];
+    if(bl.used || !p) continue;
+    if(Math.abs((p.x + p.w/2) - (bl.x + bl.w/2)) > 40) continue;
+    bl.used = true; bl.t = 30;
+    G.freeze = 260;
+    G.flash = 10;
+    toast("Ты нажал звонок! Все замерли");
+    sfx.bell();
+    return true;
+  }
+  return false;
+}
 function tickGlass(){
   var lv = G.level, k, parts;
   for(k in lv.crack){
@@ -1076,9 +1333,11 @@ function tickGlass(){
 }
 function updateEnemies(){
   var lv = G.level, i;
+  if(G.freeze > 0) G.freeze--;
   for(i=0;i<lv.enemies.length;i++){
     var e = lv.enemies[i];
     if(e.dead){ e.deadT++; continue; }
+    if(G.freeze > 0) continue;                         // звонок: все замерли
     e.hitWall = false;
     e.anim += Math.abs(e.vx) * 0.2;
     e.dir = e.vx > 0 ? 1 : -1;
@@ -1126,7 +1385,7 @@ function updateParts(){
 
 function nextLevel(){
   if(coinsLeft() === 0 && G.level.coinTotal > 0){
-    G.bonusPts += 50; G.allPies++;
+    G.bonusPts += 50; G.allPies++; stat("clean");
     toast("Все пирожки на уровне! +50");
   }
   sfx.door();
@@ -1142,9 +1401,13 @@ function runScore(){ return Math.round(runPoints() * modMult()); }
 function finishRun(){
   G.state = "win";
   sfx.win();
+  stat("runs");
+  if(curDiff.oneLife) stat("hardRuns");
   var used = curDiff.time - G.timeLeft;
   var best = bestScore(recKey(curDiff.key));
   var sc = runScore();
+  if(sc > STATS.best) STATS.best = sc;
+  statSave();
   if(!best || sc > (best.score || 0)){
     G.record = true;
     try{ localStorage.setItem("peremena_best_" + recKey(curDiff.key),
@@ -1172,6 +1435,7 @@ function update(dtSec){
     if(G.buff.gum > 0) G.buff.gum--;
     if(G.buff.pass > 0) G.buff.pass--;
     tickGlass();
+    updateBalls();
     G.timeLeft -= dtSec;
     if(G.timeLeft <= 0){
       G.timeLeft = 0; goOver("bell"); sfx.bell(); G.shake = 20;
@@ -1179,6 +1443,11 @@ function update(dtSec){
     updateMovers();
     updatePlayer(dtSec);
     updateEnemies();
+    updateParts();
+    G.cam += (camTarget() - G.cam) * 0.14;
+  } else if(G.state === "hub"){
+    updateMovers();
+    updatePlayer(dtSec);
     updateParts();
     G.cam += (camTarget() - G.cam) * 0.14;
   } else if(G.state === "clear"){
@@ -1215,26 +1484,40 @@ function shadowText(str, x, y, size, col, align){
   text(str, x, y, size, col, align);
 }
 
-function drawBackground(cam){
-  var g = ctx.createLinearGradient(0,0,0,VH);
-  g.addColorStop(0, "#3d7ec4");
-  g.addColorStop(0.45, "#7cc0ea");
-  g.addColorStop(1, "#cfeaf7");
-  ctx.fillStyle = g; ctx.fillRect(0,0,VW,VH);
+function hsh(i){ var x = Math.sin(i*127.1 + 11.3) * 43758.5453; return x - Math.floor(x); }
+function bgLoop(cam, par, step, fn){        // ряд объектов с параллаксом
+  var off = -cam*par, first = Math.floor(-off/step) - 1, i;
+  for(i = first; i < first + Math.ceil(VW/step) + 3; i++) fn(i*step + off, i);
+}
+function poster(x, y, w, h, str, col){
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  rrect(x, y, w, h, 3); ctx.fill();
+  ctx.fillStyle = col || "#c0392b";
+  ctx.fillRect(x+4, y+4, w-8, 3);
+  ctx.save();
+  ctx.font = "700 9px 'Segoe UI', system-ui, Arial, sans-serif";
+  ctx.textAlign = "center"; ctx.fillStyle = "#2b3850";
+  var words = str.split(" "), line = "", lines = [], k;
+  for(k=0;k<words.length;k++){
+    var test = line ? line + " " + words[k] : words[k];
+    if(ctx.measureText(test).width > w-8 && line){ lines.push(line); line = words[k]; }
+    else line = test;
+  }
+  lines.push(line);
+  for(k=0;k<lines.length && k<3;k++) ctx.fillText(lines[k], x+w/2, y+20+k*10);
+  ctx.restore();
+}
 
-  /* солнце */
+function decoYard(cam){
+  var i, cx2, cy2;
   ctx.save();
   ctx.globalAlpha = 0.85;
   var sx = 690 - cam*0.05, sy = 78;
   var sg = ctx.createRadialGradient(sx,sy,10,sx,sy,90);
-  sg.addColorStop(0,"rgba(255,246,190,.95)");
-  sg.addColorStop(1,"rgba(255,246,190,0)");
+  sg.addColorStop(0,"rgba(255,246,190,.95)"); sg.addColorStop(1,"rgba(255,246,190,0)");
   ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx,sy,90,0,6.2832); ctx.fill();
   ctx.fillStyle = "#fff4bd"; ctx.beginPath(); ctx.arc(sx,sy,26,0,6.2832); ctx.fill();
   ctx.restore();
-
-  /* облака */
-  var i, cx2, cy2;
   ctx.fillStyle = "rgba(255,255,255,.75)";
   for(i=0;i<7;i++){
     cx2 = ((i*260 + G.tick*0.25 - cam*0.15) % 1300) - 150;
@@ -1244,42 +1527,230 @@ function drawBackground(cam){
     ctx.arc(cx2-24,cy2+8,18,0,6.2832); ctx.arc(cx2+6,cy2-14,18,0,6.2832);
     ctx.fill();
   }
-
-  /* школа вдалеке */
-  ctx.save();
-  ctx.translate(-cam*0.35, 0);
-  ctx.fillStyle = "#5f7fa8";
-  for(i=0;i<5;i++){
-    var bx = i*380 - 60, bw = 250, bh = 190;
-    ctx.fillRect(bx, VH-150-bh, bw, bh);
-    ctx.fillStyle = "#4e6b91";
-    ctx.fillRect(bx-14, VH-150-bh-18, bw+28, 22);
+  bgLoop(cam, 0.35, 380, function(x, i){
+    ctx.fillStyle = "#5f7fa8";
+    ctx.fillRect(x, VH-340, 250, 190);
+    ctx.fillStyle = "#4e6b91"; ctx.fillRect(x-14, VH-358, 278, 22);
     ctx.fillStyle = "rgba(255,240,180,.55)";
     for(var wy=0; wy<4; wy++) for(var wx=0; wx<5; wx++)
-      ctx.fillRect(bx+22+wx*44, VH-150-bh+26+wy*42, 26, 26);
-    ctx.fillStyle = "#5f7fa8";
-  }
-  ctx.restore();
+      ctx.fillRect(x+22+wx*44, VH-314+wy*42, 26, 26);
+  });
+  ctx.fillStyle = "rgba(210,236,247,.5)"; ctx.fillRect(0, VH-150, VW, 150);
+  bgLoop(cam, 0.6, 170, function(x, i){
+    var ty = VH-120;
+    ctx.fillStyle = "#6b4a2f"; ctx.fillRect(x-6, ty, 12, 70);
+    ctx.fillStyle = (i%2) ? "#3f9b5a" : "#358a4f";
+    ctx.beginPath(); ctx.arc(x, ty-6, 34, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(x-26, ty+10, 24, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+26, ty+10, 24, 0, 6.2832); ctx.fill();
+  });
+}
 
-  ctx.fillStyle = "rgba(210,236,247,.5)";
-  ctx.fillRect(0, VH-150, VW, 150);
+function decoHall(cam, th){
+  ctx.fillStyle = "#3e5a75"; ctx.fillRect(0, 0, VW, VH-120);
+  ctx.fillStyle = "#4d6d8c"; ctx.fillRect(0, VH-260, VW, 140);
+  bgLoop(cam, 0.25, 260, function(x){          // лампы на потолке
+    ctx.fillStyle = "#c9d6e3"; ctx.fillRect(x, 26, 86, 9);
+    var lg = ctx.createRadialGradient(x+43, 40, 4, x+43, 40, 90);
+    lg.addColorStop(0, "rgba(255,246,200,.35)"); lg.addColorStop(1, "rgba(255,246,200,0)");
+    ctx.fillStyle = lg; ctx.fillRect(x-47, 30, 180, 120);
+  });
+  bgLoop(cam, 0.45, 300, function(x, i){       // двери кабинетов
+    ctx.fillStyle = "#6b4a2f"; rrect(x, VH-320, 74, 170, 4); ctx.fill();
+    ctx.fillStyle = "#7d5b3c"; rrect(x+5, VH-315, 64, 160, 3); ctx.fill();
+    ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(x+62, VH-232, 3.5, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = "#e8eef7"; rrect(x+22, VH-306, 30, 18, 2); ctx.fill();
+    text(String(101 + (Math.abs(i)%18)), x+37, VH-293, 11, "#2b3850", "center", 700);
+  });
+  bgLoop(cam, 0.55, 150, function(x, i){       // шкафчики
+    if(Math.abs(i) % 2) return;
+    ctx.fillStyle = "#5e7f9c"; rrect(x, VH-250, 58, 100, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x+3, VH-247, 52, 8);
+    ctx.strokeStyle = "rgba(0,0,0,.28)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x+29, VH-246); ctx.lineTo(x+29, VH-156); ctx.stroke();
+    ctx.fillStyle = "#2c3a49";
+    ctx.fillRect(x+8, VH-238, 12, 3); ctx.fillRect(x+38, VH-238, 12, 3);
+  });
+  bgLoop(cam, 0.45, 640, function(x, i){       // объявления
+    poster(x + 120, VH-330, 96, 58, th.signs[Math.abs(i) % th.signs.length]);
+  });
+  ctx.fillStyle = "rgba(20,32,48,.35)"; ctx.fillRect(0, VH-150, VW, 150);
+}
 
-  /* деревья */
+function decoCanteen(cam, th){
+  ctx.fillStyle = "#c8a887"; ctx.fillRect(0, 0, VW, VH-130);
+  bgLoop(cam, 0.2, 48, function(x, i){         // кафельная стена
+    for(var r=0;r<4;r++){
+      ctx.fillStyle = ((Math.abs(i)+r) % 2) ? "#e6d3ba" : "#dcc6a9";
+      ctx.fillRect(x, 40 + r*46, 44, 42);
+    }
+  });
+  bgLoop(cam, 0.45, 520, function(x, i){       // раздача
+    ctx.fillStyle = "#9aa7b4"; rrect(x, VH-300, 260, 26, 4); ctx.fill();
+    ctx.fillStyle = "#7d8b99"; ctx.fillRect(x+8, VH-274, 244, 124);
+    ctx.fillStyle = "#d9534f";
+    ctx.beginPath(); ctx.ellipse(x+70, VH-308, 26, 12, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = "#e8a33d";
+    ctx.beginPath(); ctx.ellipse(x+150, VH-308, 22, 10, 0, 0, 6.2832); ctx.fill();
+    poster(x + 30, VH-420, 110, 64, th.signs[Math.abs(i) % th.signs.length], "#2f8f5b");
+  });
+  bgLoop(cam, 0.6, 210, function(x){           // столы с подносами
+    ctx.fillStyle = "#b9834a"; rrect(x, VH-206, 150, 12, 3); ctx.fill();
+    ctx.fillStyle = "#8a6135"; ctx.fillRect(x+16, VH-194, 10, 56); ctx.fillRect(x+124, VH-194, 10, 56);
+    ctx.fillStyle = "#cfd8e3"; rrect(x+20, VH-216, 42, 10, 2); ctx.fill();
+    rrect(x+86, VH-216, 42, 10, 2); ctx.fill();
+  });
+  ctx.fillStyle = "rgba(90,60,40,.3)"; ctx.fillRect(0, VH-150, VW, 150);
+}
+
+function decoGym(cam, th){
+  ctx.fillStyle = "#6d7f96"; ctx.fillRect(0, 0, VW, VH-130);
+  ctx.fillStyle = "#7d8fa6"; ctx.fillRect(0, VH-280, VW, 150);
+  bgLoop(cam, 0.35, 240, function(x, i){       // шведская стенка
+    if(Math.abs(i) % 2) return;
+    ctx.fillStyle = "#c9a06a"; ctx.fillRect(x, VH-360, 10, 210); ctx.fillRect(x+96, VH-360, 10, 210);
+    ctx.fillStyle = "#d9b47e";
+    for(var r=0;r<9;r++) ctx.fillRect(x+10, VH-350 + r*23, 86, 7);
+  });
+  bgLoop(cam, 0.45, 620, function(x, i){       // кольцо и канат
+    ctx.fillStyle = "#e8eef7"; ctx.fillRect(x+40, VH-330, 60, 6);
+    ctx.strokeStyle = "#e0663a"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(x+70, VH-310, 18, 0, Math.PI); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1.5;
+    for(var q=0;q<5;q++){
+      ctx.beginPath(); ctx.moveTo(x+52+q*9, VH-296); ctx.lineTo(x+70, VH-270); ctx.stroke();
+    }
+    ctx.strokeStyle = "#b9834a"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(x+300, 0); ctx.lineTo(x+300 + Math.sin(G.tick*0.02)*10, VH-170); ctx.stroke();
+    poster(x + 400, VH-320, 104, 60, th.signs[Math.abs(i) % th.signs.length], "#2f6f9f");
+  });
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, VH-146); ctx.lineTo(VW, VH-146); ctx.stroke();
+  ctx.fillStyle = "rgba(120,140,165,.35)"; ctx.fillRect(0, VH-142, VW, 142);
+}
+
+function decoLibrary(cam, th){
+  ctx.fillStyle = "#4a3427"; ctx.fillRect(0, 0, VW, VH-120);
+  bgLoop(cam, 0.4, 176, function(x, i){        // стеллажи с книгами
+    ctx.fillStyle = "#5d4430"; ctx.fillRect(x, VH-390, 160, 250);
+    ctx.fillStyle = "#3e2d20"; ctx.fillRect(x+6, VH-384, 148, 238);
+    for(var r=0;r<5;r++){
+      var by = VH-380 + r*47;
+      ctx.fillStyle = "#6b4f38"; ctx.fillRect(x+6, by+38, 148, 6);
+      for(var q=0;q<11;q++){
+        var h = 22 + hsh(i*100 + r*20 + q)*14;
+        ctx.fillStyle = ["#c0392b","#2f8f5b","#2f6f9f","#c9a04c","#7a4ec4","#b05a3a"][Math.floor(hsh(i*50+r*7+q)*6)];
+        ctx.fillRect(x+10 + q*13, by + 38 - h, 10, h);
+      }
+    }
+  });
+  bgLoop(cam, 0.3, 430, function(x, i){        // лампы
+    ctx.fillStyle = "#2b3850"; ctx.fillRect(x+60, 0, 4, 40);
+    ctx.fillStyle = "#e8c23a";
+    ctx.beginPath(); ctx.moveTo(x+38, 66); ctx.lineTo(x+86, 66); ctx.lineTo(x+70, 40); ctx.lineTo(x+54, 40); ctx.closePath(); ctx.fill();
+    var lg = ctx.createRadialGradient(x+62, 74, 6, x+62, 74, 120);
+    lg.addColorStop(0, "rgba(255,226,150,.35)"); lg.addColorStop(1, "rgba(255,226,150,0)");
+    ctx.fillStyle = lg; ctx.fillRect(x-58, 60, 240, 190);
+    poster(x + 150, VH-300, 100, 56, th.signs[Math.abs(i) % th.signs.length], "#8a6134");
+  });
+  ctx.fillStyle = "rgba(40,26,18,.4)"; ctx.fillRect(0, VH-140, VW, 140);
+}
+
+function decoBoiler(cam, th){
+  ctx.fillStyle = "#1b2430"; ctx.fillRect(0, 0, VW, VH-120);
+  bgLoop(cam, 0.25, 64, function(x, i){        // кирпич
+    for(var r=0;r<7;r++){
+      ctx.fillStyle = (Math.abs(i+r) % 2) ? "#243040" : "#202b39";
+      ctx.fillRect(x + (r%2 ? 16 : 0), 30 + r*52, 60, 48);
+    }
+  });
+  bgLoop(cam, 0.45, 1, function(){});
+  ctx.fillStyle = "#4a5568";                   // трубы вдоль стены
+  ctx.fillRect(0, VH-330, VW, 22); ctx.fillRect(0, VH-250, VW, 14);
+  ctx.fillStyle = "#5d6b80";
+  ctx.fillRect(0, VH-330, VW, 6); ctx.fillRect(0, VH-250, VW, 4);
+  bgLoop(cam, 0.45, 190, function(x, i){
+    ctx.fillStyle = "#39465a"; ctx.fillRect(x, VH-336, 16, 34); ctx.fillRect(x+90, VH-256, 14, 26);
+    ctx.strokeStyle = "#8a97ab"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x+8, VH-360, 11, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-2, VH-360); ctx.lineTo(x+18, VH-360);
+    ctx.moveTo(x+8, VH-370); ctx.lineTo(x+8, VH-350); ctx.stroke();
+    if(Math.abs(i) % 3 === 0){
+      ctx.fillStyle = "#ffd166";
+      ctx.beginPath(); ctx.arc(x+140, VH-300, 7, 0, 6.2832); ctx.fill();
+      var lg = ctx.createRadialGradient(x+140, VH-300, 3, x+140, VH-300, 90);
+      lg.addColorStop(0, "rgba(255,209,102,.3)"); lg.addColorStop(1, "rgba(255,209,102,0)");
+      ctx.fillStyle = lg; ctx.fillRect(x+50, VH-390, 180, 180);
+    }
+  });
+  bgLoop(cam, 0.5, 900, function(x, i){
+    poster(x + 200, VH-300, 108, 60, th.signs[Math.abs(i) % th.signs.length], "#c0392b");
+  });
+  ctx.fillStyle = "rgba(10,14,20,.45)"; ctx.fillRect(0, VH-140, VW, 140);
+}
+
+function decoRoof(cam, th){
+  var i;
   ctx.save();
-  ctx.translate(-cam*0.6, 0);
-  for(i=0;i<14;i++){
-    var tx = i*170 + 40, ty = VH-120;
-    ctx.fillStyle = "#6b4a2f"; ctx.fillRect(tx-6, ty, 12, 70);
-    ctx.fillStyle = i%2 ? "#3f9b5a" : "#358a4f";
-    ctx.beginPath(); ctx.arc(tx, ty-6, 34, 0, 6.2832); ctx.fill();
-    ctx.beginPath(); ctx.arc(tx-26, ty+10, 24, 0, 6.2832); ctx.fill();
-    ctx.beginPath(); ctx.arc(tx+26, ty+10, 24, 0, 6.2832); ctx.fill();
-  }
+  var sx = 640 - cam*0.04, sy = 150;
+  var sg = ctx.createRadialGradient(sx,sy,10,sx,sy,140);
+  sg.addColorStop(0,"rgba(255,214,150,.95)"); sg.addColorStop(1,"rgba(255,180,120,0)");
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx,sy,140,0,6.2832); ctx.fill();
+  ctx.fillStyle = "#ffd9a0"; ctx.beginPath(); ctx.arc(sx,sy,34,0,6.2832); ctx.fill();
   ctx.restore();
+  bgLoop(cam, 0.2, 150, function(x, i){        // дальний город
+    var h = 60 + hsh(i)*120;
+    ctx.fillStyle = "#3d3f6b"; ctx.fillRect(x, VH-180-h, 110, h+60);
+    ctx.fillStyle = "rgba(255,220,150,.35)";
+    for(var wy=0; wy<Math.floor(h/26); wy++) for(var wx=0; wx<3; wx++)
+      if(hsh(i*30+wy*3+wx) > 0.45) ctx.fillRect(x+16+wx*32, VH-170-h+wy*26, 16, 14);
+  });
+  bgLoop(cam, 0.45, 260, function(x, i){       // антенны и вентиляция
+    ctx.strokeStyle = "#39455c"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x+30, VH-150); ctx.lineTo(x+30, VH-260); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x+14, VH-250); ctx.lineTo(x+46, VH-250);
+    ctx.moveTo(x+18, VH-232); ctx.lineTo(x+42, VH-232); ctx.stroke();
+    ctx.fillStyle = "#4a5568"; rrect(x+120, VH-200, 56, 50, 5); ctx.fill();
+    ctx.fillStyle = "#6a7788"; rrect(x+128, VH-208, 40, 10, 4); ctx.fill();
+    if(Math.abs(i) % 2 === 0){
+      ctx.fillStyle = "#39455c";
+      ctx.beginPath(); ctx.arc(x+210, VH-186, 18, Math.PI*1.1, Math.PI*0.1); ctx.fill();
+    }
+  });
+  for(i=0;i<4;i++){                            // голуби
+    var bx = ((i*300 + G.tick*0.6 - cam*0.5) % 1400) - 100;
+    var by = 90 + Math.sin(G.tick*0.05 + i)*12 + i*24;
+    ctx.strokeStyle = "rgba(30,36,58,.65)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx-7, by); ctx.quadraticCurveTo(bx, by-6, bx+7, by);
+    ctx.stroke();
+  }
+  bgLoop(cam, 0.5, 760, function(x, i){
+    poster(x + 300, VH-250, 104, 58, th.signs[Math.abs(i) % th.signs.length], "#2f6f9f");
+  });
+  ctx.fillStyle = "rgba(120,110,150,.28)"; ctx.fillRect(0, VH-140, VW, 140);
+}
+
+function drawBackground(cam){
+  var th = (G.level && G.level.theme) ? G.level.theme : THEMES.yard;
+  var g = ctx.createLinearGradient(0,0,0,VH);
+  g.addColorStop(0, th.sky[0]);
+  g.addColorStop(0.45, th.sky[1]);
+  g.addColorStop(1, th.sky[2]);
+  ctx.fillStyle = g; ctx.fillRect(0,0,VW,VH);
+  if(th.deco === "yard") decoYard(cam, th);
+  else if(th.deco === "hall") decoHall(cam, th);
+  else if(th.deco === "canteen") decoCanteen(cam, th);
+  else if(th.deco === "gym") decoGym(cam, th);
+  else if(th.deco === "library") decoLibrary(cam, th);
+  else if(th.deco === "boiler") decoBoiler(cam, th);
+  else decoRoof(cam, th);
 }
 
 function drawTiles(cam){
-  var lv = G.level;
+  var lv = G.level, th = lv.theme;
   var c0 = Math.max(0, Math.floor(cam/TS)-1), c1 = Math.min(lv.w-1, Math.ceil((cam+VW)/TS));
   for(var cy=0; cy<lv.h; cy++) for(var cx=c0; cx<=c1; cx++){
     var ch = lv.grid[cy][cx];
@@ -1287,7 +1758,7 @@ function drawTiles(cam){
     var x = cx*TS, y = cy*TS;
     var openTop = !(cy>0 && isSolidChar(lv.grid[cy-1][cx]));
     if(ch === "#"){
-      ctx.fillStyle = "#8a5a35"; ctx.fillRect(x,y,TS,TS);
+      ctx.fillStyle = th.ground; ctx.fillRect(x,y,TS,TS);
       ctx.fillStyle = "rgba(0,0,0,.12)";
       ctx.fillRect(x, y+TS-6, TS, 6);
       ctx.fillStyle = "rgba(255,255,255,.07)";
@@ -1295,10 +1766,15 @@ function drawTiles(cam){
       ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.lineWidth = 1;
       ctx.strokeRect(x+0.5, y+0.5, TS-1, TS-1);
       if(openTop){
-        ctx.fillStyle = "#4fb05e"; ctx.fillRect(x, y, TS, 9);
-        ctx.fillStyle = "#63c972"; ctx.fillRect(x, y, TS, 4);
-        ctx.fillStyle = "#4fb05e";
-        ctx.fillRect(x+4, y-4, 4, 5); ctx.fillRect(x+15, y-6, 4, 7); ctx.fillRect(x+25, y-3, 4, 4);
+        ctx.fillStyle = th.cap; ctx.fillRect(x, y, TS, 9);
+        ctx.fillStyle = th.cap2; ctx.fillRect(x, y, TS, 4);
+        if(th.grass){
+          ctx.fillStyle = th.cap;
+          ctx.fillRect(x+4, y-4, 4, 5); ctx.fillRect(x+15, y-6, 4, 7); ctx.fillRect(x+25, y-3, 4, 4);
+        } else {
+          ctx.fillStyle = "rgba(0,0,0,.16)";
+          ctx.fillRect(x + (cx % 2 ? 0 : TS/2), y+4, 2, 5);
+        }
       }
     } else {
       var key = cx + "," + cy;
@@ -1306,8 +1782,8 @@ function drawTiles(cam){
       var shake = lv.crack[key] ? Math.sin(G.tick*0.9) * 1.6 : 0;
       ctx.save();
       if(lv.crack[key]) ctx.globalAlpha = 0.55 + 0.45*Math.sin(G.tick*0.7);
-      ctx.fillStyle = "#c08b4a"; ctx.fillRect(x, y + shake, TS, 14);
-      ctx.fillStyle = "#e0a95f"; ctx.fillRect(x, y + shake, TS, 5);
+      ctx.fillStyle = th.plank; ctx.fillRect(x, y + shake, TS, 14);
+      ctx.fillStyle = th.plank2; ctx.fillRect(x, y + shake, TS, 5);
       ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.fillRect(x, y+11 + shake, TS, 3);
       ctx.restore();
     }
@@ -1327,6 +1803,84 @@ function drawMovers(){
   }
 }
 
+function drawStands(){
+  var st = G.level.stands, i, s2, info, near = hubNear();
+  for(i=0;i<st.length;i++){
+    s2 = st[i]; info = STAND_INFO[s2.kind];
+    var hot = (near === s2);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(s2.x+22, s2.y+s2.h, 22, 5, 0, 0, 6.2832); ctx.fill();
+    /* тумба */
+    ctx.fillStyle = "#3d5570"; rrect(s2.x+4, s2.y+34, 36, 38, 4); ctx.fill();
+    ctx.fillStyle = "#4e6b8c"; rrect(s2.x+7, s2.y+37, 30, 10, 3); ctx.fill();
+    /* щит-вывеска */
+    ctx.fillStyle = hot ? "#fff6de" : "#e8eef7";
+    rrect(s2.x-4, s2.y-4, 52, 40, 6); ctx.fill();
+    ctx.strokeStyle = info.c; ctx.lineWidth = hot ? 3 : 2;
+    rrect(s2.x-4, s2.y-4, 52, 40, 6); ctx.stroke();
+    ctx.save(); ctx.translate(s2.x+22, s2.y+16);
+    if(s2.kind === "S"){
+      ctx.fillStyle = "#3aa0e8"; rrect(-9, -6, 18, 16, 4); ctx.fill();
+      ctx.strokeStyle = "#8a6134"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(0,-12); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,-14,3,0,6.2832); ctx.stroke();
+    } else if(s2.kind === "I"){
+      drawItemIcon("soda", -9, 2, 0.7); drawItemIcon("watch", 9, 2, 0.7);
+    } else if(s2.kind === "M"){
+      ctx.fillStyle = "#ffb98a"; rrect(-11, -8, 22, 18, 3); ctx.fill();
+      ctx.fillStyle = "#7a4a2a"; ctx.fillRect(-7, -4, 14, 2); ctx.fillRect(-7, 0, 14, 2); ctx.fillRect(-7, 4, 9, 2);
+    } else if(s2.kind === "T"){
+      ctx.fillStyle = "#ffd166";
+      ctx.beginPath(); ctx.moveTo(-8,-9); ctx.lineTo(8,-9); ctx.lineTo(4,3); ctx.lineTo(-4,3); ctx.closePath(); ctx.fill();
+      ctx.fillRect(-3, 3, 6, 5); ctx.fillRect(-8, 8, 16, 4);
+    } else {
+      ctx.fillStyle = "#2f8f5b"; rrect(-10, -12, 20, 26, 3); ctx.fill();
+      ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(5, 2, 2.5, 0, 6.2832); ctx.fill();
+    }
+    ctx.restore();
+    text(info.n, s2.x+22, s2.y-12, 11, hot ? "#ffffff" : "rgba(220,235,255,.75)", "center", 700);
+    if(hot){
+      ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.12);
+      text(isTouch ? "жми «ПРЕДМЕТ»" : "E — открыть", s2.x+22, s2.y+90, 12, info.c, "center", 700);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function drawBalls(){
+  var bs = G.level.balls, i, bl;
+  for(i=0;i<bs.length;i++){
+    bl = bs[i];
+    ctx.fillStyle = "rgba(0,0,0,.2)";
+    ctx.beginPath(); ctx.ellipse(bl.x+10, bl.y+21, 10, 3, 0, 0, 6.2832); ctx.fill();
+    ctx.save();
+    ctx.translate(bl.x+10, bl.y+10); ctx.rotate(bl.spin);
+    ctx.fillStyle = "#f0f4fa"; ctx.beginPath(); ctx.arc(0,0,10,0,6.2832); ctx.fill();
+    ctx.fillStyle = "#2b3850";
+    ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(5,-2); ctx.lineTo(3,4); ctx.lineTo(-3,4); ctx.lineTo(-5,-2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(43,56,80,.5)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(0,0,10,0,6.2832); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawBells(){
+  var bs = G.level.bells, i, bl;
+  for(i=0;i<bs.length;i++){
+    bl = bs[i];
+    if(bl.t > 0) bl.t--;
+    ctx.fillStyle = "#4a5568"; rrect(bl.x, bl.y, bl.w, bl.h, 4); ctx.fill();
+    ctx.fillStyle = "#39455c"; rrect(bl.x+2, bl.y+2, bl.w-4, bl.h-4, 3); ctx.fill();
+    ctx.fillStyle = bl.used ? "#6b7280" : (G.tick % 40 < 20 ? "#ff8080" : "#e0553f");
+    ctx.beginPath(); ctx.arc(bl.x+bl.w/2, bl.y+bl.h/2 - (bl.t > 0 ? 1 : 3), 7, 0, 6.2832); ctx.fill();
+    text("ЗВОНОК", bl.x+bl.w/2, bl.y-6, 8, bl.used ? "rgba(200,220,255,.4)" : "#ffd166", "center", 700);
+    if(!bl.used && G.player && Math.abs((G.player.x+10) - (bl.x+bl.w/2)) < 40){
+      ctx.globalAlpha = 0.6 + 0.4*Math.sin(G.tick*0.12);
+      text(isTouch ? "жми «ПРЕДМЕТ»" : "E — нажать", bl.x+bl.w/2, bl.y+bl.h+16, 10, "#ffd166", "center", 700);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
 function drawLockers(){
   var ls = G.level.lockers, i, l;
   for(i=0;i<ls.length;i++){
@@ -1447,6 +2001,11 @@ function drawDoor(){
 
 function drawEnemy(e){
   if(e.dead && e.deadT > 26) return;
+  if(G.freeze > 0 && !e.dead){
+    ctx.globalAlpha = 0.7 + 0.3*Math.sin(G.tick*0.2);
+    text("!", e.x + e.w/2, e.y - 8, 16, "#9fd8ff", "center");
+    ctx.globalAlpha = 1;
+  }
   ctx.save();
   ctx.translate(e.x + e.w/2, e.y + e.h/2);
   if(e.dead){ ctx.globalAlpha = Math.max(0, 1 - e.deadT/26); ctx.scale(1, 0.35); }
@@ -1512,9 +2071,12 @@ function drawPlayer(){
     G.parts.push({ x:p.x+6, y:p.y+18, vx:-p.vx*0.2, vy:rnd(-0.4,0.4), life:16, max:16,
                    col:"#ff6b6b", s:3, g:0.02 });
   var blink = p.dead ? 1 : (p.spawnT > 0 && (G.tick%6<3) ? 0.45 : 1);
-  drawCharacter(p, "#3aa0e8", blink);
+  drawCharacter(p, skinBy(curSkin), blink);
 }
-function drawCharacter(p, shirt, alpha){
+function drawCharacter(p, sk, alpha){
+  if(typeof sk === "string") sk = { shirt:sk, hair:"#4a3524", acc:"none" };
+  var shirt = sk.shirt;
+  if(sk.ghost) alpha *= 0.72;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(p.x + p.w/2, p.y + p.h);
@@ -1549,9 +2111,40 @@ function drawCharacter(p, shirt, alpha){
   /* голова */
   ctx.fillStyle = "#f6d3ac";
   ctx.beginPath(); ctx.arc(0, -33, 9, 0, 6.2832); ctx.fill();
-  ctx.fillStyle = "#4a3524";
+  ctx.fillStyle = sk.hair || "#4a3524";
   ctx.beginPath(); ctx.arc(0, -35, 9, Math.PI*0.95, Math.PI*2.05); ctx.fill();
   ctx.fillRect(-9, -36, 18, 3);
+  if(sk.acc === "cap"){                                   // кепка задом наперёд
+    ctx.fillStyle = "#e0553f";
+    ctx.beginPath(); ctx.arc(0, -37, 9.5, Math.PI, 0); ctx.fill();
+    ctx.fillRect(-9.5, -38, 19, 4);
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(-13*p.dir, -38, 5, 4);
+  } else if(sk.acc === "bow"){                            // бант
+    ctx.fillStyle = "#ff6b9d";
+    ctx.beginPath(); ctx.arc(-7, -40, 4, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(1, -40, 4, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = "#e0447d"; ctx.beginPath(); ctx.arc(-3, -40, 2, 0, 6.2832); ctx.fill();
+  } else if(sk.acc === "glasses"){                        // очки
+    ctx.strokeStyle = "#23303f"; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(-3.5 + p.dir*1.5, -33, 3.6, 0, 6.2832);
+    ctx.arc(4 + p.dir*1.5, -33, 3.6, 0, 6.2832);
+    ctx.moveTo(0.1 + p.dir*1.5, -33); ctx.lineTo(0.4 + p.dir*1.5, -33);
+    ctx.stroke();
+  } else if(sk.acc === "whistle"){                        // свисток на шнурке
+    ctx.strokeStyle = "#f0f4fa"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(0, -28, 7, 0.2, Math.PI-0.2); ctx.stroke();
+    ctx.fillStyle = "#ffd166"; rrect(-2, -22, 6, 4, 1.5); ctx.fill();
+  } else if(sk.acc === "tie"){                            // галстук
+    ctx.fillStyle = "#d1443f";
+    ctx.beginPath();
+    ctx.moveTo(-2, -26); ctx.lineTo(2, -26); ctx.lineTo(1, -14); ctx.lineTo(-1, -14);
+    ctx.closePath(); ctx.fill();
+  } else if(sk.acc === "ribbon"){                         // лента выпускника
+    ctx.fillStyle = "#ffd166";
+    ctx.save(); ctx.translate(0, -18); ctx.rotate(-0.5);
+    ctx.fillRect(-4, -12, 7, 22); ctx.restore();
+  }
   /* глаза */
   ctx.fillStyle = "#23303f";
   if(p.dead){
@@ -1803,12 +2396,14 @@ function drawMenu(){
            { size:15, sel: curSrc === "seed", selBorder:"#9fd8ff" });
   uiButton("seed_new", 498, 238, 180, 44, "НОВЫЙ СИД", null, { size:15 });
 
-  uiButton("mods_open", 122, 296, 350, 48,
-           modCount() ? "МОДИФИКАТОРЫ: " + modCount() : "МОДИФИКАТОРЫ",
+  uiButton("mods_open", 122, 296, 224, 48,
+           modCount() ? "МОДЫ: " + modCount() : "МОДИФИКАТОРЫ",
            "очки × " + modMult().toFixed(2),
-           { size:15, sel: modCount() > 0, selBorder:"#ffb98a" });
-  uiButton("play", 496, 296, 182, 48, "ИГРАТЬ", null,
-           { size:24, sel:true, selBorder:"#8bffcf" });
+           { size:14, sel: modCount() > 0, selBorder:"#ffb98a" });
+  uiButton("hub_open", 356, 296, 150, 48, "ХОЛЛ", "скины и булки",
+           { size:16, selBorder:"#ff9ff3" });
+  uiButton("play", 516, 296, 162, 48, "ИГРАТЬ", null,
+           { size:22, sel:true, selBorder:"#8bffcf" });
 
   text(isTouch ? "Слева — бежать, справа — прыжок и кнопка предмета"
                : "← →  бежать   ПРОБЕЛ  прыжок   E  предмет   R  заново   P  пауза",
@@ -1876,6 +2471,118 @@ function drawMods(){
   uiButton("mods_back", 416, 428, 170, 36, "НАЗАД", null, { size:14, sel:true });
 }
 
+function drawBun(x, y, s){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = "#e8a33d"; ctx.beginPath(); ctx.ellipse(0,0,11,8,0,0,6.2832); ctx.fill();
+  ctx.fillStyle = "#f7c66b"; ctx.beginPath(); ctx.ellipse(-1,-2,9,6,0,0,6.2832); ctx.fill();
+  ctx.restore();
+}
+
+function drawHubHUD(){
+  ctx.fillStyle = "rgba(9,16,32,.52)";
+  rrect(10, 10, 260, 44, 12); ctx.fill();
+  drawBun(36, 32, 0.95);
+  text(STATS.buns + " булок", 56, 39, 20, "#ffd98a", "left");
+  text("ШКОЛЬНЫЙ ХОЛЛ", VW/2, 30, 17, "#ffffff", "center");
+  text("собранные пирожки — это булки на скины", VW/2, 46, 11, "rgba(220,235,255,.65)", "center", 600);
+  uiButton("back", VW-158, 12, 146, 40, "В МЕНЮ", null, { size:14 });
+  if(G.hintT > 0){
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, G.hintT/60);
+    text(G.level.hint, VW/2, VH-40, 14, "#dbeaff", "center", 600);
+    ctx.restore();
+  }
+}
+
+function drawSkins(){
+  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  panel(780, 450);
+  shadowText("СКИНЫ", VW/2, 44, 24, "#ff9ff3", "center");
+  drawBun(VW/2 - 58, 63, 0.8);
+  text(STATS.buns + " булок", VW/2 - 42, 70, 16, "#ffd98a", "left");
+  var i, sk, cx, cy, on, has;
+  for(i=0;i<SKINS.length;i++){
+    sk = SKINS[i];
+    cx = 30 + (i % 3) * 248;
+    cy = 86 + Math.floor(i/3) * 110;
+    on = (curSkin === sk.k); has = owns(sk.k);
+    ctx.fillStyle = on ? "rgba(139,255,207,.16)" : (has ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.05)");
+    rrect(cx, cy, 236, 104, 12); ctx.fill();
+    ctx.strokeStyle = on ? "#8bffcf" : (has ? "rgba(159,216,255,.5)" : "rgba(255,255,255,.16)");
+    ctx.lineWidth = on ? 2.6 : 1.4;
+    rrect(cx, cy, 236, 104, 12); ctx.stroke();
+    ctx.save();
+    if(!has) ctx.globalAlpha = 0.45;
+    drawCharacter({ x:cx+20, y:cy+36, w:20, h:28, dir:1, grounded:true, vx:0,
+                    anim:0, sqx:1, sqy:1, dead:false }, sk, 1);
+    ctx.restore();
+    text(sk.n, cx+66, cy+34, 15, has ? "#ffffff" : "rgba(230,240,255,.7)", "left", 700);
+    text(sk.d, cx+66, cy+52, 10.5, "rgba(200,220,255,.55)", "left", 600);
+    if(on) text("НАДЕТ", cx+66, cy+78, 14, "#8bffcf", "left", 700);
+    else if(has) text("нажми, чтобы надеть", cx+66, cy+78, 12, "#9fd8ff", "left", 600);
+    else {
+      drawBun(cx+74, cy+72, 0.6);
+      text(sk.price + "", cx+88, cy+78, 14,
+           STATS.buns >= sk.price ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
+    }
+    G.buttons.push({ id:"skin_" + sk.k, x:cx, y:cy, w:236, h:104 });
+  }
+  uiButton("back", 315, 424, 170, 36, "НАЗАД", null, { size:14, sel:true });
+}
+
+function drawItemInfo(){
+  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  panel(700, 410);
+  shadowText("ПРЕДМЕТЫ", VW/2, 74, 24, "#8bffcf", "center");
+  text("Лежат в школьных шкафчиках. В руках помещается один — " +
+       (isTouch ? "жми кнопку «ПРЕДМЕТ»" : "применяй клавишей E"),
+       VW/2, 96, 12, "rgba(210,228,255,.7)", "center", 600);
+  var i, k, y;
+  for(i=0;i<ITEM_KEYS.length;i++){
+    k = ITEM_KEYS[i]; y = 124 + i*50;
+    ctx.fillStyle = "rgba(255,255,255,.06)";
+    rrect(120, y, 560, 42, 10); ctx.fill();
+    drawItemIcon(k, 148, y+21, 1);
+    text(ITEMS[k].n, 178, y+19, 15, "#ffffff", "left", 700);
+    text(ITEMS[k].d, 178, y+35, 11, "rgba(200,220,255,.6)", "left", 600);
+    ctx.fillStyle = ITEMS[k].c;
+    rrect(660, y+14, 8, 14, 3); ctx.fill();
+  }
+  uiButton("back", 315, 388, 170, 36, "НАЗАД", null, { size:14, sel:true });
+}
+
+function drawRecords(){
+  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  panel(720, 420);
+  shadowText("РЕКОРДЫ", VW/2, 68, 24, "#9fd8ff", "center");
+  var rows = [
+    ["Забегов до конца", STATS.runs],
+    ["Из них хардкор", STATS.hardRuns],
+    ["Пирожков собрано", STATS.pies],
+    ["Булок в кармане", STATS.buns],
+    ["Завучей затоптано", STATS.stomps],
+    ["Предметов использовано", STATS.items],
+    ["Уровней подчистую", STATS.clean],
+    ["Падений", STATS.falls]
+  ], i, y;
+  for(i=0;i<rows.length;i++){
+    y = 100 + i*26;
+    text(rows[i][0], 120, y, 13, "rgba(220,235,255,.75)", "left", 600);
+    text(String(rows[i][1]), 380, y, 14, "#ffffff", "right", 700);
+  }
+  text("ЛУЧШИЕ ЗАБЕГИ", 430, 100, 13, "#ffd166", "left", 700);
+  var modes = [["normal","Обычный"],["hard","Хардкор"]], bb;
+  for(i=0;i<modes.length;i++){
+    bb = bestScore(modes[i][0]);
+    text(modes[i][1], 430, 130 + i*44, 13, "rgba(220,235,255,.75)", "left", 600);
+    text(bb && bb.score ? bb.score + " очков · " + fmtTime(bb.time) : "ещё не пройден",
+         430, 148 + i*44, 13, bb ? "#8bffcf" : "rgba(200,220,255,.4)", "left", 700);
+  }
+  text("Лучший счёт за забег: " + STATS.best, 430, 240, 13, "#ffd98a", "left", 700);
+  text("Скинов куплено: " + STATS.owned.length + " из " + SKINS.length, 430, 262, 13, "#ff9ff3", "left", 700);
+  uiButton("back", 320, 388, 170, 36, "НАЗАД", null, { size:14, sel:true });
+}
+
 function drawBanner(){
   var k = 1 - Math.abs(G.banner - 35)/35;
   ctx.save();
@@ -1897,8 +2604,9 @@ function rankOf(used, coins, deaths){
 }
 
 function endButtons(y){
-  uiButton("again", 140, y, 240, 64, "ЕЩЁ РАЗ", null, { size:22, selBg:"rgba(255,255,255,.2)" });
-  uiButton("menu", 420, y, 240, 64, "В МЕНЮ", null, { size:22 });
+  uiButton("again", 120, y, 200, 60, "ЕЩЁ РАЗ", null, { size:19, selBg:"rgba(255,255,255,.2)" });
+  uiButton("to_hub", 330, y, 160, 60, "В ХОЛЛ", null, { size:17, selBorder:"#ff9ff3" });
+  uiButton("menu", 500, y, 180, 60, "В МЕНЮ", null, { size:19 });
 }
 
 function drawWin(){
@@ -1965,7 +2673,10 @@ function render(){
     drawTiles(cam);
     drawMovers();
     drawSpikes();
+    if(G.state === "hub") drawStands();
+    drawBells();
     drawLockers();
+    drawBalls();
     drawPads();
     drawCoins();
     drawKey();
@@ -1990,8 +2701,12 @@ function render(){
   }
 
   syncPad();
-  if(G.state === "menu"){ drawMenu(); return; }
-  if(G.state === "mods"){ drawMenu(); drawMods(); return; }
+  if(G.state === "menu"){ drawMenu(); drawToast(); return; }
+  if(G.state === "mods"){ if(G.back === "hub"){ drawHubHUD(); } else drawMenu(); drawMods(); return; }
+  if(G.state === "skins"){ drawHubHUD(); drawSkins(); drawToast(); return; }
+  if(G.state === "iteminfo"){ drawHubHUD(); drawItemInfo(); return; }
+  if(G.state === "records"){ drawHubHUD(); drawRecords(); return; }
+  if(G.state === "hub"){ drawHubHUD(); drawToast(); return; }
   drawHUD();
   if(G.state === "clear") drawBanner();
   else if(G.state === "win") drawWin();
@@ -2060,10 +2775,13 @@ window.PEREMENA_DEBUG = {
   setSeed: setSeed,
   mods: function(){ return modOn; },
   mult: modMult, points: runPoints, score: runScore,
-  jumpV: jumpV, runMax: runMax, doorOpen: doorOpen, useItem: useItem
+  jumpV: jumpV, runMax: runMax, doorOpen: doorOpen, useItem: useItem,
+  stats: function(){ return STATS; }, skin: function(){ return curSkin; },
+  near: function(){ return hubNear(); }, hub: enterHub, ring: ringBell
 };
 
 modLoad();
+statLoad();
 (function initSeed(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
