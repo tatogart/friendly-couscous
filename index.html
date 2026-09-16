@@ -974,9 +974,37 @@ function devDigit(d){
     }
   }
 }
+function wipeProgress(){               // стираем всё, что игра держит в браузере
+  try{
+    var keys = [], i, k;
+    for(i=0;i<localStorage.length;i++){
+      k = localStorage.key(i);
+      if(k && k.indexOf("peremena_") === 0) keys.push(k);
+    }
+    for(i=0;i<keys.length;i++) localStorage.removeItem(keys[i]);
+  }catch(e){}
+  STATS = { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0,
+            falls:0, best:0, owned:["pupil"] };
+  curSkin = "pupil";
+  modOn = {};
+  devGod = false;
+  curSrc = "classic";
+  curSeed = randomSeed();
+  applySource();
+}
+function devConfirm(id, msg){          // опасное просит нажать дважды
+  if(G.confirmId === id && G.confirmT > 0){
+    G.confirmId = null; G.confirmT = 0;
+    return true;
+  }
+  G.confirmId = id; G.confirmT = 180;
+  toast(msg);
+  sfx.hurt();
+  return false;
+}
 function devDo(id){
   var i, lv = G.level;
-  G.cheated = true;
+  if(id !== "dev_reset" && id !== "dev_wipe") G.cheated = true;
   if(id === "dev_buns100"){ STATS.buns += 100; statSave(); toast("+100 булок"); }
   else if(id === "dev_buns1000"){ STATS.buns += 1000; statSave(); toast("+1000 булок"); }
   else if(id === "dev_skins"){
@@ -1010,10 +1038,17 @@ function devDo(id){
   }
   else if(id === "dev_shield"){ G.shield = true; toast("Портфель выдан"); }
   else if(id === "dev_reset"){
+    if(!devConfirm(id, "Сбросить статистику? Нажми ещё раз")) return;
     STATS.buns = 0; STATS.pies = 0; STATS.runs = 0; STATS.hardRuns = 0;
     STATS.stomps = 0; STATS.items = 0; STATS.clean = 0; STATS.falls = 0; STATS.best = 0;
     STATS.owned = ["pupil"]; curSkin = "pupil";
     statSave(); toast("Статистика сброшена");
+  }
+  else if(id === "dev_wipe"){
+    if(!devConfirm(id, "Стереть ВЕСЬ прогресс? Нажми ещё раз")) return;
+    wipeProgress();
+    toast("Прогресс стёрт полностью");
+    sfx.bell();
   }
 }
 
@@ -1343,7 +1378,7 @@ function puff(x, y, n, col, spd){
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
            mx:-999, my:-999, stateT:0, lastState:"", wipe:0, scoreShown:0,
-           secretHits:0, secretT:0, code:"", codeBad:0, cheated:false,
+           secretHits:0, secretT:0, code:"", codeBad:0, cheated:false, confirmId:null, confirmT:0,
            coins:0, coinsMax:0, deaths:0, timeLeft:timeLimit(),
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
@@ -1867,6 +1902,7 @@ function update(dtSec){
   if(G.hotT > 0) G.hotT--;
   if(G.secretT > 0) G.secretT--;
   if(G.codeBad > 0) G.codeBad--;
+  if(G.confirmT > 0){ G.confirmT--; if(!G.confirmT) G.confirmId = null; }
   if(G.state !== G.lastState){ G.lastState = G.state; G.stateT = 0; }
   G.stateT++;
   if(G.wipe > 0) G.wipe--;
@@ -3497,10 +3533,14 @@ function drawAdmin(){
   uiButton("dev_shield",574, 246, 172, 42, "Выдать портфель", null, { size:13 });
 
   text("ОПАСНОЕ", 40, 312, 10, "rgba(255,140,140,.8)", "left", 700);
-  uiButton("dev_god",   40, 318, 340, 42, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
-           { size:14, sel: devGod, selBorder:"#8bffcf" });
-  uiButton("dev_reset", 396, 318, 350, 42, "Сбросить всю статистику", null,
-           { size:14, selBorder:"#ff8080" });
+  uiButton("dev_god",   40, 318, 226, 42, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
+           { size:13, sel: devGod, selBorder:"#8bffcf" });
+  uiButton("dev_reset", 282, 318, 226, 42,
+           (G.confirmId === "dev_reset" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Сбросить статистику",
+           null, { size:13, sel: G.confirmId === "dev_reset" && G.confirmT > 0, selBorder:"#ff8080" });
+  uiButton("dev_wipe",  524, 318, 222, 42,
+           (G.confirmId === "dev_wipe" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Стереть весь прогресс",
+           null, { size:13, sel: G.confirmId === "dev_wipe" && G.confirmT > 0, selBorder:"#ff8080" });
 
   text("булок " + STATS.buns + "   ·   скинов " + STATS.owned.length + " из " + SKINS.length +
        "   ·   в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
