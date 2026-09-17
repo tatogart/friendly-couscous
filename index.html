@@ -507,10 +507,13 @@ var SKINS = [
   { k:"grad",  n:"Выпускник",    d:"лента через плечо",      shirt:"#1f2b45", hair:"#3a2a1c", acc:"ribbon",  price:320 },
   { k:"ghost", n:"Призрак школы",d:"поговаривают, он с 90-х",shirt:"#d7e6ff", hair:"#a9c2e0", acc:"none", ghost:true, price:450 }
 ];
-var STATS = { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0, falls:0,
-              best:0, levels:0, lessonsOk:0, lessonsBad:0, goals:0, bells:0,
-              maxFloor:0, bestMult:0, fastRun:0,
-              owned:["pupil"], achs:[], wear:{}, stage:{} };
+function freshStats(){            // единственное место, где перечислены счётчики
+  return { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0, falls:0,
+           best:0, levels:0, lessonsOk:0, lessonsBad:0, goals:0, bells:0,
+           maxFloor:0, bestMult:0, fastRun:0,
+           owned:["pupil"], achs:[], wear:{}, stage:{} };
+}
+var STATS = freshStats();
 
 /* ================== ДОСТИЖЕНИЯ ==================
    Условие — счётчик из STATS, награда — булки. */
@@ -1059,8 +1062,7 @@ function wipeProgress(){               // стираем всё, что игра
     }
     for(i=0;i<keys.length;i++) localStorage.removeItem(keys[i]);
   }catch(e){}
-  STATS = { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0,
-            falls:0, best:0, owned:["pupil"] };
+  STATS = freshStats();
   curSkin = "pupil";
   modOn = {};
   devGod = false;
@@ -1113,11 +1115,22 @@ function devDo(id){
     toast(devGod ? "Бессмертие включено" : "Бессмертие выключено");
   }
   else if(id === "dev_shield"){ G.shield = true; toast("Портфель выдан"); }
+  else if(id === "dev_achs"){
+    var n = 0;
+    for(i=0;i<ACHS.length;i++) if(!achDone(ACHS[i])){
+      STATS.achs.push(ACHS[i].k); STATS.buns += ACHS[i].r; n++;
+    }
+    statSave(); toast(n ? "Выдано достижений: " + n : "Все уже собраны");
+  }
+  else if(id === "dev_wear"){
+    for(i=0;i<SKINS.length;i++)
+      STATS.wear[SKINS[i].k] = Math.max(skinWear(SKINS[i].k), STAGE_NEED[2]);
+    statSave(); toast("Все этапы скинов открыты");
+  }
+  else if(id === "dev_mods"){ modOn = {}; modSave(); applySource(); toast("Модификаторы сняты"); }
   else if(id === "dev_reset"){
     if(!devConfirm(id, "Сбросить статистику? Нажми ещё раз")) return;
-    STATS.buns = 0; STATS.pies = 0; STATS.runs = 0; STATS.hardRuns = 0;
-    STATS.stomps = 0; STATS.items = 0; STATS.clean = 0; STATS.falls = 0; STATS.best = 0;
-    STATS.owned = ["pupil"]; curSkin = "pupil";
+    STATS = freshStats(); curSkin = "pupil";
     statSave(); toast("Статистика сброшена");
   }
   else if(id === "dev_wipe"){
@@ -2946,6 +2959,7 @@ function drawSlot(){
 
 function drawAch(){
   if(G.achT <= 0 || !G.achShow) return;
+  if(G.state === "admin" || G.state === "code") return;      // панель показывает счёт сама
   var a = G.achShow, k = Math.min(1, (200 - G.achT) / 12), x = VW/2 - 190, y = 16 - (1-k)*40;
   ctx.save();
   ctx.globalAlpha = Math.min(1, G.achT/30) * k;
@@ -2965,7 +2979,8 @@ function drawAch(){
 }
 function drawToast(){
   if(G.toastT <= 0 || !G.toast) return;
-  var y = (G.state === "admin" || G.state === "code") ? 8 : VH-100;   // на панели — сверху
+  if(G.state === "admin") return;                 // там подсказка печатается в строке состояния
+  var y = (G.state === "code") ? 8 : VH-100;
   ctx.save();
   ctx.globalAlpha = Math.min(1, G.toastT/30);
   ctx.font = "700 15px 'Segoe UI', system-ui, Arial, sans-serif";
@@ -3165,7 +3180,7 @@ function drawMenu(){
   panel(700, 344, "rgba(255,209,102,.9)");
   gradText("ПЕРЕМЕНА", VW/2, 116, 38, "#fff3c4", "#f0a83a");
   text("успей пробежать школу за перемену", VW/2, 134, 11, "#9fd8ff", "center", 600);
-  G.buttons.push({ id:"secret", x:280, y:90, w:240, h:36 });      // четыре нажатия — вход для разработчика
+  G.buttons.push({ id:"secret", x:268, y:86, w:264, h:42 });      // четыре нажатия — вход для разработчика
 
   uiButton("mode_normal", 122, 146, 178, 56, "ОБЫЧНЫЙ", DIFFS.normal.tag,
            { sel: G.pick === "normal", size:16, subSize:11 });
@@ -3197,6 +3212,72 @@ function drawMenu(){
   iconBtn("sound", 648, 82, 36, "sound");
   if(!isTouch) iconBtn("full", 648, 122, 36, "full");
   if(devOn) uiButton("dev_open", 68, 82, 66, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
+}
+
+function modCell(m, x, y, w, h){
+  var on = mod(m.k), hot = (G.hotBtn === "mod_" + m.k && G.hotT > 0);
+  var hv = hovered(x, y, w, h);
+  if(hv) G.uiHover = true;
+  var tint = m.m > 0 ? "#ffb98a" : "#8bffcf";
+  ctx.fillStyle = hot ? "rgba(255,255,255,.3)"
+                      : (on ? "rgba(255,255,255,.16)" : (hv ? "rgba(255,255,255,.12)" : "rgba(255,255,255,.06)"));
+  rrect(x, y, w, h, 12); ctx.fill();
+  ctx.strokeStyle = on ? tint : "rgba(255,255,255,.18)";
+  ctx.lineWidth = on ? 2.4 : 1.4;
+  rrect(x, y, w, h, 12); ctx.stroke();
+  ctx.fillStyle = on ? tint : "rgba(255,255,255,.12)";
+  rrect(x+11, y+h/2-10, 20, 20, 6); ctx.fill();
+  if(on){
+    ctx.strokeStyle = "#14202c"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x+16, y+h/2); ctx.lineTo(x+20, y+h/2+4); ctx.lineTo(x+27, y+h/2-5);
+    ctx.stroke();
+  }
+  text(m.n, x+42, y+h/2-2, 14, on ? "#ffffff" : "rgba(230,240,255,.8)", "left", 700);
+  text(m.d, x+42, y+h/2+12, 10.5, "rgba(200,220,255,.55)", "left", 600);
+  text((m.m > 0 ? "+" : "") + m.m + "%", x+w-12, y+h/2+5, 14, tint, "right", 700);
+  G.buttons.push({ id:"mod_" + m.k, x:x, y:y, w:w, h:h });
+}
+
+function modList(kind){
+  var out = [], i, g;
+  for(i=0;i<MODS.length;i++){
+    g = MODS[i].grp || (MODS[i].m > 0 ? "hard" : "easy");
+    if(g === kind) out.push(MODS[i]);
+  }
+  return out;
+}
+function modCountOf(kind){
+  var list = modList(kind), n = 0, i;
+  for(i=0;i<list.length;i++) if(mod(list[i].k)) n++;
+  return n;
+}
+function drawMods(){
+  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  panel(780, 468);
+  gradText("МОДИФИКАТОРЫ", VW/2, 34, 24, "#fff3c4", "#f0a83a");
+  text("ОЧКИ × " + modMult().toFixed(2) +
+       (modCount() ? "   ·   включено " + modCount() + " из " + MODS.length : "   ·   ничего не включено"),
+       VW/2, 56, 15, modCount() ? "#ffb98a" : "rgba(200,220,255,.6)", "center");
+
+  var tab = G.modTab || "hard";
+  uiButton("tab_hard", 130, 66, 172, 32, "СЛОЖНЕЕ" + (modCountOf("hard") ? " · " + modCountOf("hard") : ""),
+           null, { size:13, sel: tab === "hard", selBorder:"#ffb98a" });
+  uiButton("tab_easy", 314, 66, 172, 32, "ПРОЩЕ" + (modCountOf("easy") ? " · " + modCountOf("easy") : ""),
+           null, { size:13, sel: tab === "easy", selBorder:"#8bffcf" });
+  uiButton("tab_class", 498, 66, 172, 32, "УРОКИ" + (modCountOf("class") ? " · " + modCountOf("class") : ""),
+           null, { size:13, sel: tab === "class", selBorder:"#9fd8ff" });
+
+  var list = modList(tab), i;
+  var rows = Math.max(1, Math.ceil(list.length / 2));
+  var top = 106, bottom = 414;                       // сетка сама ужимается под число карточек
+  var step = Math.min(46, (bottom - top) / rows);
+  var ch = Math.min(42, step - 4);
+  for(i=0;i<list.length;i++)
+    modCell(list[i], (i % 2) ? 400 : 30, top + Math.floor(i/2)*step, 350, ch);
+
+  uiButton("mods_clear", 214, 428, 170, 36, "ВСЁ ВЫКЛ", null, { size:14 });
+  uiButton("mods_back", 416, 428, 170, 36, "НАЗАД", null, { size:14, sel:true });
 }
 
 function drawBun(x, y, s){
@@ -3567,6 +3648,84 @@ function drawRecords(){
   uiButton("back", 320, 404, 170, 34, "НАЗАД", null, { size:14, sel:true });
 }
 
+function drawCode(){
+  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
+  panel(430, 372, "rgba(255,120,120,.9)");
+  gradText("ДОСТУП", VW/2, 104, 28, "#ffd9d9", "#e05050");
+  text("введи код разработчика", VW/2, 126, 12, "rgba(220,235,255,.7)", "center", 600);
+  var i;
+  for(i=0;i<4;i++){
+    ctx.fillStyle = i < G.code.length ? "#ffd166" : "rgba(255,255,255,.18)";
+    ctx.beginPath(); ctx.arc(VW/2 + (i-1.5)*30, 152, 8, 0, 6.2832); ctx.fill();
+  }
+  if(G.codeBad > 0){
+    ctx.globalAlpha = Math.min(1, G.codeBad/20);
+    text("неверный код", VW/2, 180, 13, "#ff8080", "center", 700);
+    ctx.globalAlpha = 1;
+  }
+  var keys = ["1","2","3","4","5","6","7","8","9","del","0","esc"];
+  for(i=0;i<keys.length;i++){
+    var kx = VW/2 - 125 + (i % 3) * 86;
+    var ky = 192 + Math.floor(i/3) * 54;
+    var lab = keys[i] === "del" ? "←" : (keys[i] === "esc" ? "ОТМЕНА" : keys[i]);
+    uiButton(keys[i] === "del" ? "code_del" : (keys[i] === "esc" ? "back" : "num_" + keys[i]),
+             kx, ky, 78, 46, lab, null, { size: keys[i] === "esc" ? 12 : 20 });
+  }
+}
+
+function devRow(label, y, col){                    // подпись над рядом кнопок
+  text(label, 40, y - 6, 10, col, "left", 700);
+}
+function drawAdmin(){
+  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 460, "rgba(255,120,120,.9)");
+  gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 44, 22, "#ffd9d9", "#e05050");
+  text("выданное здесь помечает забег: рекорд не сохранится",
+       VW/2, 64, 11, "rgba(220,235,255,.6)", "center", 600);
+
+  devRow("РЕСУРСЫ", 92, "rgba(255,185,138,.8)");
+  uiButton("dev_buns100",  40, 92, 220, 40, "+100 булок", null, { size:15 });
+  uiButton("dev_buns1000", 270, 92, 220, 40, "+1000 булок", null, { size:15 });
+  uiButton("dev_skins",    500, 92, 220, 40, "Открыть все скины", null, { size:14 });
+
+  devRow("ПРЕДМЕТ В РУКИ", 152, "rgba(139,255,207,.8)");
+  for(var i=0;i<ITEM_KEYS.length;i++)
+    uiButton("dev_item_" + ITEM_KEYS[i], 40 + i*146, 152, 136, 40,
+             ITEMS[ITEM_KEYS[i]].n, null, { size:13, sel: G.item === ITEM_KEYS[i] });
+
+  devRow("ЗАБЕГ", 212, "rgba(159,216,255,.8)");
+  uiButton("dev_time",   40, 212, 172, 40, "+60 секунд", null, { size:14 });
+  uiButton("dev_coins", 218, 212, 172, 40, "Все пирожки", null, { size:14 });
+  uiButton("dev_skip",  396, 212, 172, 40, "Пропустить этаж", null, { size:13 });
+  uiButton("dev_shield",574, 212, 172, 40, "Выдать портфель", null, { size:13 });
+
+  devRow("ПРОГРЕСС", 272, "rgba(255,209,102,.8)");
+  uiButton("dev_achs", 40, 272, 226, 40,
+           "Достижения " + STATS.achs.length + "/" + ACHS.length, null, { size:13 });
+  uiButton("dev_wear", 282, 272, 226, 40, "Открыть этапы скинов", null, { size:13 });
+  uiButton("dev_mods", 524, 272, 222, 40,
+           modCount() ? "Снять моды · " + modCount() : "Модов нет", null, { size:13 });
+
+  devRow("ОПАСНОЕ", 332, "rgba(255,140,140,.8)");
+  uiButton("dev_god",   40, 332, 226, 40, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
+           { size:13, sel: devGod, selBorder:"#8bffcf" });
+  uiButton("dev_reset", 282, 332, 226, 40,
+           (G.confirmId === "dev_reset" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Сбросить статистику",
+           null, { size:13, sel: G.confirmId === "dev_reset" && G.confirmT > 0, selBorder:"#ff8080" });
+  uiButton("dev_wipe",  524, 332, 222, 40,
+           (G.confirmId === "dev_wipe" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Стереть весь прогресс",
+           null, { size:13, sel: G.confirmId === "dev_wipe" && G.confirmT > 0, selBorder:"#ff8080" });
+
+  if(G.toastT > 0 && G.toast)
+    text(G.toast, VW/2, 396, 13, "#ffd98a", "center", 700);
+  else
+    text("булок " + STATS.buns + "   ·   скинов " + STATS.owned.length + " из " + SKINS.length +
+         "   ·   в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
+         (G.cheated ? "   ·   забег помечен" : ""),
+         VW/2, 396, 12, "rgba(220,235,255,.65)", "center", 600);
+  uiButton("back", 300, 408, 200, 42, "ЗАКРЫТЬ", null, { size:16, sel:true });
+}
+
 function drawBanner(){
   var k = 1 - Math.abs(G.banner - 35)/35;
   ctx.save();
@@ -3706,7 +3865,10 @@ function render(){
     drawToast(); drawAch(); drawCursor();
     return;
   }
-  if(G.state === "mods"){ if(G.back === "hub"){ drawHubHUD(); } else drawMenu(); drawMods(); return; }
+  if(G.state === "mods"){
+    if(G.back === "hub"){ drawHubHUD(); } else drawMenu();
+    drawMods(); drawToast(); drawAch(); drawCursor(); return;
+  }
   if(G.state === "skins"){ drawHubHUD(); drawSkins(); drawToast(); drawAch(); return; }
   if(G.state === "iteminfo"){ drawHubHUD(); drawItemInfo(); return; }
   if(G.state === "records"){ drawHubHUD(); drawRecords(); return; }
@@ -3791,7 +3953,8 @@ window.PEREMENA_DEBUG = {
   lesson: startLesson, answer: lessonAnswer, quiz: function(){ return QUIZ; },
   ach: achCheck, achs: function(){ return ACHS; },
   stage: skinStage, maxStage: skinMaxStage, setStage: setStage,
-  end: lessonEnd
+  end: lessonEnd,
+  dev: function(){ return { on: devOn, god: devGod }; }, devDo: devDo, devOpen: devOpen
 };
 
 modLoad();
