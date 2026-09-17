@@ -284,8 +284,58 @@ SKINS = [
     ("spy",   "Завуч",         "костюм и галстук",    (44, 62, 88),   (58, 42, 30),  "tie",     240),
     ("grad",  "Выпускник",     "лента через плечо",   (35, 48, 68),   (74, 53, 36),  "sash",    320),
     ("ghost", "Призрак школы", "поговаривают, он с 90-х", (200, 214, 229), (230, 238, 247), "none", 450),
+    ("cook",  "Повариха",      "белый колпак и половник", (245, 245, 240), (190, 150, 110), "chef",  520),
+    ("guard", "Охранник",      "рация и суровый взгляд",  (60, 70, 90),   (40, 40, 44),    "radio", 640),
+    ("dir",   "Директор",      "костюм, которого все боятся", (30, 34, 52), (120, 120, 130), "tie", 800),
+    ("king",  "Король перемен", "корона за все достижения", (250, 200, 60), (120, 80, 30),  "crown", 1200),
 ]
 SKIN_BY_KEY = {s[0]: s for s in SKINS}
+
+# ================== УЛУЧШЕНИЯ ==================
+# (ключ, имя, что даёт, сколько уровней, цена первого уровня, надбавка за уровень)
+UPGRADES = [
+    ("boots",   "Кроссовки",       "+6% к скорости бега",             3, 120, 110),
+    ("springs", "Пружины в кедах", "+5% к высоте прыжка",             3, 150, 130),
+    ("watch",   "Наручные часы",   "+12 секунд к перемене",           3, 140, 120),
+    ("magnet",  "Магнитик",        "пирожки тянутся с 60 пикселей",   3, 130, 120),
+    ("wallet",  "Кошелёк",         "+25% булок за собранные пирожки", 3, 180, 160),
+    ("bag",     "Крепкий портфель", "каждый этаж начинаешь со щитом", 1, 400, 0),
+    ("pockets", "Большие карманы", "носишь два предмета сразу",       1, 500, 0),
+    ("revive",  "Второе дыхание",  "одно падение за забег не считается", 1, 700, 0),
+]
+UPG_BY_KEY = {u[0]: u for u in UPGRADES}
+
+
+def upg(key):
+    return SAVE.stats["upg"].get(key, 0)
+
+
+def upg_price(key):
+    u = UPG_BY_KEY[key]
+    have = upg(key)
+    if have >= u[3]:
+        return None
+    return u[4] + u[5] * have
+
+
+# ================== ЗАДАНИЯ ДНЯ ==================
+# (ключ, текст, счётчик забега, сколько нужно, награда)
+TASK_POOL = [
+    ("pies20",  "Собрать 20 пирожков",        "pies",    20, 60),
+    ("pies40",  "Собрать 40 пирожков",        "pies",    40, 110),
+    ("stomp5",  "Затоптать 5 завучей",        "stomps",  5,  70),
+    ("levels3", "Пройти 3 этажа",             "levels",  3,  80),
+    ("levels6", "Пройти 6 этажей",            "levels",  6,  140),
+    ("lesson2", "Сдать 2 урока",              "lessons", 2,  70),
+    ("clean1",  "Пройти этаж подчистую",      "clean",   1,  90),
+    ("nofall1", "Добежать до выхода без падений", "nofall", 1, 150),
+    ("keys1",   "Найти ключ",                 "keys",    1,  60),
+    ("lockers3", "Открыть 3 шкафчика",        "lockers", 3,  70),
+    ("goal1",   "Забить гол мячом",           "goals",   1,  80),
+    ("combo3",  "Собрать серию ×3",           "combo",   3,  80),
+]
+TASK_BY_KEY = {t[0]: t for t in TASK_POOL}
+
 
 # ================== ДОСТИЖЕНИЯ ==================
 # (ключ, имя, описание, счётчик, сколько нужно, награда в булках)
@@ -331,6 +381,12 @@ ACHS = [
     ("veteran",  "Ветеран школы",    "пройти 200 уровней",          "levels",     200,  400),
     ("days3",    "Постоянный",       "заходить три дня подряд",     "days",       3,    90),
     ("days7",    "Каждую перемену",  "заходить неделю подряд",      "days",       7,    260),
+    ("shopper",  "Первая покупка",   "купить улучшение",            "upg_total",  1,    40),
+    ("tuned",    "Прокачанный",      "пять уровней улучшений",      "upg_total",  5,    120),
+    ("maxed",    "Всё своё ношу",    "выкупить все улучшения",      "upg_total",  18,   400),
+    ("tasker",   "Дежурный",         "выполнить 5 заданий дня",     "tasks_done", 5,    100),
+    ("tasker2",  "Староста",         "выполнить 25 заданий дня",    "tasks_done", 25,   300),
+    ("shopaholic", "Богатый ученик", "потратить 5000 булок",        "spent",      5000, 350),
 ]
 
 # ================== ВИКТОРИНА ==================
@@ -561,11 +617,16 @@ def fresh_stats():
             "fast_run": 0, "jumps": 0, "pads": 0, "lockers": 0, "keys": 0,
             "max_combo": 0, "quiz_ok": 0, "no_fall": 0, "glass": 0, "spent": 0,
             "seed_runs": 0, "end_runs": 0, "mod_run": 0, "days": 1, "last_day": "",
-            "owned": ["pupil"], "achs": [], "wear": {}}
+            "upg_total": 0, "tasks_done": 0, "bought": 0,
+            "owned": ["pupil"], "achs": [], "wear": {}, "upg": {}}
 
 
 def fresh_settings():
     return {"vol": 2, "shake": 2, "hints": 1, "fancy": 1}
+
+
+def fresh_daily():
+    return {"day": "", "reward": 0, "tasks": []}
 
 
 class Save(object):
@@ -579,6 +640,8 @@ class Save(object):
         self.skin = "pupil"
         self.seed = random_seed()
         self.src = "classic"
+        self.daily = fresh_daily()
+        self.start_item = None
         self.load()
 
     def load(self):
@@ -601,13 +664,22 @@ class Save(object):
             self.skin = "pupil"
         self.seed = clean_seed(raw.get("seed")) or random_seed()
         self.src = raw.get("src", "classic")
+        d = raw.get("daily")
+        if isinstance(d, dict):
+            self.daily = {"day": d.get("day", ""), "reward": int(d.get("reward", 0)),
+                          "tasks": [t for t in (d.get("tasks") or []) if t.get("k") in TASK_BY_KEY]}
+        it = raw.get("start_item")
+        self.start_item = it if it in ITEMS else None
+        self.stats["upg"] = {k: int(v) for k, v in (self.stats.get("upg") or {}).items()
+                             if k in UPG_BY_KEY}
 
     def save(self):
         try:
             with open(SAVE_PATH, "w", encoding="utf-8") as f:
                 json.dump({"stats": self.stats, "records": self.records,
                            "mods": sorted(self.mods.keys()), "settings": self.settings,
-                           "skin": self.skin, "seed": self.seed, "src": self.src},
+                           "skin": self.skin, "seed": self.seed, "src": self.src,
+                           "daily": self.daily, "start_item": self.start_item},
                           f, ensure_ascii=False)
         except Exception:
             pass
@@ -615,12 +687,22 @@ class Save(object):
     def day_streak(self):
         t = time.localtime()
         today = "%d-%d-%d" % (t.tm_year, t.tm_mon, t.tm_mday)
-        if self.stats["last_day"] == today:
-            return
-        y = time.localtime(time.time() - 86400)
-        yest = "%d-%d-%d" % (y.tm_year, y.tm_mon, y.tm_mday)
-        self.stats["days"] = self.stats["days"] + 1 if self.stats["last_day"] == yest else 1
-        self.stats["last_day"] = today
+        if self.stats["last_day"] != today:
+            y = time.localtime(time.time() - 86400)
+            yest = "%d-%d-%d" % (y.tm_year, y.tm_mon, y.tm_mday)
+            self.stats["days"] = self.stats["days"] + 1 if self.stats["last_day"] == yest else 1
+            self.stats["last_day"] = today
+        if self.daily.get("day") != today:          # новый день — новые задания
+            rnd = mulberry(hash_seed("zadaniya/" + today))
+            pool = list(TASK_POOL)
+            picked = []
+            for _ in range(3):
+                if not pool:
+                    break
+                picked.append(pool.pop(int(rnd() * len(pool))))
+            self.daily = {"day": today,
+                          "reward": 50 + 25 * min(7, self.stats["days"]),
+                          "tasks": [{"k": t[0], "have": 0, "taken": False} for t in picked]}
         self.save()
 
 
@@ -646,6 +728,25 @@ def owns(key):
 
 def rec_key(mode, src, seed):
     return mode + ("_" + seed if src == "seed" else "")
+
+
+# ================== ПАНЕЛЬ РАЗРАБОТЧИКА ==================
+# Кода в файле нет: сверяется тот же отпечаток, что и в браузерной версии,
+# так что код у обеих версий один и тот же.
+DEV_SALT = "peremena/zvonok/2026"
+DEV_HASH = "812e048c"
+
+
+def code_hash(text):
+    h = 2166136261
+    text = DEV_SALT + "|" + text + "|" + DEV_SALT
+    for ch in text:
+        h = imul(h ^ ord(ch), 16777619) & M32
+    for _ in range(150000):
+        h ^= h >> 15
+        h = imul(h, 2246822519) & M32
+        h = ((h << 7) | (h >> 25)) & M32
+    return "%08x" % h
 
 
 # ================== ЗВУК ==================
@@ -866,8 +967,11 @@ class Game(object):
         self.all_pies = 0
         self.has_key = False
         self.item = None
+        self.item2 = None
         self.shield = False
         self.invul = 0
+        self.revive_left = 0
+        self.task_seen = set()
         self.buff = {"soda": 0, "gum": 0, "pass": 0}
         self.parts, self.pops, self.rings, self.trail = [], [], [], []
         self.hit_stop = 0
@@ -881,11 +985,32 @@ class Game(object):
         self.lesson = None
         self.lesson_left = 0
         self.record = False
+        self.wallet_paid = 0
+        self.item2 = None
+        self.revive_left = 0
+        self.task_seen = set()
         self.best = None
         self.score_shown = 0.0
         self.erng = None
         self.mod_tab = "hard"
         self.rec_tab = "stats"
+        self.shop_tab = "skins"
+        self.shop_page = 0
+        self.dev_on = False
+        self.dev_god = False
+        self.cheated = False
+        self.code = ""
+        self.code_bad = 0
+        self.code_lock = 0
+        self.code_tries = 0
+        self.secret_hits = 0
+        self.secret_t = 0
+        self.confirm = None
+        self.confirm_t = 0
+        self.item2 = None
+        self.revive_left = 0
+        self.wallet_paid = 0
+        self.task_seen = set()
         self.ach_page = 0
         self.seed_in = ""
         self.buttons = []
@@ -907,19 +1032,23 @@ class Game(object):
             t *= 0.67
         if mod("long"):
             t *= 1.5
-        return int(round(t))
+        return int(round(t)) + 12 * upg("watch")
 
     def one_life(self):
         return self.diff.get("one_life") or mod("onelife")
 
     def run_max(self):
-        v = RUN_MAX * (1.18 if mod("sneak") else 1.0)
+        v = RUN_MAX * (1.18 if mod("sneak") else 1.0) * (1 + 0.06 * upg("boots"))
         if self.buff["soda"] > 0:
             v *= 1.45
         return v
 
     def jump_v(self):
-        return JUMP_V * (0.92 if mod("heavy") else 1.0) * (1.06 if mod("sneak") else 1.0)
+        return (JUMP_V * (0.92 if mod("heavy") else 1.0) * (1.06 if mod("sneak") else 1.0)
+                * (1 + 0.05 * upg("springs")))
+
+    def magnet_range(self):
+        return max(120 if mod("magnet") else 0, 60 * upg("magnet"))
 
     def can_double(self):
         return mod("dbljump") or self.buff["gum"] > 0
@@ -939,15 +1068,24 @@ class Game(object):
         self.deaths = 0
         self.combo = self.combo_t = self.combo_pts = self.bonus_pts = self.all_pies = 0
         self.item = None
+        self.item2 = None
         self.shield = False
         self.invul = 0
+        self.revive_left = upg("revive")
+        self.task_seen = set()
         self.buff = {"soda": 0, "gum": 0, "pass": 0}
         self.parts, self.pops, self.rings, self.trail = [], [], [], []
         self.record = False
+        self.wallet_paid = 0
         self.score_shown = 0.0
         self.time_left = float(self.time_limit())
         self.coins_max = sum(Level(d, self.diff).coin_total for d in self.levels)
         self.load_level(0)
+        if SAVE.start_item:                       # купленный в магазине стартовый предмет
+            self.item = SAVE.start_item
+            SAVE.start_item = None
+            SAVE.save()
+            self.toast("В руках: " + ITEMS[self.item]["n"])
         self.state = "play"
         if not mod("skipclass"):
             self.start_lesson()
@@ -959,7 +1097,7 @@ class Game(object):
         self.spawn_player()
 
     def spawn_player(self):
-        if mod("startbag"):
+        if mod("startbag") or upg("bag"):
             self.shield = True
         sx, sy = self.level.start
         self.player = {"x": float(sx), "y": float(sy), "w": 20, "h": 28, "vx": 0.0, "vy": 0.0,
@@ -985,8 +1123,16 @@ class Game(object):
 
     def next_level(self):
         self.stat("levels")
+        self.task_bump("levels")
         wear = SAVE.stats["wear"]
         wear[SAVE.skin] = wear.get(SAVE.skin, 0) + 1
+        if upg("wallet") and self.coins:                  # кошелёк доплачивает за этаж
+            extra = int(self.coins * 0.25 * upg("wallet")) - self.wallet_paid
+            if extra > 0:
+                SAVE.stats["buns"] += extra
+                self.wallet_paid += extra
+                self.pop(self.player["x"] + 10, self.player["y"] - 26,
+                         "+%d булок" % extra, GOLD, 13)
         if self.diff.get("endless") and self.floor > SAVE.stats["max_floor"]:
             SAVE.stats["max_floor"] = self.floor
         if int(mod_mult() * 100) > SAVE.stats["best_mult"]:
@@ -995,6 +1141,7 @@ class Game(object):
             self.bonus_pts += 50
             self.all_pies += 1
             self.stat("clean")
+            self.task_bump("clean")
             self.toast("Все пирожки на уровне! +50")
             self.pop(self.player["x"] + 10, self.player["y"] - 10, "+50 ЧИСТО", MINT, 15)
         SFX.door()
@@ -1032,6 +1179,7 @@ class Game(object):
             self.stat("seed_runs")
         if self.deaths == 0:
             self.stat("no_fall")
+            self.task_bump("nofall")
         if mod_count() >= 5:
             self.stat("mod_run")
         if (self.diff["time"] - self.time_left) < 300:
@@ -1042,7 +1190,7 @@ class Game(object):
         self.best = best
         if score > SAVE.stats["best"]:
             SAVE.stats["best"] = score
-        if not best or score > best.get("score", 0):
+        if not self.cheated and (not best or score > best.get("score", 0)):
             SAVE.records[key] = {"score": score, "time": self.diff["time"] - self.time_left}
             self.record = True
         self.save_and_check()
@@ -1077,6 +1225,179 @@ class Game(object):
     # ---------- статистика ----------
     def stat(self, key, n=1):
         SAVE.stats[key] = SAVE.stats.get(key, 0) + n
+
+    def task_bump(self, kind, n=1):
+        """Задания дня считаются по ходу забегов и копятся до полуночи."""
+        hit = False
+        for t in SAVE.daily.get("tasks", []):
+            tpl = TASK_BY_KEY.get(t["k"])
+            if not tpl or tpl[2] != kind or t["taken"]:
+                continue
+            before = t["have"]
+            if kind == "combo":
+                t["have"] = max(t["have"], n)
+            else:
+                t["have"] = min(tpl[3], t["have"] + n)
+            if before < tpl[3] <= t["have"]:
+                self.toast("Задание дня выполнено: " + tpl[1])
+                SFX.key()
+            hit = True
+        if hit:
+            SAVE.save()
+
+    def claim_task(self, key):
+        for t in SAVE.daily.get("tasks", []):
+            tpl = TASK_BY_KEY.get(t["k"])
+            if t["k"] != key or not tpl or t["taken"] or t["have"] < tpl[3]:
+                continue
+            t["taken"] = True
+            SAVE.stats["buns"] += tpl[4]
+            self.stat("tasks_done")
+            self.toast("+%d булок за задание" % tpl[4])
+            SFX.win()
+            self.save_and_check()
+            return
+
+    def dev_digit(self, d):
+        if self.code_lock > 0 or len(self.code) >= 4:
+            return
+        self.code += d
+        SFX.tone(600 + len(self.code) * 80, 0.05, "square", 0.25)
+        if len(self.code) < 4:
+            return
+        if code_hash(self.code) == DEV_HASH:
+            self.dev_on = True
+            self.state = "admin"
+            self.code = ""
+            self.code_tries = 0
+            self.toast("Доступ разработчика открыт")
+            SFX.win()
+        else:
+            self.code = ""
+            self.code_bad = 45
+            self.code_tries += 1
+            self.shake_by(10)
+            if self.code_tries >= 3:
+                self.code_tries = 0
+                self.code_lock = 600
+            SFX.hurt()
+
+    def dev_confirm(self, key, msg):
+        if self.confirm == key and self.confirm_t > 0:
+            self.confirm = None
+            self.confirm_t = 0
+            return True
+        self.confirm = key
+        self.confirm_t = 180
+        self.toast(msg)
+        SFX.hurt()
+        return False
+
+    def dev_do(self, what):
+        if what not in ("reset", "wipe"):
+            self.cheated = True
+        if what.startswith("buns"):
+            n = int(what[4:])
+            SAVE.stats["buns"] += n
+            SAVE.save()
+            self.toast("+%d булок" % n)
+        elif what == "skins":
+            for sk in SKINS:
+                if not owns(sk[0]):
+                    SAVE.stats["owned"].append(sk[0])
+            SAVE.save()
+            self.toast("Все скины открыты")
+        elif what == "upg":
+            for u in UPGRADES:
+                SAVE.stats["upg"][u[0]] = u[3]
+            SAVE.stats["upg_total"] = sum(u[3] for u in UPGRADES)
+            SAVE.save()
+            self.toast("Все улучшения выданы")
+        elif what == "achs":
+            for a in ACHS:
+                if a[0] not in SAVE.stats["achs"]:
+                    SAVE.stats["achs"].append(a[0])
+                    SAVE.stats["buns"] += a[5]
+            SAVE.save()
+            self.toast("Все достижения выданы")
+        elif what.startswith("item_"):
+            k = what[5:]
+            if self.item is None:
+                self.item = k
+            else:
+                self.item2 = k
+            self.toast("Выдано: " + ITEMS[k]["n"])
+        elif what == "time":
+            self.time_left += 60
+            self.toast("+60 секунд")
+        elif what == "coins":
+            if self.level:
+                for c in self.level.coins:
+                    if not c["got"]:
+                        c["got"] = True
+                        self.coins += 1
+                        self.stat("pies")
+                        self.stat("buns")
+                SAVE.save()
+                self.toast("Все пирожки собраны")
+        elif what == "skip":
+            if self.state == "admin" and self.back in ("play", "paused") and self.level:
+                self.state = "play"
+                self.back = None
+                self.next_level()
+                self.toast("Этаж пропущен")
+            else:
+                self.toast("Работает только во время забега")
+        elif what == "god":
+            self.dev_god = not self.dev_god
+            self.toast("Бессмертие включено" if self.dev_god else "Бессмертие выключено")
+        elif what == "shield":
+            self.shield = True
+            self.toast("Портфель выдан")
+        elif what == "tasks":
+            for t in SAVE.daily.get("tasks", []):
+                tpl = TASK_BY_KEY.get(t["k"])
+                if tpl:
+                    t["have"] = tpl[3]
+            SAVE.save()
+            self.toast("Задания дня выполнены")
+        elif what == "reset":
+            if not self.dev_confirm("reset", "Сбросить статистику? Нажми ещё раз"):
+                return
+            SAVE.stats = fresh_stats()
+            SAVE.skin = "pupil"
+            SAVE.start_item = None
+            SAVE.save()
+            self.toast("Статистика сброшена")
+        elif what == "wipe":
+            if not self.dev_confirm("wipe", "Стереть ВЕСЬ прогресс? Нажми ещё раз"):
+                return
+            SAVE.stats = fresh_stats()
+            SAVE.records = {}
+            SAVE.mods = {}
+            SAVE.skin = "pupil"
+            SAVE.start_item = None
+            SAVE.daily = fresh_daily()
+            SAVE.seed = random_seed()
+            SAVE.src = "classic"
+            self.dev_god = False
+            self.ach_queue = []
+            self.ach_t = 0
+            SAVE.day_streak()
+            SAVE.save()
+            self.set_levels()
+            self.toast("Прогресс стёрт полностью")
+            SFX.bell()
+
+    def claim_daily(self):
+        if SAVE.daily.get("reward", 0) <= 0:
+            return
+        n = SAVE.daily["reward"]
+        SAVE.daily["reward"] = 0
+        SAVE.stats["buns"] += n
+        self.toast("Награда за день: +%d булок" % n)
+        SFX.win()
+        self.save_and_check()
 
     def ach_value(self, slot):
         if slot == "skins":
@@ -1209,6 +1530,23 @@ class Game(object):
         p = self.player
         if p["dead"]:
             return
+        if self.dev_god and not silent:
+            self.invul = 60
+            p["vy"] = -6
+            return
+        if not silent and self.revive_left > 0:          # «Второе дыхание»
+            self.revive_left -= 1
+            self.invul = 90
+            sx, sy = self.level.start
+            p["x"], p["y"] = float(sx), float(sy)
+            p["vx"] = p["vy"] = 0.0
+            p["fall"] = 0.0
+            self.cam = self.cam_target()
+            self.toast("Второе дыхание! Падение не засчитано")
+            self.ring(p["x"] + 10, p["y"] + 14, MINT, 60)
+            self.puff(p["x"] + 10, p["y"] + 14, 18, MINT, 3.2)
+            SFX.win()
+            return
         p["dead"] = True
         p["dead_t"] = 0
         p["vy"] = -7
@@ -1227,7 +1565,8 @@ class Game(object):
         if not self.item:
             return
         k = self.item
-        self.item = None
+        self.item = self.item2                    # второй карман подаёт следующий
+        self.item2 = None
         self.stat("items")
         if k == "soda":
             self.buff["soda"] = ITEMS[k]["t"]
@@ -1400,13 +1739,14 @@ class Game(object):
             if c["got"]:
                 continue
             c["ph"] += 0.09
-            if mod("magnet"):
+            mr = self.magnet_range()
+            if mr > 0:
                 dx = (p["x"] + p["w"] / 2) - (c["x"] + 8)
                 dy = (p["y"] + p["h"] / 2) - (c["y"] + 8)
                 dist = math.hypot(dx, dy)
-                if 1 < dist < 120:
-                    c["x"] += dx / dist * 3.2
-                    c["y"] += dy / dist * 3.2
+                if 1 < dist < mr:
+                    c["x"] += dx / dist * 3.4
+                    c["y"] += dy / dist * 3.4
             if overlap(p, c):
                 c["got"] = True
                 self.coins += 1
@@ -1419,6 +1759,8 @@ class Game(object):
                     SAVE.stats["max_combo"] = self.combo
                 if self.combo > 1:
                     self.toast("×%d подряд" % self.combo)
+                self.task_bump("pies")
+                self.task_bump("combo", self.combo)
                 self.pop(c["x"] + 8, c["y"] + 2, "+%d" % (10 * self.combo),
                          MINT if self.combo > 1 else GOLD, 12 + self.combo)
                 self.puff(c["x"] + 8, c["y"] + 8, 10, GOLD, 2.6)
@@ -1426,17 +1768,23 @@ class Game(object):
                 SFX.coin(self.combo)
 
         for lk in lv.lockers:
-            if lk["open"] or self.item:
+            free = (self.item is None) or (upg("pockets") and self.item2 is None)
+            if lk["open"] or not free:
                 continue
             if not overlap(p, lk):
                 continue
             lk["open"] = True
             lk["t"] = 16
-            self.item = lk["item"]
+            if self.item is None:
+                self.item = lk["item"]
+            else:
+                self.item2 = lk["item"]
             self.stat("lockers")
-            self.toast(ITEMS[self.item]["n"] + " — " + ITEMS[self.item]["d"])
-            self.pop(lk["x"] + 13, lk["y"], ITEMS[self.item]["n"], ITEMS[self.item]["c"], 12)
-            self.puff(lk["x"] + 13, lk["y"] + 14, 12, ITEMS[self.item]["c"], 2.6)
+            self.task_bump("lockers")
+            got = lk["item"]
+            self.toast(ITEMS[got]["n"] + " — " + ITEMS[got]["d"])
+            self.pop(lk["x"] + 13, lk["y"], ITEMS[got]["n"], ITEMS[got]["c"], 12)
+            self.puff(lk["x"] + 13, lk["y"] + 14, 12, ITEMS[got]["c"], 2.6)
             SFX.box()
 
         if lv.key and not lv.key["got"]:
@@ -1446,6 +1794,7 @@ class Game(object):
                 self.has_key = True
                 self.flash = 12
                 self.stat("keys")
+                self.task_bump("keys")
                 self.pop(lv.key["x"] + 8, lv.key["y"], "КЛЮЧ!", (255, 224, 102), 14)
                 self.puff(lv.key["x"] + 8, lv.key["y"] + 7, 16, (255, 224, 102), 3)
                 self.ring(lv.key["x"] + 8, lv.key["y"] + 7, (255, 224, 102), 40)
@@ -1461,6 +1810,7 @@ class Game(object):
                 en["dead"] = True
                 en["dead_t"] = 0
                 self.stat("stomps")
+                self.task_bump("stomps")
                 p["vy"] = -8.4
                 p["sqx"], p["sqy"] = 1.2, 0.82
                 p["fall"] = 0
@@ -1546,6 +1896,7 @@ class Game(object):
                     en["dead_t"] = 0
                     self.bonus_pts += 20
                     self.stat("goals")
+                    self.task_bump("goals")
                     self.pop(en["x"] + 13, en["y"], "ГОООЛ! +20", GOLD, 15)
                     self.puff(en["x"] + 13, en["y"] + 14, 16, GOLD, 3.4)
                     self.shake_by(8)
@@ -1604,6 +1955,16 @@ class Game(object):
             self.toast_t -= 1
         if self.hot_t > 0:
             self.hot_t -= 1
+        if self.code_bad > 0:
+            self.code_bad -= 1
+        if self.code_lock > 0:
+            self.code_lock -= 1
+        if self.secret_t > 0:
+            self.secret_t -= 1
+        if self.confirm_t > 0:
+            self.confirm_t -= 1
+            if self.confirm_t == 0:
+                self.confirm = None
         if self.invul > 0:
             self.invul -= 1
         if self.ach_t > 0:
@@ -1654,7 +2015,7 @@ class Game(object):
         self.open_lesson()
 
     def open_lesson(self):
-        kind = random.choice(["quiz", "quiz", "sleep"])
+        kind = random.choice(["quiz", "quiz", "sleep", "copy", "dict", "canteen", "pushups"])
         strict = mod("strict")
         subject = random.choice(["Математика", "Русский язык", "История", "Физика",
                                  "Биология", "География", "Литература", "Геометрия"])
@@ -1670,10 +2031,31 @@ class Game(object):
             self.lesson = {"kind": "quiz", "subject": subject, "qs": mixed, "qi": 0,
                            "right": 0, "need": need, "pick": -1, "pick_t": 0,
                            "limit": (6 if strict else 9) * 60, "done": False, "end_t": 0}
-        else:
+        elif kind == "sleep":
             self.lesson = {"kind": "sleep", "subject": subject, "eye": 100.0,
                            "limit": (16 if strict else 22) * 60, "done": False,
                            "end_t": 0, "need": 0}
+        elif kind == "copy":
+            self.lesson = {"kind": "copy", "subject": subject, "phase": "away",
+                           "t": 90, "fill": 0.0, "strikes": 0,
+                           "max_strikes": 1 if mod("exam") else (4 if mod("easyclass") else 3),
+                           "limit": (18 if strict else 26) * 60, "done": False, "end_t": 0}
+        elif kind == "dict":
+            need = 12 if mod("exam") else (6 if mod("easyclass") else 8)
+            self.lesson = {"kind": "dict", "subject": subject, "arrows": [], "hits": 0,
+                           "miss": 0, "need": need, "spawn": 0, "shown": 0,
+                           "limit": (16 if strict else 22) * 60, "done": False, "end_t": 0}
+        elif kind == "canteen":
+            need = 12 if mod("exam") else (5 if mod("easyclass") else 8)
+            self.lesson = {"kind": "canteen", "subject": "Большая перемена", "drops": [],
+                           "tray": VW / 2.0, "got": 0, "need": need, "left": need + 6,
+                           "spawn": 0, "limit": (16 if strict else 24) * 60,
+                           "done": False, "end_t": 0}
+        else:
+            need = 16 if mod("exam") else (9 if mod("easyclass") else 13)
+            self.lesson = {"kind": "pushups", "subject": "Физкультура", "reps": 0,
+                           "need": need, "nxt": "left", "down": 0,
+                           "limit": (16 if strict else 22) * 60, "done": False, "end_t": 0}
         self.state = "lesson"
 
     def lesson_answer(self, n):
@@ -1693,12 +2075,43 @@ class Game(object):
             self.shake_by(5)
             SFX.hurt()
 
-    def lesson_press(self):
+    def lesson_press(self, what="jump"):
         L = self.lesson
-        if L and L["kind"] == "sleep" and not L["done"]:
+        if not L or L["done"]:
+            return
+        if L["kind"] == "sleep" and what == "jump":
             L["eye"] = min(100.0, L["eye"] + 7)
             self.puff(VW / 2, 330, 3, MINT, 2)
             SFX.tone(420 + int(L["eye"]), 0.04, "square", 0.2)
+        elif L["kind"] == "dict" and what in ("left", "right"):
+            best, bd = None, 999
+            for a in L["arrows"]:
+                d = abs(a["x"] - 400)
+                if d < bd:
+                    best, bd = a, d
+            if best and bd < 46 and best["dir"] == what:
+                L["arrows"].remove(best)
+                L["hits"] += 1
+                self.puff(400, 300, 6, MINT, 2.4)
+                SFX.coin()
+                if L["hits"] >= L["need"]:
+                    self.lesson_end(True)
+            else:
+                L["miss"] += 1
+                self.shake_by(5)
+                SFX.hurt()
+        elif L["kind"] == "pushups" and what in ("left", "right"):
+            if what == L["nxt"]:
+                L["reps"] += 1
+                L["down"] = 12
+                L["nxt"] = "right" if what == "left" else "left"
+                self.puff(VW / 2, 330, 4, MINT, 2)
+                SFX.tone(300 + (L["reps"] % 6) * 30, 0.06, "square", 0.25, 80)
+                if L["reps"] >= L["need"]:
+                    self.lesson_end(True)
+            else:
+                self.shake_by(5)
+                SFX.hurt()
 
     def lesson_update(self):
         L = self.lesson
@@ -1729,12 +2142,89 @@ class Game(object):
             if L["limit"] <= 0:
                 L["pick"] = -1
                 L["pick_t"] = 20
-        else:
+        elif L["kind"] == "sleep":
             L["eye"] -= 0.22 if mod("strict") else 0.16
             if L["eye"] <= 0:
                 self.lesson_end(False)
             elif L["limit"] <= 0:
                 self.lesson_end(True)
+        elif L["kind"] == "copy":
+            L["t"] -= 1
+            if L["t"] <= 0:                       # учитель то пишет, то оборачивается
+                if L["phase"] == "away":
+                    L["phase"] = "turn"
+                    L["t"] = 26 if mod("strict") else 34
+                elif L["phase"] == "turn":
+                    L["phase"] = "watch"
+                    L["t"] = random.randint(60, 130)
+                else:
+                    L["phase"] = "away"
+                    L["t"] = random.randint(70, 150)
+            if KEYS["jump"]:
+                if L["phase"] == "away":
+                    L["fill"] = min(100.0, L["fill"] + (0.42 if mod("strict") else 0.55))
+                    if self.tick % 6 == 0:
+                        self.puff(VW / 2 + 40, 250, 2, SKYBLUE, 1.6)
+                elif L["phase"] == "watch":
+                    L["strikes"] += 1
+                    L["fill"] = max(0.0, L["fill"] - 6)
+                    self.shake_by(6)
+                    SFX.hurt()
+                    if L["strikes"] >= L["max_strikes"] * 12:
+                        self.lesson_end(False)
+            if L["fill"] >= 100:
+                self.lesson_end(True)
+            elif L["limit"] <= 0:
+                self.lesson_end(False)
+        elif L["kind"] == "dict":
+            L["spawn"] -= 1
+            if L["spawn"] <= 0 and L["shown"] < L["need"] + 4:
+                L["shown"] += 1
+                L["spawn"] = 48 if mod("strict") else 62
+                L["arrows"].append({"x": -40.0, "dir": random.choice(["left", "right"])})
+            for a in L["arrows"][:]:
+                a["x"] += 3.6 if mod("strict") else 3.0
+                if a["x"] > VW + 40:
+                    L["arrows"].remove(a)
+                    L["miss"] += 1
+            if L["limit"] <= 0 or (L["shown"] >= L["need"] + 4 and not L["arrows"]):
+                self.lesson_end(L["hits"] >= L["need"])
+        elif L["kind"] == "canteen":
+            if KEYS["left"]:
+                L["tray"] -= 6.5
+            if KEYS["right"]:
+                L["tray"] += 6.5
+            L["tray"] = clamp(L["tray"], 60, VW - 60)
+            L["spawn"] -= 1
+            if L["spawn"] <= 0 and L["left"] > 0:
+                L["left"] -= 1
+                L["spawn"] = 34 if mod("strict") else 44
+                bad = random.random() < (0.3 if mod("strict") else 0.18)
+                L["drops"].append({"x": random.uniform(70, VW - 70), "y": -20.0,
+                                   "bad": bad, "v": random.uniform(2.6, 4.0)})
+            for d in L["drops"][:]:
+                d["y"] += d["v"]
+                if abs(d["x"] - L["tray"]) < 52 and 352 < d["y"] < 386:
+                    L["drops"].remove(d)
+                    if d["bad"]:
+                        L["got"] = max(0, L["got"] - 1)
+                        self.shake_by(5)
+                        SFX.hurt()
+                    else:
+                        L["got"] += 1
+                        self.puff(d["x"], 360, 6, GOLD, 2.4)
+                        SFX.coin()
+                        if L["got"] >= L["need"]:
+                            self.lesson_end(True)
+                elif d["y"] > VH:
+                    L["drops"].remove(d)
+            if L["limit"] <= 0 or (L["left"] <= 0 and not L["drops"]):
+                self.lesson_end(L["got"] >= L["need"])
+        elif L["kind"] == "pushups":
+            if L["down"] > 0:
+                L["down"] -= 1
+            if L["limit"] <= 0:
+                self.lesson_end(L["reps"] >= L["need"])
 
     def lesson_end(self, ok):
         L = self.lesson
@@ -1747,6 +2237,7 @@ class Game(object):
             self.time_left += bonus
             self.bonus_pts += pts
             self.stat("lessons_ok")
+            self.task_bump("lessons")
             SFX.win()
         else:
             self.time_left = max(1, self.time_left - 10)
@@ -2300,6 +2791,9 @@ def draw_menu(surf, g):
     surf.blit(veil, (0, 0))
     panel(surf, 700, 360, GOLD)
     draw_text(surf, "ПЕРЕМЕНА", VW // 2, 76, 40, (255, 243, 196), "center", shadow=True)
+    g.buttons.append(("secret", pygame.Rect(270, 70, 260, 46)))   # четыре нажатия — DEV
+    if g.dev_on:
+        ui_button(surf, g, "dev_open", 64, 84, 66, 26, "DEV", size=11, tint=RED)
     draw_text(surf, day_line(), VW // 2, 124, 12, SKYBLUE, "center", bold=False)
 
     modes = [("normal", "ОБЫЧНЫЙ"), ("hard", "ХАРДКОР"), ("endless", "БЕСКОНЕЧНЫЙ")]
@@ -2321,12 +2815,20 @@ def draw_menu(surf, g):
               ("МОДЫ · %d" % mod_count()) if mod_count() else "МОДЫ", size=13,
               sel=mod_count() > 0, tint=WARM)
 
-    ui_button(surf, g, "skins_open", 122, 280, 160, 46, "СКИНЫ", "%d булок" % SAVE.stats["buns"],
-              size=15, tint=(255, 159, 243))
-    ui_button(surf, g, "records_open", 292, 280, 150, 46, "КАБИНЕТ", "рекорды", size=15)
+    ui_button(surf, g, "shop_open", 122, 280, 160, 46, "МАГАЗИН",
+              "%d булок" % SAVE.stats["buns"], size=15, tint=(255, 159, 243))
+    ready = sum(1 for t in SAVE.daily.get("tasks", [])
+                if not t["taken"] and t["have"] >= TASK_BY_KEY[t["k"]][3])
+    ui_button(surf, g, "records_open", 292, 280, 150, 46, "КАБИНЕТ",
+              ("задания · %d!" % ready) if ready else "рекорды и задания", size=15,
+              tint=MINT if ready else None)
     ui_button(surf, g, "play", 452, 280, 226, 46, "ИГРАТЬ ×%.2f" % mod_mult(), size=19, sel=True)
+    if SAVE.daily.get("reward", 0) > 0:
+        ui_button(surf, g, "claim_day", 122, 332, 250, 30,
+                  "ЗАБРАТЬ +%d ЗА ДЕНЬ %d" % (SAVE.daily["reward"], SAVE.stats["days"]),
+                  size=12, sel=True, tint=GOLD)
 
-    if SAVE.settings["hints"]:
+    if SAVE.settings["hints"] and SAVE.daily.get("reward", 0) <= 0:
         draw_text(surf, "← →  бежать · ПРОБЕЛ прыжок · E предмет · P пауза · M звук",
                   VW // 2, 342, 11, (150, 175, 205), "center", bold=False)
     icon_button(surf, g, "sound", 700, 78, 36, "sound")
@@ -2491,38 +2993,234 @@ def draw_seed(surf, g):
     ui_button(surf, g, "seed_ok", 224, 398, 308, 42, "ИГРАТЬ ПО ЭТОМУ СИДУ", size=15, sel=True)
 
 
-def draw_skins(surf, g):
-    veil = pygame.Surface((VW, VH), pygame.SRCALPHA)
-    veil.fill((4, 10, 22, 200))
-    surf.blit(veil, (0, 0))
-    panel(surf, 780, 450, (255, 159, 243))
-    draw_text(surf, "СКИНЫ", VW // 2, 28, 26, (255, 227, 251), "center", shadow=True)
-    draw_pie(surf, VW // 2 - 58, 70, 0.8)
-    draw_text(surf, "%d булок" % SAVE.stats["buns"], VW // 2 - 42, 60, 16, (255, 217, 138))
-    for i, sk in enumerate(SKINS):
+ITEM_PRICE = {"soda": 50, "gum": 55, "bag": 70, "watch": 60, "pass": 65}
+SHOP_TABS = [("skins", "СКИНЫ"), ("upg", "УЛУЧШЕНИЯ"), ("items", "ПРЕДМЕТЫ")]
+
+
+def shop_skins(surf, g):
+    page = g.shop_page
+    per = 12
+    total_pages = (len(SKINS) + per - 1) // per
+    for j, sk in enumerate(SKINS[page * per:page * per + per]):
         key, name, desc, _shirt, _hair, _acc, price = sk
-        cx, cy = 30 + (i % 3) * 248, 86 + (i // 3) * 110
+        cx, cy = 26 + (j % 4) * 188, 96 + (j // 4) * 82
         has, on = owns(key), (SAVE.skin == key)
-        card = pygame.Surface((236, 104), pygame.SRCALPHA)
+        card = pygame.Surface((180, 76), pygame.SRCALPHA)
         rrect(card, (139, 255, 207, 40) if on else (255, 255, 255, 26 if has else 12),
-              (0, 0, 236, 104), 12)
+              (0, 0, 180, 76), 12)
         surf.blit(card, (cx, cy))
-        rrect(surf, MINT if on else (SKYBLUE if has else (255, 255, 255, 40)),
-              (cx, cy, 236, 104), 12, 3 if on else 1)
-        draw_character(surf, cx + 20, cy + 36, 20, 28, key, 1, 0.0, 255 if has else 110)
-        draw_text(surf, name, cx + 66, cy + 20, 14, WHITE if has else (200, 215, 240))
-        fit_text(surf, desc, cx + 66, cy + 38, 10, (180, 200, 228), 160, bold=False)
+        rrect(surf, MINT if on else (SKYBLUE if has else (255, 255, 255, 45)),
+              (cx, cy, 180, 76), 12, 3 if on else 1)
+        draw_character(surf, cx + 14, cy + 26, 20, 28, key, 1, 0.0, 255 if has else 110)
+        fit_text(surf, name, cx + 54, cy + 10, 13, WHITE if has else (205, 220, 245), 116)
+        fit_text(surf, desc, cx + 54, cy + 28, 9, (180, 200, 228), 116, bold=False)
         if has:
-            draw_text(surf, "НАДЕТ" if on else "надеть", cx + 66, cy + 56, 12,
+            draw_text(surf, "НАДЕТ" if on else "надеть", cx + 54, cy + 46, 12,
                       MINT if on else SKYBLUE)
-            draw_text(surf, "%d ур." % SAVE.stats["wear"].get(key, 0), cx + 66, cy + 78, 10,
+            draw_text(surf, "%d ур." % SAVE.stats["wear"].get(key, 0), cx + 130, cy + 48, 10,
                       (170, 190, 220), bold=False)
         else:
-            draw_pie(surf, cx + 74, cy + 72, 0.6)
-            draw_text(surf, str(price), cx + 88, cy + 64, 14,
+            draw_pie(surf, cx + 62, cy + 54, 0.55)
+            draw_text(surf, str(price), cx + 74, cy + 45, 14,
                       (255, 217, 138) if SAVE.stats["buns"] >= price else (255, 150, 150))
-        g.buttons.append(("skin_" + key, pygame.Rect(cx, cy, 236, 104)))
-    ui_button(surf, g, "back", 315, 424, 170, 36, "НАЗАД", size=14, sel=True)
+        g.buttons.append(("skin_" + key, pygame.Rect(cx, cy, 180, 76)))
+    if total_pages > 1:
+        ui_button(surf, g, "shop_prev", 250, 348, 60, 32, "<", size=15)
+        ui_button(surf, g, "shop_next", 490, 348, 60, 32, ">", size=15)
+        draw_text(surf, "%d/%d" % (page + 1, total_pages), VW // 2, 356, 13,
+                  (200, 220, 245), "center")
+
+
+def shop_upgrades(surf, g):
+    for i, u in enumerate(UPGRADES):
+        key, name, desc, maxlv, _p, _st = u
+        y = 92 + i * 38
+        have = upg(key)
+        row = pygame.Surface((724, 34), pygame.SRCALPHA)
+        rrect(row, (139, 255, 207, 26) if have >= maxlv else (255, 255, 255, 14),
+              (0, 0, 724, 34), 9)
+        surf.blit(row, (38, y))
+        draw_text(surf, name, 50, y + 8, 14, WHITE if have else (215, 230, 250))
+        fit_text(surf, desc, 232, y + 10, 11, (185, 205, 232), 240, bold=False)
+        for k in range(maxlv):                      # шкала уровней
+            col = MINT if k < have else (255, 255, 255, 60)
+            rrect(surf, col, (490 + k * 18, y + 12, 13, 11), 3)
+        price = upg_price(key)
+        if price is None:
+            draw_text(surf, "куплено", 700, y + 9, 13, MINT, "right")
+        else:
+            can = SAVE.stats["buns"] >= price
+            ui_button(surf, g, "buy_" + key, 590, y + 1, 168, 32,
+                      "%d булок" % price, size=13, sel=can,
+                      tint=MINT if can else RED, col=WHITE if can else (255, 190, 190))
+    draw_text(surf, "улучшения работают во всех режимах и не мешают рекордам",
+              VW // 2, 400, 11, (170, 195, 225), "center", bold=False)
+
+
+def shop_items(surf, g):
+    draw_text(surf, "Купленный предмет окажется в руках в начале следующего забега",
+              VW // 2, 92, 12, (200, 220, 245), "center", bold=False)
+    for i, k in enumerate(ITEM_KEYS):
+        it = ITEMS[k]
+        cx, cy = 40 + (i % 3) * 240, 124 + (i // 3) * 104
+        price = ITEM_PRICE[k]
+        picked = (SAVE.start_item == k)
+        card = pygame.Surface((224, 92), pygame.SRCALPHA)
+        rrect(card, (139, 255, 207, 40) if picked else (255, 255, 255, 18), (0, 0, 224, 92), 12)
+        surf.blit(card, (cx, cy))
+        rrect(surf, MINT if picked else (255, 255, 255, 50), (cx, cy, 224, 92), 12,
+              3 if picked else 1)
+        pygame.draw.rect(surf, it["c"], (cx + 14, cy + 16, 26, 26), border_radius=6)
+        draw_text(surf, it["n"], cx + 52, cy + 14, 15, WHITE)
+        fit_text(surf, it["d"], cx + 52, cy + 34, 10, (185, 205, 232), 160, bold=False)
+        if picked:
+            draw_text(surf, "уже в портфеле", cx + 52, cy + 60, 12, MINT)
+        else:
+            draw_pie(surf, cx + 22, cy + 68, 0.6)
+            draw_text(surf, str(price), cx + 36, cy + 59, 14,
+                      (255, 217, 138) if SAVE.stats["buns"] >= price else (255, 150, 150))
+        g.buttons.append(("item_" + k, pygame.Rect(cx, cy, 224, 92)))
+    if SAVE.start_item:
+        draw_text(surf, "на старте: " + ITEMS[SAVE.start_item]["n"], VW // 2, 352, 13,
+                  MINT, "center")
+    if upg("pockets"):
+        draw_text(surf, "карманы большие — в забеге поместится ещё один предмет",
+                  VW // 2, 380, 11, (170, 195, 225), "center", bold=False)
+
+
+def draw_shop(surf, g):
+    veil = pygame.Surface((VW, VH), pygame.SRCALPHA)
+    veil.fill((4, 10, 22, 205))
+    surf.blit(veil, (0, 0))
+    panel(surf, 780, 450, (255, 159, 243))
+    draw_text(surf, "МАГАЗИН", VW // 2, 22, 26, (255, 227, 251), "center", shadow=True)
+    draw_pie(surf, 596, 36, 0.8)
+    draw_text(surf, "%d булок" % SAVE.stats["buns"], 612, 26, 16, (255, 217, 138))
+    for i, (k, name) in enumerate(SHOP_TABS):
+        ui_button(surf, g, "shoptab_" + k, 30 + i * 176, 46, 168, 30, name, size=13,
+                  sel=(g.shop_tab == k), tint=(255, 159, 243))
+    if g.shop_tab == "upg":
+        shop_upgrades(surf, g)
+    elif g.shop_tab == "items":
+        shop_items(surf, g)
+    else:
+        shop_skins(surf, g)
+    ui_button(surf, g, "back", 315, 412, 170, 34, "НАЗАД", size=14, sel=True)
+
+
+def draw_tasks(surf, g):
+    tasks = SAVE.daily.get("tasks", [])
+    draw_text(surf, "Задания меняются каждый день в полночь", VW // 2, 108, 12,
+              (190, 210, 235), "center", bold=False)
+    for i, t in enumerate(tasks):
+        tpl = TASK_BY_KEY.get(t["k"])
+        if not tpl:
+            continue
+        y = 140 + i * 62
+        done = t["have"] >= tpl[3]
+        row = pygame.Surface((640, 52), pygame.SRCALPHA)
+        rrect(row, (139, 255, 207, 30) if done else (255, 255, 255, 14), (0, 0, 640, 52), 10)
+        surf.blit(row, (80, y))
+        rrect(surf, MINT if done else (255, 255, 255, 40), (80, y, 640, 52), 10, 1)
+        draw_text(surf, tpl[1], 100, y + 8, 15, WHITE if done else (215, 230, 250))
+        frac = clamp(t["have"] / float(tpl[3]), 0, 1)
+        rrect(surf, (255, 255, 255, 40), (100, y + 34, 300, 8), 4)
+        rrect(surf, MINT if done else SKYBLUE, (100, y + 34, max(4, int(300 * frac)), 8), 4)
+        draw_text(surf, "%d / %d" % (min(t["have"], tpl[3]), tpl[3]), 412, y + 30, 12,
+                  (200, 220, 245), bold=False)
+        if t["taken"]:
+            draw_text(surf, "получено", 700, y + 18, 13, MINT, "right")
+        elif done:
+            ui_button(surf, g, "task_" + t["k"], 540, y + 10, 160, 32,
+                      "+%d булок" % tpl[4], size=13, sel=True)
+        else:
+            draw_text(surf, "+%d булок" % tpl[4], 700, y + 18, 13, (255, 217, 138), "right")
+    if not tasks:
+        draw_text(surf, "сегодня заданий нет — загляни завтра", VW // 2, 200, 15,
+                  (200, 220, 245), "center")
+    draw_text(surf, "Серия дней: %d   ·   выполнено заданий всего: %d"
+              % (SAVE.stats["days"], SAVE.stats["tasks_done"]),
+              VW // 2, 356, 12, (190, 210, 235), "center", bold=False)
+    if SAVE.daily.get("reward", 0) > 0:
+        ui_button(surf, g, "claim_day", 290, 376, 220, 34,
+                  "ЗАБРАТЬ +%d ЗА ДЕНЬ" % SAVE.daily["reward"], size=13, sel=True, tint=GOLD)
+
+
+def draw_code(surf, g):
+    veil = pygame.Surface((VW, VH), pygame.SRCALPHA)
+    veil.fill((4, 10, 22, 215))
+    surf.blit(veil, (0, 0))
+    panel(surf, 430, 372, RED)
+    draw_text(surf, "ДОСТУП", VW // 2, 78, 28, (255, 217, 217), "center", shadow=True)
+    draw_text(surf, "введи код разработчика", VW // 2, 116, 12, (200, 220, 245),
+              "center", bold=False)
+    for i in range(4):
+        col = GOLD if i < len(g.code) else (255, 255, 255, 60)
+        pygame.draw.circle(surf, col[:3], (VW // 2 + int((i - 1.5) * 30), 152), 8)
+    if g.code_lock > 0:
+        draw_text(surf, "пауза %d сек" % int(math.ceil(g.code_lock / 60.0)), VW // 2, 172, 13,
+                  RED, "center")
+    elif g.code_bad > 0:
+        draw_text(surf, "неверный код", VW // 2, 172, 13, RED, "center")
+    keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "del", "0", "esc"]
+    for i, k in enumerate(keys):
+        kx = VW // 2 - 125 + (i % 3) * 86
+        ky = 192 + (i // 3) * 54
+        label = "<" if k == "del" else ("ОТМЕНА" if k == "esc" else k)
+        bid = "code_del" if k == "del" else ("back" if k == "esc" else "num_" + k)
+        ui_button(surf, g, bid, kx, ky, 78, 46, label, size=12 if k == "esc" else 20,
+                  dim=(g.code_lock > 0 and k != "esc"))
+
+
+def draw_admin(surf, g):
+    veil = pygame.Surface((VW, VH), pygame.SRCALPHA)
+    veil.fill((4, 10, 22, 215))
+    surf.blit(veil, (0, 0))
+    panel(surf, 760, 462, RED)
+    draw_text(surf, "ПАНЕЛЬ РАЗРАБОТЧИКА", VW // 2, 22, 22, (255, 217, 217), "center", shadow=True)
+    draw_text(surf, "выданное здесь помечает забег: рекорд не сохранится", VW // 2, 50, 11,
+              (200, 220, 245), "center", bold=False)
+
+    draw_text(surf, "БУЛКИ И ОТКРЫТИЯ", 40, 72, 10, WARM)
+    ui_button(surf, g, "dev_buns100", 40, 88, 172, 38, "+100 булок", size=14)
+    ui_button(surf, g, "dev_buns1000", 218, 88, 172, 38, "+1000 булок", size=14)
+    ui_button(surf, g, "dev_skins", 396, 88, 172, 38, "Все скины", size=14)
+    ui_button(surf, g, "dev_upg", 574, 88, 172, 38, "Все улучшения", size=13)
+
+    draw_text(surf, "ПРЕДМЕТ В РУКИ", 40, 138, 10, MINT)
+    for i, k in enumerate(ITEM_KEYS):
+        ui_button(surf, g, "dev_item_" + k, 40 + i * 146, 154, 136, 38, ITEMS[k]["n"], size=13)
+
+    draw_text(surf, "ЗАБЕГ", 40, 204, 10, SKYBLUE)
+    ui_button(surf, g, "dev_time", 40, 220, 172, 38, "+60 секунд", size=14)
+    ui_button(surf, g, "dev_coins", 218, 220, 172, 38, "Все пирожки", size=14)
+    ui_button(surf, g, "dev_skip", 396, 220, 172, 38, "Пропустить этаж", size=13)
+    ui_button(surf, g, "dev_shield", 574, 220, 172, 38, "Выдать портфель", size=13)
+
+    draw_text(surf, "ПРОГРЕСС", 40, 270, 10, GOLD)
+    ui_button(surf, g, "dev_achs", 40, 286, 226, 38,
+              "Достижения %d/%d" % (len(SAVE.stats["achs"]), len(ACHS)), size=13)
+    ui_button(surf, g, "dev_tasks", 282, 286, 226, 38, "Выполнить задания дня", size=13)
+    ui_button(surf, g, "dev_god", 524, 286, 222, 38,
+              "Бессмертие: ВКЛ" if g.dev_god else "Бессмертие: выкл", size=13,
+              sel=g.dev_god, tint=MINT)
+
+    draw_text(surf, "ОПАСНОЕ", 40, 336, 10, RED)
+    ui_button(surf, g, "dev_reset", 40, 352, 340, 38,
+              "Точно? Нажми ещё раз" if (g.confirm == "reset" and g.confirm_t > 0)
+              else "Сбросить статистику", size=13, tint=RED,
+              sel=(g.confirm == "reset" and g.confirm_t > 0))
+    ui_button(surf, g, "dev_wipe", 396, 352, 350, 38,
+              "Точно? Нажми ещё раз" if (g.confirm == "wipe" and g.confirm_t > 0)
+              else "Стереть весь прогресс", size=13, tint=RED,
+              sel=(g.confirm == "wipe" and g.confirm_t > 0))
+
+    line = "булок %d   ·   скинов %d/%d   ·   улучшений %d/18" % (
+        SAVE.stats["buns"], len(SAVE.stats["owned"]), len(SKINS), SAVE.stats["upg_total"])
+    if g.cheated:
+        line += "   ·   забег помечен"
+    draw_text(surf, line, VW // 2, 400, 12, (200, 220, 245), "center", bold=False)
+    ui_button(surf, g, "back", 300, 420, 200, 38, "ЗАКРЫТЬ", size=16, sel=True)
 
 
 def draw_records(surf, g):
@@ -2532,13 +3230,20 @@ def draw_records(surf, g):
     panel(surf, 760, 440)
     draw_text(surf, "КАБИНЕТ", VW // 2, 30, 24, (228, 243, 255), "center", shadow=True)
     done = len(SAVE.stats["achs"])
-    ui_button(surf, g, "rec_stats", 194, 64, 180, 32, "СТАТИСТИКА", size=13,
+    ui_button(surf, g, "rec_stats", 140, 64, 180, 32, "СТАТИСТИКА", size=13,
               sel=(g.rec_tab == "stats"))
-    ui_button(surf, g, "rec_achs", 386, 64, 220, 32, "ДОСТИЖЕНИЯ · %d/%d" % (done, len(ACHS)),
-              size=12, sel=(g.rec_tab == "achs"), tint=GOLD)
+    ui_button(surf, g, "rec_achs", 330, 64, 200, 32, "ДОСТИЖЕНИЯ · %d/%d" % (done, len(ACHS)),
+              size=11, sel=(g.rec_tab == "achs"), tint=GOLD)
+    ready = sum(1 for t in SAVE.daily.get("tasks", [])
+                if not t["taken"] and t["have"] >= TASK_BY_KEY[t["k"]][3])
+    ui_button(surf, g, "rec_tasks", 542, 64, 180, 32,
+              "ЗАДАНИЯ" + (" · %d!" % ready if ready else ""), size=12,
+              sel=(g.rec_tab == "tasks"), tint=MINT)
     per_page = 22
     pages = (len(ACHS) + per_page - 1) // per_page
-    if g.rec_tab == "stats":
+    if g.rec_tab == "tasks":
+        draw_tasks(surf, g)
+    elif g.rec_tab == "stats":
         rows = [("Забегов до конца", "runs"), ("Из них хардкор", "hard_runs"),
                 ("Уровней пройдено", "levels"), ("Пирожков собрано", "pies"),
                 ("Булок в кармане", "buns"), ("Завучей затоптано", "stomps"),
@@ -2557,8 +3262,9 @@ def draw_records(surf, g):
             draw_text(surf, name, 60 + i * 230, 322, 12, (200, 220, 245), bold=False)
             draw_text(surf, ("%d очков" % b["score"]) if b else "нет", 60 + i * 230, 342, 13,
                       MINT if b else (140, 160, 190))
-        draw_text(surf, "Лучший счёт %d   ·   этажей %d   ·   дней подряд %d" %
-                  (SAVE.stats["best"], SAVE.stats["max_floor"], SAVE.stats["days"]),
+        draw_text(surf, "Лучший счёт %d   ·   этажей %d   ·   дней %d   ·   улучшений %d/18" %
+                  (SAVE.stats["best"], SAVE.stats["max_floor"], SAVE.stats["days"],
+                   SAVE.stats["upg_total"]),
                   VW // 2, 380, 12, (190, 210, 235), "center", bold=False)
     else:
         if pages > 1:
@@ -2588,6 +3294,14 @@ def draw_records(surf, g):
     ui_button(surf, g, "back", 320, 400, 170, 34, "НАЗАД", size=14, sel=True)
 
 
+def hint_plate(surf, msg, y, size=14):
+    w = text_surf(msg, size, WHITE).get_width() + 30
+    plate = pygame.Surface((w, size + 16), pygame.SRCALPHA)
+    rrect(plate, (6, 12, 24, 170), (0, 0, w, size + 16), 9)
+    surf.blit(plate, (VW // 2 - w // 2, y))
+    draw_text(surf, msg, VW // 2, y + 7, size, WHITE, "center")
+
+
 def draw_lesson(surf, g):
     L = g.lesson
     surf.blit(vgrad("class", VW, VH, (75, 100, 120), (125, 106, 82)), (0, 0))
@@ -2598,12 +3312,16 @@ def draw_lesson(surf, g):
     pygame.draw.rect(surf, (138, 97, 53), (80, VH - 118, VW - 160, 16), border_radius=4)
     pygame.draw.rect(surf, (107, 74, 42), (130, VH - 102, 14, 60))
     pygame.draw.rect(surf, (107, 74, 42), (VW - 144, VH - 102, 14, 60))
-    # учитель
+    # учитель: на «списать» он то пишет на доске, то оборачивается
+    away = (L["kind"] == "copy" and L["phase"] == "away")
     pygame.draw.polygon(surf, (58, 74, 99), [(176, 352), (204, 352), (199, 318), (181, 318)])
     pygame.draw.rect(surf, (140, 160, 185), (178, 296, 24, 24), border_radius=4)
-    pygame.draw.circle(surf, (240, 205, 170), (190, 288), 10)
-    pygame.draw.circle(surf, (40, 48, 62), (186, 288), 2)
-    pygame.draw.circle(surf, (40, 48, 62), (194, 288), 2)
+    pygame.draw.circle(surf, (240, 205, 170) if not away else (150, 110, 80), (190, 288), 10)
+    if not away:
+        pygame.draw.circle(surf, (40, 48, 62), (186, 288), 2)
+        pygame.draw.circle(surf, (40, 48, 62), (194, 288), 2)
+        if L["kind"] == "copy" and L["phase"] == "watch":
+            draw_text(surf, "!", 190, 258, 20, RED, "center")
 
     head = pygame.Surface((380, 34), pygame.SRCALPHA)
     rrect(head, (9, 16, 32, 160), (0, 0, 380, 34), 12)
@@ -2642,6 +3360,63 @@ def draw_lesson(surf, g):
         bar = clamp(L["limit"] / float((6 if mod("strict") else 9) * 60), 0, 1)
         rrect(surf, (255, 255, 255, 40), (180, VH - 52, 440, 8), 4)
         rrect(surf, GOLD if bar > 0.3 else RED, (180, VH - 52, int(440 * bar), 8), 4)
+    elif L["kind"] == "copy":
+        col = MINT if L["phase"] == "away" else (GOLD if L["phase"] == "turn" else RED)
+        word = {"away": "СПИСЫВАЙ!", "turn": "ОСТОРОЖНО…", "watch": "НЕ ПИШИ!"}[L["phase"]]
+        draw_text(surf, "Контрольная. У соседа всё решено.", VW // 2 + 40, 96, 15,
+                  (230, 240, 255), "center")
+        draw_text(surf, word, VW // 2 + 40, 130, 34, col, "center", shadow=True)
+        draw_text(surf, "держи ПРОБЕЛ, пока учитель у доски", VW // 2 + 40, 182, 13,
+                  (200, 220, 245), "center", bold=False)
+        rrect(surf, (255, 255, 255, 40), (240, 300, 330, 20), 7)
+        rrect(surf, MINT, (243, 303, max(4, int(324 * L["fill"] / 100.0)), 14), 6)
+        draw_text(surf, "СПИСАНО %d%%" % int(L["fill"]), 405, 302, 12, INK, "center")
+        left = max(0, L["max_strikes"] - L["strikes"] // 12)
+        draw_text(surf, "замечаний осталось: %d" % left, VW // 2, 334, 12,
+                  RED if left <= 1 else (200, 220, 245), "center")
+    elif L["kind"] == "dict":
+        draw_text(surf, "Диктант. Успевай записывать за учителем.", VW // 2 + 40, 96, 15,
+                  (230, 240, 255), "center")
+        draw_text(surf, "записано %d из %d" % (L["hits"], L["need"]), VW // 2 + 40, 124, 14,
+                  MINT if L["hits"] >= L["need"] else (220, 235, 255), "center")
+        rrect(surf, (255, 255, 255, 30), (370, 268, 60, 64), 10)
+        rrect(surf, GOLD, (370, 268, 60, 64), 10, 2)
+        for ar in L["arrows"]:
+            x = int(ar["x"])
+            pts = ([(x + 16, 284), (x - 8, 300), (x + 16, 316)] if ar["dir"] == "left"
+                   else [(x - 16, 284), (x + 8, 300), (x - 16, 316)])
+            pygame.draw.polygon(surf, SKYBLUE if abs(x - 400) > 46 else MINT, pts)
+        hint_plate(surf, "жми ← и → по очереди", VH - 74)
+    elif L["kind"] == "canteen":
+        draw_text(surf, "Большая перемена. Лови булки, тряпки — мимо!", VW // 2, 96, 15,
+                  (230, 240, 255), "center")
+        draw_text(surf, "поймано %d · нужно %d" % (L["got"], L["need"]), VW // 2, 124, 14,
+                  MINT if L["got"] >= L["need"] else (220, 235, 255), "center")
+        for d in L["drops"]:
+            if d["bad"]:
+                pygame.draw.rect(surf, (120, 140, 160),
+                                 (int(d["x"]) - 10, int(d["y"]) - 8, 20, 16), border_radius=4)
+            else:
+                draw_pie(surf, int(d["x"]), int(d["y"]), 0.9)
+        tx = int(L["tray"])
+        pygame.draw.rect(surf, (200, 214, 229), (tx - 52, 358, 104, 12), border_radius=5)
+        pygame.draw.rect(surf, (150, 168, 188), (tx - 46, 370, 92, 6), border_radius=3)
+        hint_plate(surf, "двигай поднос ← →", VH - 74)
+    elif L["kind"] == "pushups":
+        draw_text(surf, "Физра. Отжимания: жми ← и → строго по очереди.", VW // 2, 96, 15,
+                  (230, 240, 255), "center")
+        draw_text(surf, "%d из %d" % (L["reps"], L["need"]), VW // 2, 124, 20,
+                  MINT if L["reps"] >= L["need"] else GOLD, "center")
+        dy = 16 if L["down"] > 0 else 0
+        pygame.draw.rect(surf, (58, 74, 99), (VW // 2 - 60, 290 + dy, 120, 18), border_radius=8)
+        pygame.draw.circle(surf, (240, 205, 170), (VW // 2 + 66, 296 + dy), 12)
+        pygame.draw.line(surf, (58, 74, 99), (VW // 2 - 50, 308 + dy), (VW // 2 - 50, 332), 6)
+        pygame.draw.line(surf, (58, 74, 99), (VW // 2 + 40, 308 + dy), (VW // 2 + 40, 332), 6)
+        nxt = "← ЛЕВАЯ" if L["nxt"] == "left" else "ПРАВАЯ →"
+        draw_text(surf, nxt, VW // 2, 340, 18, SKYBLUE, "center")
+        bar = clamp(L["limit"] / float((16 if mod("strict") else 22) * 60), 0, 1)
+        rrect(surf, (255, 255, 255, 40), (240, VH - 52, 330, 8), 4)
+        rrect(surf, GOLD if bar > 0.3 else RED, (240, VH - 52, int(330 * bar), 8), 4)
     else:
         draw_text(surf, "Последний урок. Главное — не уснуть.", VW // 2, 104, 15,
                   (230, 240, 255), "center")
@@ -2717,7 +3492,7 @@ def draw_end(surf, g):
     if SAVE.src == "seed":
         draw_text(surf, "сид " + SAVE.seed, VW // 2, 322, 13, SKYBLUE, "center", bold=False)
     ui_button(surf, g, "again", 190, 348, 180, 50, "ЕЩЁ РАЗ", size=17, sel=True)
-    ui_button(surf, g, "skins_open", 380, 348, 100, 50, "СКИНЫ", size=14)
+    ui_button(surf, g, "shop_open", 380, 348, 100, 50, "МАГАЗИН", size=13)
     ui_button(surf, g, "menu", 490, 348, 120, 50, "В МЕНЮ", size=15)
 
 
@@ -2732,6 +3507,8 @@ def draw_paused(surf, g):
     ui_button(surf, g, "menu", 408, 272, 142, 52, "В МЕНЮ", size=16)
     icon_button(surf, g, "settings", 164, 206, 36, "gear")
     icon_button(surf, g, "sound", 164, 248, 36, "sound")
+    if g.dev_on:
+        ui_button(surf, g, "dev_open", 560, 206, 76, 30, "DEV", size=12, tint=RED)
 
 
 def draw_clear(surf, g):
@@ -2742,19 +3519,20 @@ def draw_clear(surf, g):
 
 
 def draw_toast(surf, g):
+    """Подсказка живёт в левом нижнем углу — там её ничто не перекрывает."""
     if g.toast_t <= 0 or not g.toast_text:
         return
-    s = text_surf(g.toast_text, 15, (255, 217, 138))
-    w = s.get_width() + 34
-    y = VH - 100
-    plate = pygame.Surface((w, 32), pygame.SRCALPHA)
-    rrect(plate, (9, 16, 32, 210), (0, 0, w, 32), 11)
+    s = text_surf(g.toast_text, 14, (255, 217, 138))
+    w = s.get_width() + 30
+    x, y = 16, VH - 40
+    plate = pygame.Surface((w, 30), pygame.SRCALPHA)
+    rrect(plate, (9, 16, 32, 225), (0, 0, w, 30), 10)
     if g.toast_t < 30:
         plate.set_alpha(int(255 * g.toast_t / 30.0))
         s = s.copy()
         s.set_alpha(int(255 * g.toast_t / 30.0))
-    surf.blit(plate, (VW // 2 - w // 2, y))
-    surf.blit(s, (VW // 2 - s.get_width() // 2, y + 8))
+    surf.blit(plate, (x, y))
+    surf.blit(s, (x + 15, y + 7))
 
 
 def draw_ach(surf, g):
@@ -2860,11 +3638,49 @@ def do_button(g, bid):
     elif bid.startswith("sk_"):
         if len(g.seed_in) < 8:
             g.seed_in += bid[3:]
-    elif bid == "skins_open":
+    elif bid in ("skins_open", "shop_open"):
         g.back = g.state
-        g.state = "skins"
+        g.state = "shop"
+    elif bid.startswith("shoptab_"):
+        g.shop_tab = bid[8:]
+        g.shop_page = 0
+    elif bid == "shop_prev":
+        g.shop_page = max(0, g.shop_page - 1)
+    elif bid == "shop_next":
+        g.shop_page = min((len(SKINS) - 1) // 12, g.shop_page + 1)
     elif bid.startswith("skin_"):
         buy_skin(g, bid[5:])
+    elif bid.startswith("buy_"):
+        buy_upgrade(g, bid[4:])
+    elif bid.startswith("item_"):
+        buy_start_item(g, bid[5:])
+    elif bid.startswith("task_"):
+        g.claim_task(bid[5:])
+    elif bid == "claim_day":
+        g.claim_daily()
+    elif bid == "secret":
+        if g.secret_t <= 0:
+            g.secret_hits = 0
+        g.secret_hits += 1
+        g.secret_t = 150
+        if g.secret_hits >= 4:
+            g.secret_hits = 0
+            g.back = g.state
+            g.state = "admin" if g.dev_on else "code"
+            g.code = ""
+            SFX.key()
+        elif g.secret_hits >= 2:
+            g.toast("ещё %d" % (4 - g.secret_hits))
+    elif bid == "dev_open":
+        g.back = g.state
+        g.state = "admin" if g.dev_on else "code"
+        g.code = ""
+    elif bid == "code_del":
+        g.code = g.code[:-1]
+    elif bid.startswith("num_"):
+        g.dev_digit(bid[4:])
+    elif bid.startswith("dev_"):
+        g.dev_do(bid[4:])
     elif bid == "records_open":
         g.back = g.state
         g.state = "records"
@@ -2879,6 +3695,50 @@ def do_button(g, bid):
     elif bid == "back":
         g.state = g.back or "menu"
         g.back = None
+
+
+def buy_upgrade(g, key):
+    u = UPG_BY_KEY.get(key)
+    if not u:
+        return
+    price = upg_price(key)
+    if price is None:
+        g.toast("Уже куплено")
+        return
+    if SAVE.stats["buns"] < price:
+        g.toast("Не хватает булок: нужно %d" % price)
+        SFX.hurt()
+        return
+    SAVE.stats["buns"] -= price
+    SAVE.stats["spent"] += price
+    SAVE.stats["upg"][key] = upg(key) + 1
+    SAVE.stats["upg_total"] += 1
+    SAVE.stats["bought"] += 1
+    g.toast("%s — уровень %d" % (u[1], upg(key)))
+    SFX.win()
+    g.save_and_check()
+
+
+def buy_start_item(g, key):
+    if key not in ITEMS:
+        return
+    if SAVE.start_item == key:
+        SAVE.start_item = None
+        g.toast("Предмет убран из портфеля")
+        SAVE.save()
+        return
+    price = ITEM_PRICE[key]
+    if SAVE.stats["buns"] < price:
+        g.toast("Не хватает булок: нужно %d" % price)
+        SFX.hurt()
+        return
+    SAVE.stats["buns"] -= price
+    SAVE.stats["spent"] += price
+    SAVE.stats["bought"] += 1
+    SAVE.start_item = key
+    g.toast(ITEMS[key]["n"] + " — в портфель на старт")
+    SFX.box()
+    g.save_and_check()
 
 
 def buy_skin(g, key):
@@ -2914,6 +3774,15 @@ def click_at(g, pos):
 
 
 def on_key(g, key, down):
+    if down and g.state == "code":
+        name = pygame.key.name(key)
+        if name.isdigit():
+            g.dev_digit(name)
+        elif key == pygame.K_BACKSPACE:
+            g.code = g.code[:-1]
+        elif key == pygame.K_ESCAPE:
+            do_button(g, "back")
+        return
     if down and g.state == "seedin":
         name = pygame.key.name(key).upper()
         if len(name) == 1 and (name.isdigit() or "A" <= name <= "Z"):
@@ -2929,13 +3798,17 @@ def on_key(g, key, down):
 
     if key in (pygame.K_LEFT, pygame.K_a):
         KEYS["left"] = down
+        if down and g.state == "lesson":
+            g.lesson_press("left")
     elif key in (pygame.K_RIGHT, pygame.K_d):
         KEYS["right"] = down
+        if down and g.state == "lesson":
+            g.lesson_press("right")
     elif key in (pygame.K_SPACE, pygame.K_UP, pygame.K_w):
         KEYS["jump"] = down
         if down:
             if g.state == "lesson":
-                g.lesson_press()
+                g.lesson_press("jump")
             elif g.player:
                 g.player["jump_buf"] = 8
     if not down:
@@ -2961,7 +3834,7 @@ def on_key(g, key, down):
             g.state = "paused"
         elif g.state == "paused":
             g.state = "play"
-        elif g.state in ("mods", "settings", "skins", "records", "seedin"):
+        elif g.state in ("mods", "settings", "shop", "records", "seedin", "code", "admin"):
             do_button(g, "back")
     elif key == pygame.K_m:
         do_button(g, "sound")
@@ -3005,8 +3878,12 @@ def render(surf, g):
         draw_settings(surf, g)
     elif g.state == "seedin":
         draw_seed(surf, g)
-    elif g.state == "skins":
-        draw_skins(surf, g)
+    elif g.state == "shop":
+        draw_shop(surf, g)
+    elif g.state == "code":
+        draw_code(surf, g)
+    elif g.state == "admin":
+        draw_admin(surf, g)
     elif g.state == "records":
         draw_records(surf, g)
     draw_toast(surf, g)
