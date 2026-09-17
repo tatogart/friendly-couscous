@@ -538,7 +538,7 @@ function freshStats(){            // единственное место, где
   return { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0, falls:0,
            best:0, levels:0, lessonsOk:0, lessonsBad:0, goals:0, bells:0,
            maxFloor:0, bestMult:0, fastRun:0,
-           jumps:0, pads:0, lockers:0, keys:0, maxCombo:0, quizOk:0,
+           jumps:0, pads:0, lockers:0, keys:0, maxCombo:0, quizOk:0, days:1, lastDay:"",
            noFall:0, glass:0, spent:0, seedRuns:0, endRuns:0, modRun:0,
            owned:["pupil"], achs:[], wear:{}, stage:{} };
 }
@@ -592,7 +592,9 @@ var ACHS = [
   { k:"stage2",  n:"Новый образ",     d:"открыть второй этап скина",      s:"stage2",    v:1,    r:80 },
   { k:"stage3",  n:"Финальная форма", d:"открыть третий этап скина",      s:"stage3",    v:1,    r:180 },
   { k:"stage3x3",n:"Три образа",      d:"три скина на третьем этапе",     s:"stage3",    v:3,    r:300 },
-  { k:"veteran", n:"Ветеран школы",   d:"пройти 200 уровней",             s:"levels",    v:200,  r:400 }
+  { k:"veteran", n:"Ветеран школы",   d:"пройти 200 уровней",             s:"levels",    v:200,  r:400 },
+  { k:"days3",   n:"Постоянный",      d:"заходить три дня подряд",        s:"days",      v:3,    r:90 },
+  { k:"days7",   n:"Каждую перемену", d:"заходить неделю подряд",         s:"days",      v:7,    r:260 }
 ];
 function stagesAt(n){                       // сколько скинов доросло до этапа n
   var c = 0, i;
@@ -640,10 +642,20 @@ function statLoad(){
       if(raw.achs) STATS.achs = raw.achs;
       if(raw.wear) STATS.wear = raw.wear;
       if(raw.stage) STATS.stage = raw.stage;
+      if(typeof raw.lastDay === "string") STATS.lastDay = raw.lastDay;
     }
     curSkin = localStorage.getItem("peremena_skin") || "pupil";
   }catch(e){}
   if(!owns(curSkin)) curSkin = "pupil";
+}
+function dayKey(d){ return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate(); }
+function dayStreak(){                    // «захожу каждую перемену» — считаем дни подряд
+  var now = new Date(), today = dayKey(now);
+  if(STATS.lastDay === today) return;
+  var y = new Date(now.getTime() - 86400000);
+  STATS.days = (STATS.lastDay === dayKey(y)) ? (STATS.days || 0) + 1 : 1;
+  STATS.lastDay = today;
+  statSave();
 }
 function statBump(){ statSave(); achCheck(); }
 function statSave(){
@@ -1207,10 +1219,11 @@ function wipeProgress(){               // стираем всё, что игра
     var keys = [], i, k;
     for(i=0;i<localStorage.length;i++){
       k = localStorage.key(i);
-      if(k && k.indexOf("peremena_") === 0) keys.push(k);
+      if(k && k.indexOf("peremena_") === 0 && k !== "peremena_set") keys.push(k);
     }
     for(i=0;i<keys.length;i++) localStorage.removeItem(keys[i]);
   }catch(e){}
+  if(G){ G.achQueue.length = 0; G.achT = 0; G.achShow = null; }
   STATS = freshStats();
   curSkin = "pupil";
   modOn = {};
@@ -1374,7 +1387,7 @@ function doButton(id){
   else if(id === "resume"){ G.state = "play"; }
   else if(id === "restart"){ startRun(curDiff.key); }
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
-  else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
+  else if(id === "sound"){ SET.vol = SET.vol ? 0 : 2; setSave(); if(!muted) sfx.coin(); }
   else if(id === "buzz"){
     SET.buzz = SET.buzz ? 0 : 1; setSave();
     if(haptics){ buzz(30); toast("Вибрация включена"); } else toast("Вибрация выключена");
@@ -1594,6 +1607,7 @@ cv.addEventListener("pointerleave", function(){ G.mx = -999; G.my = -999; });
 /* ================== ЗАГРУЗКА УРОВНЯ ================== */
 function isSolidChar(ch){ return SOLID.indexOf(ch) >= 0; }
 
+var lvSeq = 0;
 function buildLevel(def){
   var w = 0, i, j;
   for(i=0;i<def.rows.length;i++) w = Math.max(w, def.rows[i].length);
@@ -1709,6 +1723,7 @@ function buildLevel(def){
       w:m.tw*TS, h:14, axis:m.axis, dist:m.dist*TS, speed:m.speed,
       t:m.phase||0, dx:0, dy:0, isMover:true });
   }
+  lv.uid = ++lvSeq;
   return lv;
 }
 
@@ -1919,6 +1934,7 @@ function spawnPlayer(){
 }
 function camTarget(){
   var lv = G.level, p = G.player;
+  if(!lv || !p) return G.cam || 0;
   var max = Math.max(0, lv.w*TS - VW);
   var want = clamp(p.vx * 17, -74, 74);          // на бегу видно дальше по курсу
   G.lead += (want - G.lead) * 0.05;
@@ -1979,6 +1995,7 @@ function killPlayer(silent){
 
 function updatePlayer(dt){
   var p = G.player, lv = G.level, i;
+  if(!p || !lv) return;                 // экран без игрока (меню, конец забега)
 
   if(p.dead){
     p.deadT++;
@@ -2200,6 +2217,7 @@ function doorOpen(){
 }
 function updateBalls(){
   var lv = G.level, p = G.player, i, j, bl, en;
+  if(!lv || !p) return;
   for(i=0;i<lv.balls.length;i++){
     bl = lv.balls[i];
     if(bl.cool > 0) bl.cool--;
@@ -2799,18 +2817,31 @@ function drawBackground(cam){
     ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
   }), 0, 0);
   if(th.deco === "yard") decoYard(cam, th);
+  else if(th.deco === "roof") decoRoof(cam, th);
   else if(th.deco === "hall") decoHall(cam, th);
   else if(th.deco === "canteen") decoCanteen(cam, th);
   else if(th.deco === "gym") decoGym(cam, th);
   else if(th.deco === "library") decoLibrary(cam, th);
   else if(th.deco === "boiler") decoBoiler(cam, th);
   else decoRoof(cam, th);
+  if(th.deco === "yard" || th.deco === "roof") dayTint();
+}
+
+/* За окном то же время, что и у игрока: утро греет, вечер золотит, ночь синит. */
+function dayTint(){
+  var h = new Date().getHours(), col = null;
+  if(h >= 5 && h < 9) col = "rgba(255,196,120,.16)";
+  else if(h >= 17 && h < 20) col = "rgba(255,150,80,.2)";
+  else if(h >= 20 || h < 5) col = "rgba(20,32,80,.42)";
+  if(!col) return;
+  ctx.fillStyle = col;
+  ctx.fillRect(0, 0, VW, VH);
 }
 
 /* Плитки уровня статичны: рисуем их один раз на отдельный холст и потом
    копируем нужный кусок одним вызовом вместо сотен прямоугольников.
    Под модификатором «Стеклянные доски» плитки живые — там старый путь. */
-var tileCv = null, tileKey = "";
+var tileCv = null, tileKey = 0;
 function tileCacheBuild(){
   var lv = G.level;
   if(!tileCv) tileCv = document.createElement("canvas");
@@ -2820,13 +2851,13 @@ function tileCacheBuild(){
   ctx.clearRect(0, 0, tileCv.width, tileCv.height);
   drawTilesLive(0, lv.w * TS);
   ctx = real;
-  tileKey = lv.name + "|" + lv.w + "|" + lv.h;
+  tileKey = lv.uid;
 }
-function dropTileCache(){ tileKey = ""; }
+function dropTileCache(){ tileKey = 0; }
 function drawTiles(cam){
   var lv = G.level;
   if(mod("glass")){ drawTilesLive(cam, VW); return; }
-  if(tileKey !== lv.name + "|" + lv.w + "|" + lv.h) tileCacheBuild();
+  if(tileKey !== lv.uid) tileCacheBuild();
   var sx = Math.max(0, Math.floor(cam) - TS);
   var w = Math.min(tileCv.width - sx, VW + TS*2);
   if(w > 0) ctx.drawImage(tileCv, sx, 0, w, tileCv.height, sx, 0, w, tileCv.height);
@@ -3683,6 +3714,16 @@ function drawHUD(){
   ctx.translate(VW-134, 34); ctx.scale(pop, pop); ctx.translate(-(VW-134), -34);
   text(G.coins + " / " + G.coinsMax, VW-134, 34, 19, G.coinPop > 0 ? "#ffffff" : "#ffd98a");
   ctx.restore();
+  if(G.combo > 1 && G.comboT > 0){                 // серия пирожков видна, а не только слышна
+    var cw = 128, cx3 = VW/2 - cw/2, cy3 = 58;
+    ctx.fillStyle = "rgba(9,16,32,.6)";
+    rrect(cx3, cy3, cw, 22, 8); ctx.fill();
+    ctx.fillStyle = "rgba(139,255,207,.25)";
+    rrect(cx3, cy3, cw * clamp(G.comboT/110, 0, 1), 22, 8); ctx.fill();
+    ctx.strokeStyle = "rgba(139,255,207,.65)"; ctx.lineWidth = 1.4;
+    rrect(cx3+0.5, cy3+0.5, cw-1, 21, 8); ctx.stroke();
+    text("СЕРИЯ ×" + G.combo, VW/2, cy3 + 15, 12, "#8bffcf", "center", 700);
+  }
   var info = curDiff.name + (modCount() ? "  ×" + modMult().toFixed(2) : "") +
              (curSrc === "seed" ? "  сид " + curSeed : "") +
              (G.deaths ? "  падений " + G.deaths : "");
@@ -3748,8 +3789,12 @@ function panelBody(x, y, w, h, accent){
 /* Панель и кнопки не меняются от кадра к кадру — держим готовые картинки. */
 var imgCache = {}, imgKeys = [];
 function cachedImg(key, w, h, draw){
-  var c = imgCache[key];
-  if(c) return c;
+  var c = imgCache[key], at;
+  if(c){
+    at = imgKeys.indexOf(key);                 // освежаем позицию в очереди
+    if(at >= 0 && at < imgKeys.length - 1){ imgKeys.splice(at, 1); imgKeys.push(key); }
+    return c;
+  }
   c = document.createElement("canvas");
   c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h));
   var real = ctx;
@@ -3758,7 +3803,7 @@ function cachedImg(key, w, h, draw){
   ctx = real;
   imgCache[key] = c;
   imgKeys.push(key);
-  if(imgKeys.length > 90) delete imgCache[imgKeys.shift()];   // память не копим
+  while(imgKeys.length > 140) delete imgCache[imgKeys.shift()];   // память не копим
   return c;
 }
 var PAD_IMG = 56;
@@ -3786,12 +3831,31 @@ function recLine(key, x, y){
        x, y, 12, b ? "#8bffcf" : "rgba(200,220,255,.45)", "center", 600);
 }
 
+var DAY_LINES = [
+  "сегодня точно успеешь",
+  "физрук опять забыл ключи от зала",
+  "в столовой снова компот",
+  "завуч сегодня добрый… наверное",
+  "звонок для учителя, но бежим всё равно",
+  "кто-то опять закрыл шкафчик изнутри",
+  "в библиотеке слышно каждый шаг",
+  "на крыше сегодня ветрено",
+  "уборщица только помыла полы",
+  "последний урок — самый длинный",
+  "булки в буфете ещё тёплые",
+  "директор идёт по коридору"
+];
+function dayLine(){
+  var d = new Date();
+  var r = mulberry(hashSeed("fraza/" + d.getFullYear() + d.getMonth() + d.getDate()));
+  return DAY_LINES[Math.floor(r() * DAY_LINES.length)];
+}
 function drawMenu(){
   ctx.fillStyle = "rgba(4,10,22,.55)"; ctx.fillRect(0,0,VW,VH);
   drawMenuGlow();
   panel(700, 344, "rgba(255,209,102,.9)");
   gradText("ПЕРЕМЕНА", VW/2, 116, 38, "#fff3c4", "#f0a83a");
-  text("успей пробежать школу за перемену", VW/2, 134, 11, "#9fd8ff", "center", 600);
+  text(dayLine(), VW/2, 134, 11, "#9fd8ff", "center", 600);
   G.buttons.push({ id:"secret", x:268, y:86, w:264, h:42 });      // четыре нажатия — вход для разработчика
 
   uiButton("mode_normal", 122, 146, 178, 56, "ОБЫЧНЫЙ", DIFFS.normal.tag,
@@ -4749,6 +4813,7 @@ window.PEREMENA_DEBUG = {
   stage: skinStage, maxStage: skinMaxStage, setStage: setStage,
   end: lessonEnd,
   set: function(){ return SET; }, muted: function(){ return muted; }, fancy: fancy,
+  cache: function(){ return imgKeys.length; },
   dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
   devDo: devDo, devOpen: devOpen, pow: function(){ return POW; }, powDo: powDo
 };
@@ -4756,6 +4821,7 @@ window.PEREMENA_DEBUG = {
 modLoad();
 statLoad();
 setLoad();
+dayStreak();
 (function initSeed(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
