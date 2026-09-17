@@ -13,25 +13,32 @@
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:8px}
   canvas{background:#8ecff2;border-radius:16px;display:block;max-width:100%;max-height:100%;
     box-shadow:0 24px 70px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08) inset}
-  #pad{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;
+  #pad{--padk:1;position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;
     align-items:flex-end;pointer-events:none;z-index:5;
     padding:0 max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom))
               max(16px, env(safe-area-inset-left));
     transition:opacity .18s}
-  #padL{display:flex;gap:clamp(12px, 3vmin, 26px)}
+  #padL{display:flex;gap:clamp(12px, 3vmin, 26px);pointer-events:auto;touch-action:none;
+    padding:10px 6px 4px}
+  body.pad-s #pad{--padk:.78}
+  body.pad-l #pad{--padk:1.24}
+  body.lefty #pad{flex-direction:row-reverse}
   #padR{display:flex;flex-direction:column;align-items:flex-end;gap:clamp(8px,2vmin,16px)}
-  .btn.item{width:clamp(104px,26vmin,150px);height:clamp(46px,12vmin,64px);border-radius:32px;
+  .btn.item{width:calc(clamp(104px,26vmin,150px)*var(--padk));
+    height:calc(clamp(46px,12vmin,64px)*var(--padk));border-radius:32px;
     font-size:clamp(13px,3.4vmin,18px);letter-spacing:.5px;
     background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:rgba(255,255,255,.45)}
   .btn.item.has{background:rgba(255,209,102,.3);border-color:rgba(255,220,140,.75);color:#fff}
   .btn{pointer-events:auto;touch-action:none;
-    width:clamp(94px, 27vmin, 158px);height:clamp(94px, 27vmin, 158px);border-radius:50%;
+    width:calc(clamp(94px, 27vmin, 158px)*var(--padk));
+    height:calc(clamp(94px, 27vmin, 158px)*var(--padk));border-radius:50%;
     background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.5);
     color:#fff;font-size:clamp(30px, 9vmin, 52px);font-weight:700;line-height:1;
     display:flex;align-items:center;justify-content:center;user-select:none;
     -webkit-user-select:none;backdrop-filter:blur(6px);
     box-shadow:0 8px 24px rgba(0,0,0,.35)}
-  .btn.jump{width:clamp(118px, 34vmin, 196px);height:clamp(118px, 34vmin, 196px);
+  .btn.jump{width:calc(clamp(118px, 34vmin, 196px)*var(--padk));
+    height:calc(clamp(118px, 34vmin, 196px)*var(--padk));
     background:rgba(90,225,160,.3);border-color:rgba(150,255,190,.7)}
   .btn.on{background:rgba(255,255,255,.45);transform:scale(.93)}
   body.touch #pad{display:flex}
@@ -293,6 +300,25 @@ function randomSeed(){
   for(i=0;i<5;i++) out += SEED_ABC.charAt(Math.floor(Math.random()*SEED_ABC.length));
   return out;
 }
+function daySeed(){                       // общий для всех сид на сегодня
+  var d = new Date();
+  var key = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+  var r = mulberry(hashSeed("den/" + key)), out = "", i;
+  for(i=0;i<5;i++) out += SEED_ABC.charAt(Math.floor(r()*SEED_ABC.length));
+  return out;
+}
+function shareSeed(){                     // ссылка на этот же набор уровней
+  var url = "";
+  try{ url = location.href.split("#")[0] + "#s=" + (G.seedIn || curSeed); }catch(e){}
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url);
+      toast("Ссылка на сид скопирована");
+      return;
+    }
+  }catch(e){}
+  toast("Сид " + (G.seedIn || curSeed) + " — запиши его");
+}
 function cleanSeed(str){
   var out = "", i, ch;
   str = String(str || "").toUpperCase();
@@ -413,6 +439,7 @@ function genLevels(seed){
 /* ================== СЛУЖЕБНОЕ ================== */
 var cv = document.getElementById("game");
 var ctx = cv.getContext("2d");
+var mainCtx = ctx;                        // во вспомогательные холсты рисуем тем же кодом
 var isTouch = false;                   // выставляется при инициализации ввода
 var curSrc = "classic";                // откуда берутся уровни: classic | seed
 var curSeed = "";
@@ -1020,6 +1047,46 @@ function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h &&
 
 /* ================== ЗВУК ================== */
 var AC = null, muted = false;
+
+/* ================== НАСТРОЙКИ ==================
+   Всё, что игрок может подкрутить под себя. Живёт в localStorage. */
+function freshSet(){
+  return { vol:2, buzz:1, shake:2, hints:1, gfx:0, padSize:1, lefty:0, tapJump:0 };
+}
+var SET = freshSet();
+function setLoad(){
+  try{
+    var raw = JSON.parse(localStorage.getItem("peremena_set") || "null");
+    if(raw) for(var k in SET) if(typeof raw[k] === "number") SET[k] = raw[k];
+  }catch(e){}
+  setApply();
+}
+function setSave(){
+  try{ localStorage.setItem("peremena_set", JSON.stringify(SET)); }catch(e){}
+  setApply();
+}
+function setApply(){
+  muted = (SET.vol === 0);
+  haptics = !!SET.buzz;
+  var b = document.body;
+  b.classList.toggle("pad-s", SET.padSize === 0);
+  b.classList.toggle("pad-l", SET.padSize === 2);
+  b.classList.toggle("lefty", !!SET.lefty);
+}
+function volK(){ return SET.vol === 1 ? 0.45 : 1; }
+function shakeK(){ return [0, 0.5, 1][SET.shake] || 0; }
+function showHints(){ return !!SET.hints; }
+
+/* Красивый режим: тени, свечение, виньетка, шлейф. В «авто» игра сама
+   переключается, если кадры начинают проседать. */
+var fancyNow = true, frameAvg = 16.7, slowT = 0, fastT = 0;
+function fancy(){ return SET.gfx === 1 ? true : (SET.gfx === 2 ? false : fancyNow); }
+function gfxWatch(ms){
+  frameAvg += (ms - frameAvg) * 0.08;
+  if(frameAvg > 23){ slowT++; fastT = 0; } else if(frameAvg < 15){ fastT++; slowT = 0; }
+  if(slowT > 90 && fancyNow){ fancyNow = false; slowT = 0; }
+  else if(fastT > 300 && !fancyNow){ fancyNow = true; fastT = 0; }
+}
 function actx(){
   if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
   if(AC.state === "suspended") AC.resume();
@@ -1027,13 +1094,14 @@ function actx(){
 }
 function tone(f, dur, type, vol, slide, delay){
   if(muted) return;
+  vol = (vol || 0.07) * volK();
   var c = actx(); if(!c) return;
   var t0 = c.currentTime + (delay||0);
   var o = c.createOscillator(), g = c.createGain();
   o.type = type || "square";
   o.frequency.setValueAtTime(f, t0);
   if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(50, f+slide), t0+dur);
-  g.gain.setValueAtTime(vol||0.07, t0);
+  g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0008, t0+dur);
   o.connect(g); g.connect(c.destination);
   o.start(t0); o.stop(t0+dur+0.03);
@@ -1308,9 +1376,33 @@ function doButton(id){
   else if(id === "pause"){ G.state = (G.state === "play") ? "paused" : (G.state === "paused" ? "play" : G.state); }
   else if(id === "sound"){ muted = !muted; if(!muted) sfx.coin(); }
   else if(id === "buzz"){
-    haptics = !haptics;
-    try{ localStorage.setItem("peremena_buzz", haptics ? "1" : "0"); }catch(e){}
+    SET.buzz = SET.buzz ? 0 : 1; setSave();
     if(haptics){ buzz(30); toast("Вибрация включена"); } else toast("Вибрация выключена");
+  }
+  else if(id === "settings"){ G.back = G.state; G.state = "settings"; sfx.key(); }
+  else if(id === "set_reset"){ SET = freshSet(); setSave(); toast("Настройки по умолчанию"); }
+  else if(id.indexOf("set_") === 0){
+    var sp2 = id.slice(4).split("_");
+    if(SET[sp2[0]] !== undefined){
+      SET[sp2[0]] = +sp2[1];
+      setSave();
+      if(sp2[0] === "vol" && !muted) sfx.coin();
+      if(sp2[0] === "buzz" && haptics) buzz(30);
+    }
+  }
+  else if(id === "seed_open"){
+    G.back = G.state; G.state = "seedin"; G.seedIn = curSeed; sfx.key();
+  }
+  else if(id === "seed_ok"){
+    if(G.seedIn){ setSeed(G.seedIn); toast("Сид " + curSeed); sfx.win(); }
+    G.state = G.back || "menu"; G.back = null;
+  }
+  else if(id === "seed_del"){ G.seedIn = G.seedIn.slice(0, -1); }
+  else if(id === "seed_rnd"){ G.seedIn = randomSeed(); }
+  else if(id === "seed_day"){ G.seedIn = daySeed(); toast("Сид дня: " + G.seedIn); }
+  else if(id === "seed_share"){ shareSeed(); }
+  else if(id.indexOf("sk_") === 0){
+    if(G.seedIn.length < 8){ G.seedIn += id.slice(3); tone(600, 0.04, "square", 0.04); }
   }
   else if(id === "full"){ toggleFullscreen(); }
   else if(id === "secret"){
@@ -1372,6 +1464,16 @@ document.addEventListener("keydown", function(e){
   }
   if(G.state === "code" && /^(Digit|Numpad)[0-9]$/.test(c)){ devDigit(c.slice(-1)); return; }
   if(G.state === "code" && c === "Backspace"){ G.code = G.code.slice(0,-1); return; }
+  if(G.state === "seedin"){                       // сид можно просто набрать
+    if(/^(Key[A-Z]|Digit[0-9]|Numpad[0-9])$/.test(c)){
+      if(G.seedIn.length < 8){ G.seedIn += c.slice(-1); tone(600, 0.04, "square", 0.04); }
+    }
+    else if(c === "Backspace") G.seedIn = G.seedIn.slice(0, -1);
+    else if(c === "Enter") doButton("seed_ok");
+    else if(c === "Escape") doButton("back");
+    e.preventDefault();
+    return;
+  }
   if(G.state === "lesson" && (c==="Digit1"||c==="Digit2"||c==="Digit3")){
     lessonAnswer(+c.slice(5) - 1); return;
   }
@@ -1393,7 +1495,7 @@ document.addEventListener("keydown", function(e){
     else if(G.state==="mods") G.state="menu";
   }
   else if(c==="KeyO" && (G.state==="menu"||G.state==="mods")) G.state = (G.state==="mods") ? "menu" : "mods";
-  else if(c==="KeyM"){ muted = !muted; }
+  else if(c==="KeyM"){ SET.vol = SET.vol ? 0 : 2; setSave(); }
   else if(c==="KeyF"){ toggleFullscreen(); }
   else if(c==="KeyE"||c==="ArrowDown"||c==="ShiftLeft"||c==="KeyQ") setKey("item", true);
 });
@@ -1407,20 +1509,61 @@ document.addEventListener("keyup", function(e){
   isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
   if(!isTouch) return;
   document.body.classList.add("touch");
-  var btns = document.querySelectorAll(".btn");
+
+  /* Зона бега целиком: палец ездит между ◀ и ▶ не отрываясь от стекла,
+     а промах мимо кружка на пару сантиметров всё равно считается. */
+  var padL = document.getElementById("padL");
+  var runKeys = padL.querySelectorAll(".btn"), runPtr = null;
+  function dirAt(x, y){
+    var i, r, best = null, bestD = 1e9, cx, d;
+    for(i=0;i<runKeys.length;i++){
+      r = runKeys[i].getBoundingClientRect();
+      if(y < r.top - 60 || y > r.bottom + 60) continue;
+      cx = (r.left + r.right) / 2;
+      d = Math.abs(x - cx);
+      if(x >= r.left - 30 && x <= r.right + 30 && d < bestD){ bestD = d; best = runKeys[i]; }
+    }
+    return best ? best.getAttribute("data-k") : null;
+  }
+  function setDir(k){
+    if(input.left !== (k === "left")) setKey("left", k === "left");
+    if(input.right !== (k === "right")) setKey("right", k === "right");
+    for(var i=0;i<runKeys.length;i++)
+      runKeys[i].classList.toggle("on", runKeys[i].getAttribute("data-k") === k);
+  }
+  padL.addEventListener("pointerdown", function(e){
+    e.preventDefault();
+    runPtr = e.pointerId;
+    try{ padL.setPointerCapture(e.pointerId); }catch(err){}
+    setDir(dirAt(e.clientX, e.clientY));
+  });
+  padL.addEventListener("pointermove", function(e){
+    if(e.pointerId !== runPtr) return;
+    setDir(dirAt(e.clientX, e.clientY));
+  });
+  function offRun(e){
+    if(e.pointerId !== runPtr) return;
+    runPtr = null; setDir(null);
+  }
+  padL.addEventListener("pointerup", offRun);
+  padL.addEventListener("pointercancel", offRun);
+  padL.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+
+  var btns = document.querySelectorAll("#padR .btn");
   Array.prototype.forEach.call(btns, function(b){
     var k = b.getAttribute("data-k");
     b.addEventListener("pointerdown", function(e){
       e.preventDefault();
-      b.setPointerCapture(e.pointerId);   // палец может съехать — кнопка не залипнет
+      try{ b.setPointerCapture(e.pointerId); }catch(err){}   // палец съехал — кнопка не залипнет
       b.classList.add("on"); setKey(k, true);
     });
-    function off(e){ b.classList.remove("on"); setKey(k, false); }
+    function off(){ b.classList.remove("on"); setKey(k, false); }
     b.addEventListener("pointerup", off);
     b.addEventListener("pointercancel", off);
     b.addEventListener("contextmenu", function(e){ e.preventDefault(); });
   });
 })();
+var tapPtr = null;
 cv.addEventListener("pointerdown", function(ev){
   actx();
   var pt = canvasPoint(ev), i, b;
@@ -1430,8 +1573,20 @@ cv.addEventListener("pointerdown", function(ev){
       ev.preventDefault(); doButton(b.id); return;
     }
   }
+  if(SET.tapJump && ev.pointerType === "touch" && (G.state === "play" || G.state === "hub")){
+    ev.preventDefault();                         // тап по свободному полю — прыжок
+    tapPtr = ev.pointerId;
+    setKey("jump", true);
+    return;
+  }
   if(G.state !== "play" && G.state !== "mods") uiAction();
 });
+function tapUp(ev){
+  if(tapPtr === null || ev.pointerId !== tapPtr) return;
+  tapPtr = null; setKey("jump", false);
+}
+cv.addEventListener("pointerup", tapUp);
+cv.addEventListener("pointercancel", tapUp);
 cv.addEventListener("contextmenu", function(e){ e.preventDefault(); });
 cv.addEventListener("pointermove", function(ev){ if(ev.pointerType !== "touch") trackMouse(ev); });
 cv.addEventListener("pointerleave", function(){ G.mx = -999; G.my = -999; });
@@ -1632,7 +1787,6 @@ function hitStop(n){ if(n > G.hitStop) G.hitStop = n; }   // микро-пауз
 
 /* Отдача в телефоне: короткая вибрация на каждое заметное событие. */
 var haptics = true;
-try{ haptics = localStorage.getItem("peremena_buzz") !== "0"; }catch(e){}
 function buzz(ms){
   if(!haptics || !isTouch) return;
   try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){}
@@ -1642,7 +1796,7 @@ function buzz(ms){
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
            mx:-999, my:-999, stateT:0, lastState:"", wipe:0, scoreShown:0,
-           secretHits:0, secretT:0, code:"", codeBad:0, codeTries:0, codeLock:0,
+           secretHits:0, secretT:0, code:"", codeBad:0, codeTries:0, codeLock:0, seedIn:"",
            cheated:false, confirmId:null, confirmT:0, admTab:"res",
            achShow:null, achT:0, achQueue:[], achPage:0,
            coins:0, coinsMax:0, deaths:0, timeLeft:timeLimit(),
@@ -1908,7 +2062,8 @@ function updatePlayer(dt){
     p.fall = Math.max(p.fall || 0, p.vy);
   }
   if(G.landT > 0) G.landT--;
-  if(Math.abs(p.vx) > 3.4 && p.grounded && G.tick % 3 === 0)
+  if(!fancy()){ }
+  else if(Math.abs(p.vx) > 3.4 && p.grounded && G.tick % 3 === 0)
     G.trail.push({ x:p.x, y:p.y, w:p.w, h:p.h, col:"#9fd8ff", life:10, max:10 });
   else if(G.buff.soda > 0 && G.tick % 2 === 0)
     G.trail.push({ x:p.x, y:p.y, w:p.w, h:p.h, col:"#ff8a85", life:12, max:12 });
@@ -2315,6 +2470,26 @@ function rrect(x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
+/* Градиенты стоят дорого, а повторяются каждый кадр — держим их в словаре. */
+var gradCache = {};
+function vGrad(key, x0, y0, x1, y1, stops){
+  var g = (ctx === mainCtx) ? gradCache[key] : null, i;
+  if(!g){
+    g = ctx.createLinearGradient(x0, y0, x1, y1);
+    for(i=0;i<stops.length;i+=2) g.addColorStop(stops[i], stops[i+1]);
+    if(ctx === mainCtx) gradCache[key] = g;
+  }
+  return g;
+}
+function rGrad(key, x0, y0, r0, x1, y1, r1, stops){
+  var g = gradCache[key], i;
+  if(!g){
+    g = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+    for(i=0;i<stops.length;i+=2) g.addColorStop(stops[i], stops[i+1]);
+    gradCache[key] = g;
+  }
+  return g;
+}
 function text(str, x, y, size, col, align, weight){
   ctx.font = (weight||700) + " " + size + "px 'Segoe UI', system-ui, Arial, sans-serif";
   ctx.textAlign = align || "left";
@@ -2344,9 +2519,41 @@ function shadowText(str, x, y, size, col, align){
 }
 
 function hsh(i){ var x = Math.sin(i*127.1 + 11.3) * 43758.5453; return x - Math.floor(x); }
-function bgLoop(cam, par, step, fn){        // ряд объектов с параллаксом
-  var off = -cam*par, first = Math.floor(-off/step) - 1, i;
+var curDeco = "";                          // какой фон рисуем — часть ключа кэша
+function bgLoop(cam, par, step, fn, live){ // ряд объектов с параллаксом
+  var off = -cam*par, first, i;
+  if(!live && step >= 24 && step <= 1200){
+    var reps = Math.max(2, Math.ceil(1700/step));
+    var period = step * reps;
+    var img = cachedImg("bg" + curDeco + "_" + par + "_" + step, period, VH, function(){
+      for(var j=-1; j<=reps; j++) fn(j*step, ((j % reps) + reps) % reps);
+    });
+    var start = Math.floor(-off / period) - 1;
+    for(i = start; i <= start + Math.ceil(VW/period) + 1; i++)
+      ctx.drawImage(img, Math.round(i*period + off), 0);
+    return;
+  }
+  first = Math.floor(-off/step) - 1;
   for(i = first; i < first + Math.ceil(VW/step) + 3; i++) fn(i*step + off, i);
+}
+function sunImg(key, r, c1, c2, coreR, coreCol){    // солнце с ореолом — тоже картинка
+  return cachedImg("sun" + key, r*2, r*2, function(){
+    var g = ctx.createRadialGradient(r, r, 10, r, r, r);
+    g.addColorStop(0, c1); g.addColorStop(1, c2);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(r, r, r, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = coreCol; ctx.beginPath(); ctx.arc(r, r, coreR, 0, 6.2832); ctx.fill();
+  });
+}
+var cloudImg = null;
+function drawCloud(x, y){
+  if(!cloudImg) cloudImg = cachedImg("cloud", 120, 80, function(){
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.beginPath();
+    ctx.arc(50, 40, 26, 0, 6.2832); ctx.arc(76, 46, 20, 0, 6.2832);
+    ctx.arc(26, 48, 18, 0, 6.2832); ctx.arc(56, 26, 18, 0, 6.2832);
+    ctx.fill();
+  });
+  ctx.drawImage(cloudImg, Math.round(x - 50), Math.round(y - 40));
 }
 function poster(x, y, w, h, str, col){
   ctx.fillStyle = "rgba(255,255,255,.9)";
@@ -2372,19 +2579,13 @@ function decoYard(cam){
   ctx.save();
   ctx.globalAlpha = 0.85;
   var sx = 690 - cam*0.05, sy = 78;
-  var sg = ctx.createRadialGradient(sx,sy,10,sx,sy,90);
-  sg.addColorStop(0,"rgba(255,246,190,.95)"); sg.addColorStop(1,"rgba(255,246,190,0)");
-  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx,sy,90,0,6.2832); ctx.fill();
-  ctx.fillStyle = "#fff4bd"; ctx.beginPath(); ctx.arc(sx,sy,26,0,6.2832); ctx.fill();
+  ctx.drawImage(sunImg("y", 90, "rgba(255,246,190,.95)", "rgba(255,246,190,0)", 26, "#fff4bd"),
+                Math.round(sx-90), Math.round(sy-90));
   ctx.restore();
-  ctx.fillStyle = "rgba(255,255,255,.75)";
   for(i=0;i<7;i++){
     cx2 = ((i*260 + G.tick*0.25 - cam*0.15) % 1300) - 150;
     cy2 = 50 + (i%3)*46;
-    ctx.beginPath();
-    ctx.arc(cx2,cy2,26,0,6.2832); ctx.arc(cx2+26,cy2+6,20,0,6.2832);
-    ctx.arc(cx2-24,cy2+8,18,0,6.2832); ctx.arc(cx2+6,cy2-14,18,0,6.2832);
-    ctx.fill();
+    drawCloud(cx2, cy2);
   }
   bgLoop(cam, 0.35, 380, function(x, i){
     ctx.fillStyle = "#5f7fa8";
@@ -2471,7 +2672,7 @@ function decoGym(cam, th){
     ctx.fillStyle = "#d9b47e";
     for(var r=0;r<9;r++) ctx.fillRect(x+10, VH-350 + r*23, 86, 7);
   });
-  bgLoop(cam, 0.45, 620, function(x, i){       // кольцо и канат
+  bgLoop(cam, 0.45, 620, function(x, i){       // кольцо и канат (качается — живой слой)
     ctx.fillStyle = "#e8eef7"; ctx.fillRect(x+40, VH-330, 60, 6);
     ctx.strokeStyle = "#e0663a"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(x+70, VH-310, 18, 0, Math.PI); ctx.stroke();
@@ -2482,7 +2683,7 @@ function decoGym(cam, th){
     ctx.strokeStyle = "#b9834a"; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(x+300, 0); ctx.lineTo(x+300 + Math.sin(G.tick*0.02)*10, VH-170); ctx.stroke();
     poster(x + 400, VH-320, 104, 60, th.signs[Math.abs(i) % th.signs.length], "#2f6f9f");
-  });
+  }, true);
   ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(0, VH-146); ctx.lineTo(VW, VH-146); ctx.stroke();
   ctx.fillStyle = "rgba(120,140,165,.35)"; ctx.fillRect(0, VH-142, VW, 142);
@@ -2523,7 +2724,6 @@ function decoBoiler(cam, th){
       ctx.fillRect(x + (r%2 ? 16 : 0), 30 + r*52, 60, 48);
     }
   });
-  bgLoop(cam, 0.45, 1, function(){});
   ctx.fillStyle = "#4a5568";                   // трубы вдоль стены
   ctx.fillRect(0, VH-330, VW, 22); ctx.fillRect(0, VH-250, VW, 14);
   ctx.fillStyle = "#5d6b80";
@@ -2552,10 +2752,8 @@ function decoRoof(cam, th){
   var i;
   ctx.save();
   var sx = 640 - cam*0.04, sy = 150;
-  var sg = ctx.createRadialGradient(sx,sy,10,sx,sy,140);
-  sg.addColorStop(0,"rgba(255,214,150,.95)"); sg.addColorStop(1,"rgba(255,180,120,0)");
-  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx,sy,140,0,6.2832); ctx.fill();
-  ctx.fillStyle = "#ffd9a0"; ctx.beginPath(); ctx.arc(sx,sy,34,0,6.2832); ctx.fill();
+  ctx.drawImage(sunImg("r", 140, "rgba(255,214,150,.95)", "rgba(255,180,120,0)", 34, "#ffd9a0"),
+                Math.round(sx-140), Math.round(sy-140));
   ctx.restore();
   bgLoop(cam, 0.2, 150, function(x, i){        // дальний город
     var h = 60 + hsh(i)*120;
@@ -2594,11 +2792,12 @@ function decoRoof(cam, th){
 
 function drawBackground(cam){
   var th = (G.level && G.level.theme) ? G.level.theme : THEMES.yard;
-  var g = ctx.createLinearGradient(0,0,0,VH);
-  g.addColorStop(0, th.sky[0]);
-  g.addColorStop(0.45, th.sky[1]);
-  g.addColorStop(1, th.sky[2]);
-  ctx.fillStyle = g; ctx.fillRect(0,0,VW,VH);
+  curDeco = th.deco;
+  ctx.drawImage(cachedImg("sky" + th.sky[0] + th.sky[1] + th.sky[2], VW, VH, function(){
+    var g = ctx.createLinearGradient(0, 0, 0, VH);
+    g.addColorStop(0, th.sky[0]); g.addColorStop(0.45, th.sky[1]); g.addColorStop(1, th.sky[2]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  }), 0, 0);
   if(th.deco === "yard") decoYard(cam, th);
   else if(th.deco === "hall") decoHall(cam, th);
   else if(th.deco === "canteen") decoCanteen(cam, th);
@@ -2608,9 +2807,33 @@ function drawBackground(cam){
   else decoRoof(cam, th);
 }
 
+/* Плитки уровня статичны: рисуем их один раз на отдельный холст и потом
+   копируем нужный кусок одним вызовом вместо сотен прямоугольников.
+   Под модификатором «Стеклянные доски» плитки живые — там старый путь. */
+var tileCv = null, tileKey = "";
+function tileCacheBuild(){
+  var lv = G.level;
+  if(!tileCv) tileCv = document.createElement("canvas");
+  tileCv.width = lv.w * TS; tileCv.height = lv.h * TS;
+  var real = ctx;
+  ctx = tileCv.getContext("2d");
+  ctx.clearRect(0, 0, tileCv.width, tileCv.height);
+  drawTilesLive(0, lv.w * TS);
+  ctx = real;
+  tileKey = lv.name + "|" + lv.w + "|" + lv.h;
+}
+function dropTileCache(){ tileKey = ""; }
 function drawTiles(cam){
+  var lv = G.level;
+  if(mod("glass")){ drawTilesLive(cam, VW); return; }
+  if(tileKey !== lv.name + "|" + lv.w + "|" + lv.h) tileCacheBuild();
+  var sx = Math.max(0, Math.floor(cam) - TS);
+  var w = Math.min(tileCv.width - sx, VW + TS*2);
+  if(w > 0) ctx.drawImage(tileCv, sx, 0, w, tileCv.height, sx, 0, w, tileCv.height);
+}
+function drawTilesLive(cam, span){
   var lv = G.level, th = lv.theme;
-  var c0 = Math.max(0, Math.floor(cam/TS)-1), c1 = Math.min(lv.w-1, Math.ceil((cam+VW)/TS));
+  var c0 = Math.max(0, Math.floor(cam/TS)-1), c1 = Math.min(lv.w-1, Math.ceil((cam+(span||VW))/TS));
   for(var cy=0; cy<lv.h; cy++) for(var cx=c0; cx<=c1; cx++){
     var ch = lv.grid[cy][cx];
     if(!isSolidChar(ch)) continue;
@@ -3105,43 +3328,27 @@ function hovered(x, y, w, h){
   return !isTouch && G.mx >= x && G.mx <= x + w && G.my >= y && G.my <= y + h;
 }
 function gradText(str, x, y, size, c1, c2, align){
-  var g = ctx.createLinearGradient(0, y - size, 0, y + size*0.3);
-  g.addColorStop(0, c1); g.addColorStop(1, c2);
+  var g = vGrad("t" + y + "_" + size + c1 + c2, 0, y - size, 0, y + size*0.3, [0, c1, 1, c2]);
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
   text(str, x, y, size, "rgba(0,0,0,.45)", align || "center");
   ctx.restore();
   text(str, x, y, size, g, align || "center");
 }
-function uiButton(id, x, y, w, h, label, sub, o){
-  o = o || {};
-  var hot = (G.hotBtn === id && G.hotT > 0);
-  var sel = !!o.sel;
-  var hov = hovered(x, y, w, h);
-  var tint = o.selBorder || (sel ? "#8bffcf" : "#9fd8ff");
-  var lift = hot ? -1 : (hov ? -2 : 0);
-  var k = hot ? 0.975 : (hov ? 1.025 : 1);
-  if((hov || sel) && !o.dim) G.uiHover = true;
-
-  ctx.save();
-  if(o.dim) ctx.globalAlpha = 0.3;
-  ctx.translate(x + w/2, y + h/2 + lift);
-  ctx.scale(k, k);
-  ctx.translate(-w/2, -h/2);
-
+function buttonBody(w, h, label, sub, o, sel, hov){
   ctx.fillStyle = "rgba(0,0,0,.35)";
   rrect(2, 6, w, h, 15); ctx.fill();
 
-  var g = ctx.createLinearGradient(0, 0, 0, h);
-  if(sel){ g.addColorStop(0, "rgba(255,255,255,.34)"); g.addColorStop(1, "rgba(255,255,255,.14)"); }
-  else if(hov){ g.addColorStop(0, "rgba(255,255,255,.26)"); g.addColorStop(1, "rgba(255,255,255,.1)"); }
-  else { g.addColorStop(0, "rgba(255,255,255,.16)"); g.addColorStop(1, "rgba(255,255,255,.05)"); }
+  var tint = o.selBorder || (sel ? "#8bffcf" : "#9fd8ff");
+  var g = sel ? vGrad("bs" + h, 0, 0, 0, h, [0, "rgba(255,255,255,.34)", 1, "rgba(255,255,255,.14)"])
+       : hov ? vGrad("bh" + h, 0, 0, 0, h, [0, "rgba(255,255,255,.26)", 1, "rgba(255,255,255,.1)"])
+             : vGrad("bn" + h, 0, 0, 0, h, [0, "rgba(255,255,255,.16)", 1, "rgba(255,255,255,.05)"]);
   ctx.fillStyle = g;
   rrect(0, 0, w, h, 15); ctx.fill();
 
   if(sel || hov){                                  // свечение по контуру
     ctx.save();
-    ctx.shadowColor = tint; ctx.shadowBlur = sel ? 16 : 10;
+    if(fancy()){ ctx.shadowColor = tint; ctx.shadowBlur = sel ? 16 : 10; }
     ctx.strokeStyle = tint; ctx.lineWidth = sel ? 2.4 : 1.8;
     rrect(0.5, 0.5, w-1, h-1, 15); ctx.stroke();
     ctx.restore();
@@ -3162,6 +3369,30 @@ function uiButton(id, x, y, w, h, label, sub, o){
   text(label, w/2, h/2 + (sub ? -2 : fs*0.36) + 1, fs, "rgba(0,0,0,.4)", "center");
   text(label, w/2, h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center");
   if(sub) text(sub, w/2, h/2 + 20, o.subSize || 12, "rgba(226,238,255,.8)", "center", 600);
+}
+var BTN_PAD = 26;
+function uiButton(id, x, y, w, h, label, sub, o){
+  o = o || {};
+  var hot = (G.hotBtn === id && G.hotT > 0);
+  var sel = !!o.sel;
+  var hov = hovered(x, y, w, h);
+  var lift = hot ? -1 : (hov ? -2 : 0);
+  var k = hot ? 0.975 : (hov ? 1.025 : 1);
+  if((hov || sel) && !o.dim) G.uiHover = true;
+
+  var key = "btn" + w + "_" + h + "|" + label + "|" + (sub || "") + "|" +
+            (sel?1:0) + (hov?1:0) + (fancy()?1:0) + "|" +
+            (o.size||22) + "|" + (o.col||"") + "|" + (o.selBorder||"") + "|" + (o.subSize||12);
+  var img = cachedImg(key, w + BTN_PAD*2, h + BTN_PAD*2, function(){
+    ctx.translate(BTN_PAD, BTN_PAD);
+    buttonBody(w, h, label, sub, o, sel, hov);
+  });
+
+  ctx.save();
+  if(o.dim) ctx.globalAlpha = 0.3;
+  ctx.translate(x + w/2, y + h/2 + lift);
+  ctx.scale(k, k);
+  ctx.drawImage(img, -w/2 - BTN_PAD, -h/2 - BTN_PAD);
   ctx.restore();
   G.buttons.push({ id:id, x:x, y:y, w:w, h:h });
 }
@@ -3186,6 +3417,17 @@ function iconBtn(id, x, y, s, kind){
     ctx.moveTo(-9*q, 3*q); ctx.lineTo(-9*q, 9*q); ctx.lineTo(-3*q, 9*q);
     ctx.moveTo(9*q, 3*q); ctx.lineTo(9*q, 9*q); ctx.lineTo(3*q, 9*q);
     ctx.stroke();
+  } else if(kind === "gear"){
+    ctx.strokeStyle = "#eaf6ff"; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, 6.2832); ctx.stroke();
+    var gi;
+    for(gi=0; gi<6; gi++){
+      var ga = gi * 1.0472;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ga)*8, Math.sin(ga)*8);
+      ctx.lineTo(Math.cos(ga)*11.5, Math.sin(ga)*11.5);
+      ctx.stroke();
+    }
   } else if(kind === "buzz"){
     ctx.globalAlpha = haptics ? 1 : 0.45;
     rrect(-5, -9, 10, 18, 3); ctx.fill();
@@ -3343,10 +3585,12 @@ function drawHitboxes(){                 // отладочная сетка: г�
 }
 
 function drawVignette(){
-  var g = ctx.createRadialGradient(VW/2, VH/2, VH*0.45, VW/2, VH/2, VH*0.95);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(4,8,18,.45)");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  if(!fancy()) return;
+  ctx.drawImage(cachedImg("vig", VW, VH, function(){
+    var g = ctx.createRadialGradient(VW/2, VH/2, VH*0.45, VW/2, VH/2, VH*0.95);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(4,8,18,.45)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  }), 0, 0);
 }
 function isFullscreen(){
   return !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -3476,17 +3720,11 @@ function uiEase(){                                  // плавное появл
   var t = Math.min(1, (G.stateT || 0) / 11);
   return 1 - Math.pow(1 - t, 3);
 }
-function panel(w, h, accent){
-  var e = uiEase();
-  var x = VW/2 - w/2, y = VH/2 - h/2 + (1 - e) * 16;
+function panelBody(x, y, w, h, accent){
   ctx.save();
-  ctx.globalAlpha = e;
-  ctx.translate(VW/2, VH/2);
-  ctx.scale(0.97 + 0.03*e, 0.97 + 0.03*e);
-  ctx.translate(-VW/2, -VH/2);
-
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 14;
+  if(fancy()){
+    ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 14;
+  }
   ctx.fillStyle = "rgba(8,14,28,.9)";
   rrect(x, y, w, h, 24); ctx.fill();
   ctx.restore();
@@ -3505,6 +3743,39 @@ function panel(w, h, accent){
   line.addColorStop(0.5, accent || "rgba(159,216,255,.85)");
   line.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = line; ctx.fillRect(x + 28, y + 1, w - 56, 2);
+}
+
+/* Панель и кнопки не меняются от кадра к кадру — держим готовые картинки. */
+var imgCache = {}, imgKeys = [];
+function cachedImg(key, w, h, draw){
+  var c = imgCache[key];
+  if(c) return c;
+  c = document.createElement("canvas");
+  c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h));
+  var real = ctx;
+  ctx = c.getContext("2d");
+  draw();
+  ctx = real;
+  imgCache[key] = c;
+  imgKeys.push(key);
+  if(imgKeys.length > 90) delete imgCache[imgKeys.shift()];   // память не копим
+  return c;
+}
+var PAD_IMG = 56;
+function panel(w, h, accent){
+  var e = uiEase();
+  var x = VW/2 - w/2, y = VH/2 - h/2 + (1 - e) * 16;
+  var k = "pan" + w + "_" + h + "_" + (accent || "") + (fancy() ? "f" : "");
+  var img = cachedImg(k, w + PAD_IMG*2, h + PAD_IMG*2, function(){
+    panelBody(PAD_IMG, PAD_IMG, w, h, accent);
+  });
+  var sc = 0.97 + 0.03*e;
+  ctx.save();
+  ctx.globalAlpha = e;
+  ctx.translate(VW/2, VH/2);
+  ctx.scale(sc, sc);
+  ctx.translate(-VW/2, -VH/2);
+  ctx.drawImage(img, x - PAD_IMG, y - PAD_IMG);
   ctx.restore();
   ctx.globalAlpha = 1;
 }
@@ -3537,7 +3808,7 @@ function drawMenu(){
            { size:13, sel: curSrc === "classic", selBorder:"#9fd8ff" });
   uiButton("src_seed", 282, 228, 150, 36, "СИД " + curSeed, null,
            { size:13, sel: curSrc === "seed", selBorder:"#9fd8ff" });
-  uiButton("seed_new", 442, 228, 110, 36, "НОВЫЙ", null, { size:13 });
+  uiButton("seed_open", 442, 228, 110, 36, "ВВЕСТИ", null, { size:13, selBorder:"#8bffcf" });
   uiButton("mods_open", 562, 228, 116, 36,
            modCount() ? "МОДЫ · " + modCount() : "МОДЫ", null,
            { size:13, sel: modCount() > 0, selBorder:"#ffb98a" });
@@ -3546,13 +3817,15 @@ function drawMenu(){
   uiButton("play", 340, 276, 338, 46, "ИГРАТЬ  ×" + modMult().toFixed(2), null,
            { size:20, sel:true, selBorder:"#8bffcf" });
 
-  text(isTouch ? "слева бежать · справа прыжок и предмет"
-               : "← →  бежать · ПРОБЕЛ прыжок · E предмет · F весь экран · P пауза",
-       VW/2, 346, 11, "rgba(200,220,255,.55)", "center", 600);
+  if(showHints())
+    text(isTouch ? "слева бежать · справа прыжок и предмет"
+                 : "← →  бежать · ПРОБЕЛ прыжок · E предмет · F весь экран · P пауза",
+         VW/2, 346, 11, "rgba(200,220,255,.55)", "center", 600);
 
   iconBtn("sound", 700, 78, 36, "sound");
   if(isTouch) iconBtn("buzz", 700, 120, 36, "buzz");
   else iconBtn("full", 700, 120, 36, "full");
+  iconBtn("settings", 700, 162, 36, "gear");
   if(devOn) uiButton("dev_open", 64, 84, 66, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
 }
 
@@ -3663,19 +3936,18 @@ function drawTeacher(x, y, mood){
 
 function drawLesson(){
   var L = G.lesson, i, y;
-  /* класс */
-  var g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, "#4b6478"); g.addColorStop(0.7, "#5d7a90"); g.addColorStop(1, "#7d6a52");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
-  ctx.fillStyle = "#6b5744"; ctx.fillRect(0, VH-120, VW, 120);
-  ctx.fillStyle = "#7d6750"; ctx.fillRect(0, VH-120, VW, 8);
-  /* доска */
-  ctx.fillStyle = "#7a5b3c"; rrect(116, 62, VW-232, 196, 8); ctx.fill();
-  ctx.fillStyle = "#2f5348"; rrect(126, 72, VW-252, 176, 5); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.07)"; rrect(134, 80, VW-268, 30, 4); ctx.fill();
-  /* парта */
-  ctx.fillStyle = "#8a6135"; rrect(80, VH-118, VW-160, 16, 4); ctx.fill();
-  ctx.fillStyle = "#6b4a2a"; ctx.fillRect(130, VH-102, 14, 60); ctx.fillRect(VW-144, VH-102, 14, 60);
+  ctx.drawImage(cachedImg("class", VW, VH, function(){
+    var g = ctx.createLinearGradient(0, 0, 0, VH);          // класс не меняется — рисуем раз
+    g.addColorStop(0, "#4b6478"); g.addColorStop(0.7, "#5d7a90"); g.addColorStop(1, "#7d6a52");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = "#6b5744"; ctx.fillRect(0, VH-120, VW, 120);
+    ctx.fillStyle = "#7d6750"; ctx.fillRect(0, VH-120, VW, 8);
+    ctx.fillStyle = "#7a5b3c"; rrect(116, 62, VW-232, 196, 8); ctx.fill();
+    ctx.fillStyle = "#2f5348"; rrect(126, 72, VW-252, 176, 5); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.07)"; rrect(134, 80, VW-268, 30, 4); ctx.fill();
+    ctx.fillStyle = "#8a6135"; rrect(80, VH-118, VW-160, 16, 4); ctx.fill();
+    ctx.fillStyle = "#6b4a2a"; ctx.fillRect(130, VH-102, 14, 60); ctx.fillRect(VW-144, VH-102, 14, 60);
+  }), 0, 0);
 
   drawTeacher(190, 352, L.kind === "copy" ? (L.phase === "away" ? "away" : (L.phase === "turn" ? "turn" : "watch")) : "turn");
 
@@ -4166,6 +4438,75 @@ function drawAdmin(){
   uiButton("back", 300, 406, 200, 42, "ЗАКРЫТЬ", null, { size:16, sel:true });
 }
 
+function setSeg(key, label, opts, y){          // строка настройки с переключателем
+  text(label, 44, y + 21, 13, "rgba(230,240,255,.85)", "left", 700);
+  var w = Math.floor(336 / opts.length) - 6, i;
+  for(i=0;i<opts.length;i++)
+    uiButton("set_" + key + "_" + opts[i][0], 384 + i*(w+6), y, w, 32, opts[i][1], null,
+             { size: w < 90 ? 11 : 12, sel: SET[key] === opts[i][0], selBorder:"#8bffcf" });
+}
+function drawSettings(){
+  ctx.fillStyle = "rgba(4,10,22,.8)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 456, "rgba(159,216,255,.9)");
+  gradText("НАСТРОЙКИ", VW/2, 46, 24, "#e4f3ff", "#5aa8e0");
+
+  setSeg("vol",   "Звук",              [[0,"выкл"],[1,"тише"],[2,"громко"]], 62);
+  setSeg("buzz",  "Вибрация",          [[0,"выкл"],[1,"вкл"]], 100);
+  setSeg("shake", "Тряска экрана",     [[0,"выкл"],[1,"слабо"],[2,"обычно"]], 138);
+  setSeg("hints", "Подсказки",         [[0,"выкл"],[1,"вкл"]], 176);
+  setSeg("gfx",   "Графика",           [[0,"авто"],[1,"красиво"],[2,"быстро"]], 214);
+  setSeg("padSize","Кнопки на телефоне",[[0,"меньше"],[1,"обычные"],[2,"больше"]], 252);
+  setSeg("lefty", "Кнопки бега",       [[0,"слева"],[1,"справа"]], 290);
+  setSeg("tapJump","Прыжок тапом по экрану", [[0,"выкл"],[1,"вкл"]], 328);
+
+  text((SET.gfx === 0 ? "сейчас " + (fancy() ? "красиво" : "быстро") + "   ·   " : "") +
+       Math.round(1000/Math.max(1, frameAvg)) + " кадров/с",
+       44, 384, 11, "rgba(200,220,255,.5)", "left", 600);
+  text("вибрация и кнопки — для телефона", 716, 384, 11, "rgba(200,220,255,.4)", "right", 600);
+
+  uiButton("set_reset", 44, 398, 210, 40, "По умолчанию", null, { size:14 });
+  if(!isTouch) uiButton("full", 268, 398, 210, 40, isFullscreen() ? "Окно" : "Весь экран", null, { size:14 });
+  uiButton("back", 492, 398, 224, 40, "ГОТОВО", null, { size:16, sel:true });
+}
+
+var SEED_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+function drawSeedIn(){
+  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
+  panel(700, 450, "rgba(159,216,255,.9)");
+  gradText("СИД", VW/2, 60, 26, "#e4f3ff", "#5aa8e0");
+  text("одинаковый сид — одинаковая школа у всех   ·   можно набрать на клавиатуре, Enter — готово",
+       VW/2, 80, 11, "rgba(200,220,255,.6)", "center", 600);
+
+  var bw = 420, bx = VW/2 - bw/2;                 // само поле ввода
+  ctx.fillStyle = "rgba(0,0,0,.35)";
+  rrect(bx, 92, bw, 46, 12); ctx.fill();
+  ctx.strokeStyle = "rgba(159,216,255,.7)"; ctx.lineWidth = 2;
+  rrect(bx, 92, bw, 46, 12); ctx.stroke();
+  var shown = G.seedIn || "";
+  text(shown || "введи сид", VW/2, 124, 24, shown ? "#ffffff" : "rgba(200,220,255,.35)", "center", 700);
+  if(shown && (G.tick % 60) < 34){                // курсор
+    ctx.font = "700 24px 'Segoe UI', system-ui, Arial, sans-serif";
+    var tw = ctx.measureText(shown).width;
+    ctx.fillStyle = "#8bffcf";
+    ctx.fillRect(VW/2 + tw/2 + 5, 104, 3, 24);
+  }
+  uiButton("seed_del", bx + bw + 12, 96, 54, 38, "←", null, { size:18 });
+
+  var i, kx, ky, ch;                              // экранная клавиатура 9×4
+  for(i=0;i<SEED_KEYS.length;i++){
+    ch = SEED_KEYS.charAt(i);
+    kx = 66 + (i % 9) * 74;
+    ky = 152 + Math.floor(i / 9) * 48;
+    uiButton("sk_" + ch, kx, ky, 66, 40, ch, null, { size:18 });
+  }
+
+  uiButton("seed_rnd",   66, 350, 150, 40, "СЛУЧАЙНЫЙ", null, { size:13 });
+  uiButton("seed_day",  224, 350, 150, 40, "СИД ДНЯ", null, { size:13, selBorder:"#ffd166" });
+  uiButton("seed_share",382, 350, 150, 40, "ССЫЛКА", null, { size:13 });
+  uiButton("back",      540, 350, 136, 40, "ОТМЕНА", null, { size:13 });
+  uiButton("seed_ok",   224, 398, 308, 42, "ИГРАТЬ ПО ЭТОМУ СИДУ", null, { size:15, sel:true });
+}
+
 function drawBanner(){
   var k = 1 - Math.abs(G.banner - 35)/35;
   ctx.save();
@@ -4243,6 +4584,8 @@ function drawPaused(){
   if(devOn) uiButton("dev_open", 560, 206, 76, 30, "DEV", null, { size:12, selBorder:"#ff8080" });
   uiButton("restart", 250, 274, 142, 54, "СНАЧАЛА", null, { size:17 });
   uiButton("menu", 408, 274, 142, 54, "В МЕНЮ", null, { size:17 });
+  iconBtn("settings", 164, 206, 36, "gear");
+  iconBtn("sound", 164, 248, 36, "sound");
 }
 
 /* ================== КАДР ================== */
@@ -4258,7 +4601,7 @@ function render(){
 
   if(G.level){
     ctx.save();
-    var sh = G.shake;
+    var sh = G.shake * shakeK();
     ctx.translate(-Math.round(cam) + (sh>0.4?rnd(-sh,sh):0), (sh>0.4?rnd(-sh,sh):0));
     drawTiles(cam);
     drawMovers();
@@ -4302,6 +4645,13 @@ function render(){
   }
   drawVignette();
   if(G.state === "menu"){ drawMenu(); drawToast(); drawAch(); drawCursor(); return; }
+  if(G.state === "settings" || G.state === "seedin"){
+    if(G.back === "hub") drawHubHUD(); else if(G.back === "paused" || G.back === "play"){ drawHUD(); drawPaused(); }
+    else drawMenu();
+    if(G.state === "settings") drawSettings(); else drawSeedIn();
+    drawToast(); drawAch(); drawCursor();
+    return;
+  }
   if(G.state === "code" || G.state === "admin"){
     if(G.back === "hub") drawHubHUD(); else if(G.back === "menu") drawMenu();
     else { drawHUD(); drawPaused(); }
@@ -4398,12 +4748,14 @@ window.PEREMENA_DEBUG = {
   ach: achCheck, achs: function(){ return ACHS; },
   stage: skinStage, maxStage: skinMaxStage, setStage: setStage,
   end: lessonEnd,
+  set: function(){ return SET; }, muted: function(){ return muted; }, fancy: fancy,
   dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
   devDo: devDo, devOpen: devOpen, pow: function(){ return POW; }, powDo: powDo
 };
 
 modLoad();
 statLoad();
+setLoad();
 (function initSeed(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
