@@ -950,12 +950,12 @@ function modLoad(){
   raw.split(",").forEach(function(k){ if(k) modOn[k] = true; });
 }
 function runMax(){
-  var v = RUN_MAX * (mod("sneak") ? 1.18 : 1);
+  var v = RUN_MAX * (mod("sneak") ? 1.18 : 1) * POW.speed;
   if(G && G.buff && G.buff.soda > 0) v *= 1.45;
   return v;
 }
-function canDouble(){ return mod("dbljump") || (G && G.buff && G.buff.gum > 0); }
-function jumpV(){ return JUMP_V * (mod("heavy") ? 0.92 : 1) * (mod("sneak") ? 1.06 : 1); }
+function canDouble(){ return mod("dbljump") || POW.air > 0 || (G && G.buff && G.buff.gum > 0); }
+function jumpV(){ return JUMP_V * (mod("heavy") ? 0.92 : 1) * (mod("sneak") ? 1.06 : 1) * POW.jump; }
 function timeLimit(){
   var t = curDiff.time;
   if(mod("rush")) t *= 0.67;
@@ -1028,9 +1028,38 @@ function uiAction(){
 /* ================== ПАНЕЛЬ РАЗРАБОТЧИКА ==================
    Открывается четырьмя нажатиями на заголовок в меню и кодом 2020.
    Всё, что она делает, помечает забег как читерский: рекорд не пишется. */
-var DEV_CODE = "2020";
+/* Кода в файле нет: сверяется только отпечаток, обратно он не разворачивается.
+   Считается медленно (≈5 мс), чтобы перебор всех комбинаций не был мгновенным. */
+var DEV_SALT = "peremena/zvonok/2026";
+var DEV_HASH = "812e048c";
+function codeHash(str){
+  var h = 2166136261, i;
+  str = DEV_SALT + "|" + str + "|" + DEV_SALT;
+  for(i=0;i<str.length;i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+  for(i=0;i<150000;i++){
+    h ^= h >>> 15;
+    h = Math.imul(h, 2246822519) >>> 0;
+    h = ((h << 7) | (h >>> 25)) >>> 0;
+  }
+  return ("0000000" + h.toString(16)).slice(-8);
+}
 var devOn = false;                       // код уже вводили в этой сессии
 var devGod = false;                      // бессмертие живёт между забегами
+var devBox = false;                      // показывать хитбоксы
+
+/* ---------------- кастомные силы ----------------
+   Всё, что можно накрутить игроку из панели. Любая включённая сила
+   помечает забег читерским — рекорд с ней не сохраняется. */
+function freshPow(){
+  return { jump:1, speed:1, grav:1, air:0, magnet:0, time:1,
+           fly:false, ghost:false, freeze:false };
+}
+var POW = freshPow();
+function powOn(){
+  return POW.jump !== 1 || POW.speed !== 1 || POW.grav !== 1 || POW.air > 0 ||
+         POW.magnet > 0 || POW.time !== 1 || POW.fly || POW.ghost || POW.freeze;
+}
+function powGrav(){ return GRAV * POW.grav; }
 
 function devOpen(from){
   G.back = from || G.state;
@@ -1039,18 +1068,19 @@ function devOpen(from){
   sfx.key();
 }
 function devDigit(d){
-  if(G.code.length >= 4) return;
+  if(G.codeLock > 0 || G.code.length >= 4) return;
   G.code += d;
   tone(600 + G.code.length*80, 0.05, "square", 0.05);
-  if(G.code.length === 4){
-    if(G.code === DEV_CODE){
-      devOn = true; G.state = "admin"; G.code = "";
-      toast("Доступ разработчика открыт");
-      sfx.win();
-    } else {
-      G.codeBad = 45; G.code = ""; G.shake = 10;
-      sfx.hurt();
-    }
+  if(G.code.length < 4) return;
+  if(codeHash(G.code) === DEV_HASH){
+    devOn = true; G.state = "admin"; G.code = ""; G.codeTries = 0;
+    toast("Доступ разработчика открыт");
+    sfx.win();
+  } else {
+    G.codeBad = 45; G.code = ""; G.shake = 10;
+    G.codeTries++;
+    if(G.codeTries >= 3){ G.codeTries = 0; G.codeLock = 600; }   // десять секунд паузы
+    sfx.hurt();
   }
 }
 function wipeProgress(){               // стираем всё, что игра держит в браузере
@@ -1065,10 +1095,37 @@ function wipeProgress(){               // стираем всё, что игра
   STATS = freshStats();
   curSkin = "pupil";
   modOn = {};
-  devGod = false;
+  devGod = false; devBox = false; POW = freshPow();
   curSrc = "classic";
   curSeed = randomSeed();
   applySource();
+}
+var POW_STEPS = {
+  jump:   { n:"Сила прыжка",   min:0.4, max:3,   st:0.2,  f:"x" },
+  speed:  { n:"Скорость бега", min:0.4, max:3,   st:0.2,  f:"x" },
+  grav:   { n:"Гравитация",    min:0.2, max:2,   st:0.2,  f:"x" },
+  air:    { n:"Доп. прыжки",   min:0,   max:5,   st:1,    f:"n" },
+  magnet: { n:"Магнит",        min:0,   max:600, st:150,  f:"m" },
+  time:   { n:"Скорость игры", min:0.5, max:2,   st:0.25, f:"x" }
+};
+function powText(k){
+  var d = POW_STEPS[k], v = POW[k];
+  if(d.f === "n") return v ? "+" + v : "нет";
+  if(d.f === "m") return v ? Math.round(v) + " px" : "выкл";
+  return "×" + v.toFixed(v === Math.round(v) ? 1 : 2);
+}
+function powDo(id){
+  var sp = id.split("_"), k = sp[0], dir = sp[1];
+  if(k === "reset"){ POW = freshPow(); toast("Силы сброшены"); return; }
+  if(k === "fly"){ POW.fly = !POW.fly; if(POW.fly) POW.ghost = false; toast(POW.fly ? "Полёт включён" : "Полёт выключен"); }
+  else if(k === "ghost"){ POW.ghost = !POW.ghost; toast(POW.ghost ? "Проходим сквозь стены" : "Стены снова твёрдые"); }
+  else if(k === "freeze"){ POW.freeze = !POW.freeze; toast(POW.freeze ? "Время остановлено" : "Время идёт"); }
+  else if(POW_STEPS[k]){
+    var d = POW_STEPS[k];
+    POW[k] = clamp(Math.round((POW[k] + (dir === "up" ? d.st : -d.st)) * 100) / 100, d.min, d.max);
+    toast(d.n + ": " + powText(k));
+  }
+  if(G.state === "play" || G.state === "admin") G.cheated = true;
 }
 function devConfirm(id, msg){          // опасное просит нажать дважды
   if(G.confirmId === id && G.confirmT > 0){
@@ -1115,6 +1172,42 @@ function devDo(id){
     toast(devGod ? "Бессмертие включено" : "Бессмертие выключено");
   }
   else if(id === "dev_shield"){ G.shield = true; toast("Портфель выдан"); }
+  else if(id === "dev_buns10000"){ STATS.buns += 10000; statSave(); toast("+10000 булок"); }
+  else if(id === "dev_teleport"){
+    if(lv && lv.door && G.player){
+      G.player.x = lv.door.cx - G.player.w/2;
+      G.player.y = lv.door.y;
+      G.player.vx = G.player.vy = 0;
+      G.cam = camTarget();
+      puff(lv.door.cx, lv.door.y + 20, 16, "#9fd8ff", 3);
+      toast("Телепорт к двери");
+    } else toast("Работает только во время забега");
+  }
+  else if(id === "dev_key"){
+    if(lv && lv.key){ lv.key.got = true; G.hasKey = true; G.flash = 12; toast("Ключ выдан"); }
+    else if(lv){ G.hasKey = true; toast("Ключ выдан"); }
+    else toast("Работает только во время забега");
+  }
+  else if(id === "dev_clear"){
+    if(lv && lv.enemies && lv.enemies.length){
+      var n = 0;
+      for(i=0;i<lv.enemies.length;i++) if(!lv.enemies[i].dead){
+        lv.enemies[i].dead = true; lv.enemies[i].deadT = 0;
+        puff(lv.enemies[i].x + 12, lv.enemies[i].y + 14, 10, "#ff9c9c", 2.6);
+        n++;
+      }
+      toast(n ? "Завучей убрано: " + n : "Этаж и так пуст");
+    } else toast("Работает только во время забега");
+  }
+  else if(id === "dev_box"){ devBox = !devBox; toast(devBox ? "Хитбоксы видны" : "Хитбоксы скрыты"); }
+  else if(id === "dev_seed"){
+    curSeed = randomSeed(); curSrc = "seed"; applySource();
+    toast("Новый сид: " + curSeed);
+  }
+  else if(id === "dev_allmods"){
+    for(i=0;i<MODS.length;i++) modOn[MODS[i].k] = true;
+    modSave(); applySource(); toast("Включены все модификаторы");
+  }
   else if(id === "dev_achs"){
     var n = 0;
     for(i=0;i<ACHS.length;i++) if(!achDone(ACHS[i])){
@@ -1172,6 +1265,8 @@ function doButton(id){
   else if(id === "dev_open"){ devOpen(G.state); }
   else if(id === "code_del"){ G.code = G.code.slice(0, -1); }
   else if(id.indexOf("num_") === 0){ devDigit(id.slice(4)); }
+  else if(id.indexOf("adm_") === 0){ G.admTab = id.slice(4); sfx.key(); }
+  else if(id.indexOf("pw_") === 0){ powDo(id.slice(3)); }
   else if(id.indexOf("dev_") === 0){ devDo(id); }
   else if(id === "mods_open"){ G.back = "menu"; G.state = "mods"; G.modTab = G.modTab || "hard"; }
   else if(id === "hub_open"){ enterHub(); }
@@ -1473,7 +1568,8 @@ function puff(x, y, n, col, spd){
 function newGame(){
   return { state:"menu", levelIndex:0, level:null, player:null,
            mx:-999, my:-999, stateT:0, lastState:"", wipe:0, scoreShown:0,
-           secretHits:0, secretT:0, code:"", codeBad:0, cheated:false, confirmId:null, confirmT:0,
+           secretHits:0, secretT:0, code:"", codeBad:0, codeTries:0, codeLock:0,
+           cheated:false, confirmId:null, confirmT:0, admTab:"res",
            achShow:null, achT:0,
            coins:0, coinsMax:0, deaths:0, timeLeft:timeLimit(),
            parts:[], shake:0, flash:0, banner:0, hintT:0, cam:0,
@@ -1527,7 +1623,7 @@ function startRun(mode, src){
   var pick = curDiff.key;
   G = newGame();
   G.pick = pick;
-  if(devGod) G.cheated = true;        // с бессмертием рекорд тоже не в счёт
+  if(devGod || powOn()) G.cheated = true;   // с читами рекорд не в счёт
   try{ localStorage.setItem("peremena_mode", pick); }catch(e){}
   G.state = "play";
   G.coinsMax = 0;
@@ -1653,7 +1749,7 @@ function updatePlayer(dt){
 
   if(p.dead){
     p.deadT++;
-    p.vy = Math.min(p.vy + GRAV, MAXFALL);
+    p.vy = Math.min(p.vy + powGrav(), MAXFALL);
     p.y += p.vy;
     if(p.deadT > 46){
       if(oneLife()){ goOver("dead"); sfx.fail(); }
@@ -1680,7 +1776,11 @@ function updatePlayer(dt){
   else { p.vx *= p.grounded && slip ? 0.975 : 0.80; if(Math.abs(p.vx) < 0.06) p.vx = 0; }
   p.vx = clamp(p.vx, -runMax(), runMax());
 
-  p.vy = Math.min(p.vy + GRAV, MAXFALL);
+  p.vy = Math.min(p.vy + powGrav(), MAXFALL);
+  if(POW.fly){                                   // полёт: пробел тянет вверх, иначе зависаем
+    p.vy = input.jump ? -4.8 : p.vy * 0.55;
+    p.jumping = false; p.jumpBuf = 0;
+  }
   if(p.coyote > 0) p.coyote--;
   if(p.jumpBuf > 0) p.jumpBuf--;
 
@@ -1698,13 +1798,16 @@ function updatePlayer(dt){
   if(p.jumping && !input.jump && p.vy < -4.2){ p.vy = -4.2; p.jumping = false; }  // короткий прыжок
 
   /* движение + столкновения */
-  p.x += p.vx; collideTiles(p,"x"); collideMovers(p,"x");
+  p.x += p.vx;
+  if(!POW.ghost){ collideTiles(p,"x"); collideMovers(p,"x"); }
   var wasAir = !p.grounded;
-  p.y += p.vy; collideTiles(p,"y"); collideMovers(p,"y");
+  p.y += p.vy;
+  if(!POW.ghost){ collideTiles(p,"y"); collideMovers(p,"y"); }
+  else if(POW.fly || POW.ghost) p.x = clamp(p.x, 0, lv.w*TS - p.w);
 
   if(p.grounded){
     p.jumping = false;
-    p.air = canDouble() ? 1 : 0;
+    p.air = (canDouble() ? 1 : 0) + POW.air;
     p.coyote = curDiff.coyote;
     if(p.sqy > 1){ p.sqx = 1.22; p.sqy = 0.8; puff(p.x+p.w/2, p.y+p.h, 5, "#ffffff", 1.6); }
   }
@@ -1736,21 +1839,28 @@ function updatePlayer(dt){
 
   /* шипы */
   var body = { x:p.x+3, y:p.y+4, w:p.w-6, h:p.h-4 };
-  if(G.invul <= 0)
+  if(G.invul <= 0 && !POW.ghost)
     for(i=0;i<lv.spikes.length;i++) if(overlap(body, lv.spikes[i])){ hurtPlayer(); return; }
 
   /* падение в пропасть */
-  if(p.y > lv.h*TS + 40){ killPlayer(); return; }
+  if(p.y > lv.h*TS + 40){
+    if(POW.fly || POW.ghost){ p.y = 0; p.vy = 0; }      // с полётом вниз не проваливаемся
+    else { killPlayer(); return; }
+  }
 
   /* пирожки */
   for(i=0;i<lv.coins.length;i++){
     var c = lv.coins[i];
     if(c.got) continue;
     c.ph += 0.09;
-    if(mod("magnet")){                                  // «Магнит»: пирожки тянутся к игроку
+    var mr = Math.max(mod("magnet") ? 120 : 0, POW.magnet);
+    if(mr > 0){                                         // магнит: пирожки тянутся к игроку
       var dx = (p.x + p.w/2) - (c.x + 8), dy = (p.y + p.h/2) - (c.y + 8);
       var dist = Math.sqrt(dx*dx + dy*dy);
-      if(dist < 120 && dist > 1){ c.x += dx/dist * 3.2; c.y += dy/dist * 3.2; }
+      if(dist < mr && dist > 1){
+        var pull = POW.magnet ? 6 : 3.2;
+        c.x += dx/dist * pull; c.y += dy/dist * pull;
+      }
     }
     if(overlap(p, c)){
       c.got = true; G.coins++; stat("pies"); stat("buns");
@@ -2003,6 +2113,7 @@ function update(dtSec){
   if(G.hotT > 0) G.hotT--;
   if(G.secretT > 0) G.secretT--;
   if(G.codeBad > 0) G.codeBad--;
+  if(G.codeLock > 0) G.codeLock--;
   if(G.confirmT > 0){ G.confirmT--; if(!G.confirmT) G.confirmId = null; }
   if(G.state !== G.lastState){ G.lastState = G.state; G.stateT = 0; }
   G.stateT++;
@@ -2019,7 +2130,7 @@ function update(dtSec){
     if(G.buff.pass > 0) G.buff.pass--;
     tickGlass();
     updateBalls();
-    G.timeLeft -= dtSec;
+    if(!POW.freeze) G.timeLeft -= dtSec;
     if(G.timeLeft <= 0){
       G.timeLeft = 0; goOver("bell"); sfx.bell(); G.shake = 20;
     }
@@ -2066,6 +2177,22 @@ function text(str, x, y, size, col, align, weight){
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = col;
   ctx.fillText(str, x, y);
+}
+function hintPlate(str, y, size, col){          // подсказка на своей плашке
+  ctx.font = "700 " + size + "px 'Segoe UI', system-ui, Arial, sans-serif";
+  var w = ctx.measureText(str).width + 26;
+  ctx.fillStyle = "rgba(6,12,24,.6)";
+  rrect(VW/2 - w/2, y - size - 4, w, size + 14, 9); ctx.fill();
+  text(str, VW/2, y, size, col || "#ffffff", "center");
+}
+function textFit(str, x, y, size, col, align, weight, maxW){
+  var sz = size;                                   // подпись ужимается, а не лезет на соседа
+  while(sz > 7){
+    ctx.font = (weight||700) + " " + sz + "px 'Segoe UI', system-ui, Arial, sans-serif";
+    if(ctx.measureText(str).width <= maxW) break;
+    sz -= 0.5;
+  }
+  text(str, x, y, sz, col, align, weight);
 }
 function shadowText(str, x, y, size, col, align){
   text(str, x+2, y+2, size, "rgba(0,0,0,.45)", align);
@@ -2817,9 +2944,10 @@ function uiButton(id, x, y, w, h, label, sub, o){
   var tint = o.selBorder || (sel ? "#8bffcf" : "#9fd8ff");
   var lift = hot ? -1 : (hov ? -2 : 0);
   var k = hot ? 0.975 : (hov ? 1.025 : 1);
-  if(hov || sel) G.uiHover = true;
+  if((hov || sel) && !o.dim) G.uiHover = true;
 
   ctx.save();
+  if(o.dim) ctx.globalAlpha = 0.3;
   ctx.translate(x + w/2, y + h/2 + lift);
   ctx.scale(k, k);
   ctx.translate(-w/2, -h/2);
@@ -3001,6 +3129,27 @@ function drawWipe(){
   ctx.fillRect(0, VH * wk - 2, VW, 2);
   ctx.fillRect(0, VH - VH * wk, VW, 2);
 }
+function drawHitboxes(){                 // отладочная сетка: где игра считает края
+  var lv = G.level, i, b;
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,120,120,.75)";
+  for(i=0;i<lv.spikes.length;i++){ b = lv.spikes[i]; ctx.strokeRect(b.x+0.5, b.y+0.5, b.w-1, b.h-1); }
+  ctx.strokeStyle = "rgba(255,180,90,.75)";
+  for(i=0;i<lv.enemies.length;i++){ b = lv.enemies[i]; if(!b.dead) ctx.strokeRect(b.x+0.5, b.y+0.5, b.w-1, b.h-1); }
+  ctx.strokeStyle = "rgba(139,255,207,.75)";
+  for(i=0;i<lv.pads.length;i++){ b = lv.pads[i]; ctx.strokeRect(b.x+0.5, b.y+0.5, b.w-1, b.h-1); }
+  if(lv.doorHit){
+    ctx.strokeStyle = "rgba(159,216,255,.6)";
+    ctx.strokeRect(lv.doorHit.x+0.5, lv.doorHit.y+0.5, lv.doorHit.w-1, lv.doorHit.h-1);
+  }
+  if(G.player){
+    ctx.strokeStyle = "#ffffff";
+    ctx.strokeRect(G.player.x+0.5, G.player.y+0.5, G.player.w-1, G.player.h-1);
+  }
+  ctx.restore();
+}
+
 function drawVignette(){
   var g = ctx.createRadialGradient(VW/2, VH/2, VH*0.45, VW/2, VH/2, VH*0.95);
   g.addColorStop(0, "rgba(0,0,0,0)");
@@ -3113,7 +3262,7 @@ function drawHUD(){
     iconBtn("sound", VW - s*2 - 24, 58, s, "sound");
   }
 
-  if(G.cheated || devGod){
+  if(G.cheated || devGod || powOn()){
     ctx.fillStyle = "rgba(224,80,80,.25)";
     rrect(VW-92, VH-34, 80, 24, 8); ctx.fill();
     text(devGod ? "DEV ∞" : "DEV", VW-52, VH-18, 12, "#ff9c9c", "center", 700);
@@ -3209,9 +3358,9 @@ function drawMenu(){
                : "← →  бежать · ПРОБЕЛ прыжок · E предмет · F весь экран · P пауза",
        VW/2, 346, 11, "rgba(200,220,255,.55)", "center", 600);
 
-  iconBtn("sound", 648, 82, 36, "sound");
-  if(!isTouch) iconBtn("full", 648, 122, 36, "full");
-  if(devOn) uiButton("dev_open", 68, 82, 66, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
+  iconBtn("sound", 700, 78, 36, "sound");
+  if(!isTouch) iconBtn("full", 700, 120, 36, "full");
+  if(devOn) uiButton("dev_open", 64, 84, 66, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
 }
 
 function modCell(m, x, y, w, h){
@@ -3233,8 +3382,8 @@ function modCell(m, x, y, w, h){
     ctx.moveTo(x+16, y+h/2); ctx.lineTo(x+20, y+h/2+4); ctx.lineTo(x+27, y+h/2-5);
     ctx.stroke();
   }
-  text(m.n, x+42, y+h/2-2, 14, on ? "#ffffff" : "rgba(230,240,255,.8)", "left", 700);
-  text(m.d, x+42, y+h/2+12, 10.5, "rgba(200,220,255,.55)", "left", 600);
+  textFit(m.n, x+42, y+h/2-2, 14, on ? "#ffffff" : "rgba(230,240,255,.8)", "left", 700, w-108);
+  textFit(m.d, x+42, y+h/2+12, 10.5, "rgba(200,220,255,.55)", "left", 600, w-108);
   text((m.m > 0 ? "+" : "") + m.m + "%", x+w-12, y+h/2+5, 14, tint, "right", 700);
   G.buttons.push({ id:"mod_" + m.k, x:x, y:y, w:w, h:h });
 }
@@ -3271,8 +3420,9 @@ function drawMods(){
   var list = modList(tab), i;
   var rows = Math.max(1, Math.ceil(list.length / 2));
   var top = 106, bottom = 414;                       // сетка сама ужимается под число карточек
-  var step = Math.min(46, (bottom - top) / rows);
-  var ch = Math.min(42, step - 4);
+  var step = Math.min(72, (bottom - top) / rows);
+  var ch = Math.min(64, step - 8);
+  top += Math.max(0, (bottom - top - rows*step) / 2);   // и встаёт по центру, без пустого низа
   for(i=0;i<list.length;i++)
     modCell(list[i], (i % 2) ? 400 : 30, top + Math.floor(i/2)*step, 350, ch);
 
@@ -3334,7 +3484,7 @@ function drawLesson(){
   ctx.fillStyle = "#8a6135"; rrect(80, VH-118, VW-160, 16, 4); ctx.fill();
   ctx.fillStyle = "#6b4a2a"; ctx.fillRect(130, VH-102, 14, 60); ctx.fillRect(VW-144, VH-102, 14, 60);
 
-  drawTeacher(190, 300, L.kind === "copy" ? (L.phase === "away" ? "away" : (L.phase === "turn" ? "turn" : "watch")) : "turn");
+  drawTeacher(190, 352, L.kind === "copy" ? (L.phase === "away" ? "away" : (L.phase === "turn" ? "turn" : "watch")) : "turn");
 
   /* шапка */
   ctx.fillStyle = "rgba(9,16,32,.6)";
@@ -3424,7 +3574,7 @@ function drawLesson(){
     rrect(nx - 34, 360, 68, 46, 12); ctx.fill();
     ctx.globalAlpha = 1;
     text(L.next === "left" ? "←" : "→", nx, 392, 26, "#0d1626", "center");
-    text(isTouch ? "жми ◀ и ▶ по очереди" : "жми ← и → по очереди", VW/2, VH-70, 13, "rgba(220,235,255,.7)", "center", 600);
+    hintPlate(isTouch ? "жми ◀ и ▶ по очереди" : "жми ← и → по очереди", VH-70, 13, "rgba(220,235,255,.85)");
     ctx.fillStyle = "rgba(255,255,255,.14)"; rrect(240, VH-48, 330, 8, 4); ctx.fill();
     ctx.fillStyle = L.limit < 300 ? "#ff8080" : "#9fd8ff";
     rrect(240, VH-48, 330 * Math.max(0, L.limit/((L.cfg.strict?16:22)*60)), 8, 4); ctx.fill();
@@ -3440,10 +3590,10 @@ function drawLesson(){
     eg.addColorStop(0, L.eye < 35 ? "#ff6b6b" : "#ffd166"); eg.addColorStop(1, "#8bffcf");
     ctx.fillStyle = eg; rrect(243, 303, Math.max(4, 324*Math.max(0,L.eye)/100), 20, 7); ctx.fill();
     text("БОДРОСТЬ " + Math.max(0, Math.round(L.eye)) + "%", 405, 319, 13, "#0d1626", "center");
-    ctx.globalAlpha = 0.6 + 0.4*Math.sin(G.tick*0.14);
-    text(isTouch ? "жми ▲ почаще" : "жми ПРОБЕЛ почаще", VW/2, 360, 16, "#ffffff", "center");
+    ctx.globalAlpha = 0.72 + 0.28*Math.sin(G.tick*0.14);
+    hintPlate(isTouch ? "жми ▲ почаще" : "жми ПРОБЕЛ почаще", 360, 16);
     ctx.globalAlpha = 1;
-    text("продержись " + Math.ceil(L.limit/60) + " сек", VW/2, 386, 13, "rgba(220,235,255,.7)", "center", 600);
+    hintPlate("продержись " + Math.ceil(L.limit/60) + " сек", 388, 13, "rgba(220,235,255,.8)");
     if(L.eye < 45){
       ctx.globalAlpha = 0.5 + 0.3*Math.sin(G.tick*0.1);
       text("Z Z Z", VW/2 + 120, 240, 22, "#9fd8ff", "center");
@@ -3549,7 +3699,8 @@ function drawSkins(){
     } else {
       text(on ? "НАДЕТ" : "надеть", cx+66, cy+66, on ? 13 : 12,
            on ? "#8bffcf" : "#9fd8ff", "left", 700);
-      text(skinWear(sk.k) + " ур. в образе", cx+66, cy+86, 10, "rgba(200,220,255,.45)", "left", 600);
+      text(skinWear(sk.k) + " ур.", cx+66, cy+86, 10, "rgba(200,220,255,.45)", "left", 600);
+      text("этап", cx+150, cy+56, 9, "rgba(200,220,255,.4)", "left", 600);
       var st, maxSt = skinMaxStage(sk.k), cur = skinStage(sk.k);
       for(st=1; st<=3; st++){
         var sx = cx + 150 + (st-1)*28, sy = cy + 62, open = st <= maxSt;
@@ -3594,9 +3745,9 @@ function drawRecords(){
   panel(760, 440, "rgba(159,216,255,.9)");
   gradText("КАБИНЕТ", VW/2, 52, 24, "#e4f3ff", "#5aa8e0");
   var tab = G.recTab || "stats", i, y, done = STATS.achs.length;
-  uiButton("rec_stats", 214, 64, 172, 32, "СТАТИСТИКА", null,
+  uiButton("rec_stats", 194, 64, 180, 32, "СТАТИСТИКА", null,
            { size:13, sel: tab === "stats", selBorder:"#9fd8ff" });
-  uiButton("rec_achs", 398, 64, 172, 32, "ДОСТИЖЕНИЯ · " + done + "/" + ACHS.length, null,
+  uiButton("rec_achs", 386, 64, 220, 32, "ДОСТИЖЕНИЯ · " + done + "/" + ACHS.length, null,
            { size:12, sel: tab === "achs", selBorder:"#ffd166" });
 
   if(tab === "stats"){
@@ -3639,10 +3790,12 @@ function drawRecords(){
         ctx.moveTo(ax+10, ay+13); ctx.lineTo(ax+12.5, ay+16); ctx.lineTo(ax+16, ay+10);
         ctx.stroke();
       }
-      text(a2.n, ax+26, ay+17, 11.5, ok ? "#ffffff" : "rgba(230,240,255,.65)", "left", 700);
-      text(a2.d, ax+150, ay+17, 10, "rgba(200,220,255,.45)", "left", 600);
-      text(ok ? "+" + a2.r : Math.min(achValue(a2), a2.v) + "/" + a2.v,
-           ax+344, ay+17, 11, ok ? "#ffd98a" : "rgba(200,220,255,.5)", "right", 700);
+      var prog = ok ? "+" + a2.r : Math.min(achValue(a2), a2.v) + "/" + a2.v;
+      ctx.font = "700 11px 'Segoe UI', system-ui, Arial, sans-serif";
+      var pw = ctx.measureText(prog).width;
+      textFit(a2.n, ax+26, ay+17, 11.5, ok ? "#ffffff" : "rgba(230,240,255,.65)", "left", 700, 118);
+      textFit(a2.d, ax+146, ay+17, 10, "rgba(200,220,255,.45)", "left", 600, 184 - pw);
+      text(prog, ax+344, ay+17, 11, ok ? "#ffd98a" : "rgba(200,220,255,.5)", "right", 700);
     }
   }
   uiButton("back", 320, 404, 170, 34, "НАЗАД", null, { size:14, sel:true });
@@ -3658,7 +3811,9 @@ function drawCode(){
     ctx.fillStyle = i < G.code.length ? "#ffd166" : "rgba(255,255,255,.18)";
     ctx.beginPath(); ctx.arc(VW/2 + (i-1.5)*30, 152, 8, 0, 6.2832); ctx.fill();
   }
-  if(G.codeBad > 0){
+  if(G.codeLock > 0){
+    text("пауза " + Math.ceil(G.codeLock/60) + " сек", VW/2, 180, 13, "#ff8080", "center", 700);
+  } else if(G.codeBad > 0){
     ctx.globalAlpha = Math.min(1, G.codeBad/20);
     text("неверный код", VW/2, 180, 13, "#ff8080", "center", 700);
     ctx.globalAlpha = 1;
@@ -3669,61 +3824,138 @@ function drawCode(){
     var ky = 192 + Math.floor(i/3) * 54;
     var lab = keys[i] === "del" ? "←" : (keys[i] === "esc" ? "ОТМЕНА" : keys[i]);
     uiButton(keys[i] === "del" ? "code_del" : (keys[i] === "esc" ? "back" : "num_" + keys[i]),
-             kx, ky, 78, 46, lab, null, { size: keys[i] === "esc" ? 12 : 20 });
+             kx, ky, 78, 46, lab, null,
+             { size: keys[i] === "esc" ? 12 : 20, dim: G.codeLock > 0 && keys[i] !== "esc" });
   }
 }
 
-function devRow(label, y, col){                    // подпись над рядом кнопок
+function devRow(label, y, col){                     // подпись над рядом кнопок
   text(label, 40, y - 6, 10, col, "left", 700);
 }
-function drawAdmin(){
-  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
-  panel(760, 460, "rgba(255,120,120,.9)");
-  gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 44, 22, "#ffd9d9", "#e05050");
-  text("выданное здесь помечает забег: рекорд не сохранится",
-       VW/2, 64, 11, "rgba(220,235,255,.6)", "center", 600);
+var ADM_TABS = [["res","РЕСУРСЫ"], ["run","ЗАБЕГ"], ["pow","СИЛЫ"], ["bad","ОПАСНОЕ"]];
+function inRun(){ return G.back === "play" || G.back === "paused" || G.back === "clear"; }
 
-  devRow("РЕСУРСЫ", 92, "rgba(255,185,138,.8)");
-  uiButton("dev_buns100",  40, 92, 220, 40, "+100 булок", null, { size:15 });
-  uiButton("dev_buns1000", 270, 92, 220, 40, "+1000 булок", null, { size:15 });
-  uiButton("dev_skins",    500, 92, 220, 40, "Открыть все скины", null, { size:14 });
+function admRes(){
+  devRow("БУЛКИ", 118, "rgba(255,185,138,.8)");
+  uiButton("dev_buns100",   40, 118, 220, 40, "+100 булок", null, { size:15 });
+  uiButton("dev_buns1000", 270, 118, 220, 40, "+1000 булок", null, { size:15 });
+  uiButton("dev_buns10000",500, 118, 220, 40, "+10000 булок", null, { size:15 });
 
-  devRow("ПРЕДМЕТ В РУКИ", 152, "rgba(139,255,207,.8)");
+  devRow("ОТКРЫТЬ", 192, "rgba(139,255,207,.8)");
+  uiButton("dev_skins", 40, 192, 220, 40, "Все скины · " + STATS.owned.length + "/" + SKINS.length, null, { size:13 });
+  uiButton("dev_wear", 270, 192, 220, 40, "Этапы скинов", null, { size:14 });
+  uiButton("dev_achs", 500, 192, 220, 40, "Достижения · " + STATS.achs.length + "/" + ACHS.length, null, { size:13 });
+
+  devRow("НАСТРОЙКИ ЗАБЕГА", 266, "rgba(159,216,255,.8)");
+  uiButton("dev_mods", 40, 266, 220, 40, modCount() ? "Снять моды · " + modCount() : "Модов нет", null, { size:13 });
+  uiButton("dev_allmods", 270, 266, 220, 40, "Включить все моды", null, { size:13 });
+  uiButton("dev_seed", 500, 266, 220, 40, "Новый сид", null, { size:14 });
+
+  text("сид " + curSeed + "   ·   набор " + (curSrc === "seed" ? "по сиду" : "классика") +
+       "   ·   множитель ×" + modMult().toFixed(2),
+       VW/2, 340, 12, "rgba(220,235,255,.55)", "center", 600);
+}
+
+function admRun(){
+  devRow("ПРЕДМЕТ В РУКИ", 118, "rgba(139,255,207,.8)");
   for(var i=0;i<ITEM_KEYS.length;i++)
-    uiButton("dev_item_" + ITEM_KEYS[i], 40 + i*146, 152, 136, 40,
+    uiButton("dev_item_" + ITEM_KEYS[i], 40 + i*146, 118, 136, 40,
              ITEMS[ITEM_KEYS[i]].n, null, { size:13, sel: G.item === ITEM_KEYS[i] });
 
-  devRow("ЗАБЕГ", 212, "rgba(159,216,255,.8)");
-  uiButton("dev_time",   40, 212, 172, 40, "+60 секунд", null, { size:14 });
-  uiButton("dev_coins", 218, 212, 172, 40, "Все пирожки", null, { size:14 });
-  uiButton("dev_skip",  396, 212, 172, 40, "Пропустить этаж", null, { size:13 });
-  uiButton("dev_shield",574, 212, 172, 40, "Выдать портфель", null, { size:13 });
+  devRow("ВРЕМЯ И ЭТАЖ", 192, "rgba(159,216,255,.8)");
+  uiButton("dev_time",   40, 192, 172, 40, "+60 секунд", null, { size:14 });
+  uiButton("dev_coins", 218, 192, 172, 40, "Все пирожки", null, { size:14 });
+  uiButton("dev_skip",  396, 192, 172, 40, "Пропустить этаж", null, { size:13 });
+  uiButton("dev_shield",574, 192, 172, 40, "Выдать портфель", null, { size:13 });
 
-  devRow("ПРОГРЕСС", 272, "rgba(255,209,102,.8)");
-  uiButton("dev_achs", 40, 272, 226, 40,
-           "Достижения " + STATS.achs.length + "/" + ACHS.length, null, { size:13 });
-  uiButton("dev_wear", 282, 272, 226, 40, "Открыть этапы скинов", null, { size:13 });
-  uiButton("dev_mods", 524, 272, 222, 40,
-           modCount() ? "Снять моды · " + modCount() : "Модов нет", null, { size:13 });
+  devRow("ПОМОЩЬ НА ЭТАЖЕ", 266, "rgba(255,209,102,.8)");
+  uiButton("dev_teleport", 40, 266, 172, 40, "К двери", null, { size:14 });
+  uiButton("dev_key",     218, 266, 172, 40, "Выдать ключ", null, { size:14 });
+  uiButton("dev_clear",   396, 266, 172, 40, "Убрать завучей", null, { size:13 });
+  uiButton("pw_freeze",   574, 266, 172, 40, POW.freeze ? "Время: СТОП" : "Стоп-время", null,
+           { size:13, sel: POW.freeze, selBorder:"#9fd8ff" });
 
-  devRow("ОПАСНОЕ", 332, "rgba(255,140,140,.8)");
-  uiButton("dev_god",   40, 332, 226, 40, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
+  text(inRun() ? "этаж " + (G.floor || 1) + " · " + (G.level ? G.level.name : "?") +
+                 "   ·   до звонка " + fmtTime(Math.max(0, G.timeLeft))
+                : "кнопки этого раздела работают во время забега",
+       VW/2, 340, 12, "rgba(220,235,255,.55)", "center", 600);
+}
+
+function powLine(k, y){
+  var d = POW_STEPS[k], def = freshPow()[k];
+  text(d.n, 44, y + 21, 14, "rgba(230,240,255,.85)", "left", 700);
+  text(powText(k), 470, y + 21, 15, POW[k] === def ? "rgba(200,220,255,.5)" : "#ffd98a", "right", 700);
+  uiButton("pw_" + k + "_dn", 486, y, 56, 32, "−", null, { size:20 });
+  uiButton("pw_" + k + "_up", 548, y, 56, 32, "+", null, { size:20 });
+  var frac = (POW[k] - d.min) / (d.max - d.min);
+  ctx.fillStyle = "rgba(255,255,255,.1)";
+  rrect(618, y + 12, 128, 8, 4); ctx.fill();
+  ctx.fillStyle = POW[k] === def ? "rgba(159,216,255,.5)" : "#8bffcf";
+  rrect(618, y + 12, Math.max(6, 128 * frac), 8, 4); ctx.fill();
+}
+function admPow(){
+  var keys = ["jump","speed","grav","air","magnet","time"], i;
+  for(i=0;i<keys.length;i++) powLine(keys[i], 106 + i*38);
+
+  uiButton("pw_fly",   40, 336, 172, 34, POW.fly ? "Полёт: ВКЛ" : "Полёт", null,
+           { size:13, sel: POW.fly, selBorder:"#9fd8ff" });
+  uiButton("pw_ghost",218, 336, 172, 34, POW.ghost ? "Сквозь стены: ВКЛ" : "Сквозь стены", null,
+           { size:12, sel: POW.ghost, selBorder:"#c9a0ff" });
+  uiButton("pw_freeze",396,336, 172, 34, POW.freeze ? "Время: СТОП" : "Стоп-время", null,
+           { size:13, sel: POW.freeze, selBorder:"#ffd166" });
+  uiButton("pw_reset", 574, 336, 172, 34, "Сбросить силы", null,
+           { size:13, selBorder:"#ff8080" });
+}
+
+function admBad(){
+  devRow("ЧИТЫ", 118, "rgba(255,140,140,.8)");
+  uiButton("dev_god", 40, 118, 220, 40, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
            { size:13, sel: devGod, selBorder:"#8bffcf" });
-  uiButton("dev_reset", 282, 332, 226, 40,
+  uiButton("dev_box", 270, 118, 220, 40, devBox ? "Хитбоксы: ВКЛ" : "Показать хитбоксы", null,
+           { size:13, sel: devBox, selBorder:"#9fd8ff" });
+  uiButton("pw_reset", 500, 118, 220, 40, "Сбросить силы", null, { size:14 });
+
+  devRow("СБРОС", 192, "rgba(255,140,140,.8)");
+  uiButton("dev_reset", 40, 192, 340, 40,
            (G.confirmId === "dev_reset" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Сбросить статистику",
-           null, { size:13, sel: G.confirmId === "dev_reset" && G.confirmT > 0, selBorder:"#ff8080" });
-  uiButton("dev_wipe",  524, 332, 222, 40,
+           null, { size:14, sel: G.confirmId === "dev_reset" && G.confirmT > 0, selBorder:"#ff8080" });
+  uiButton("dev_wipe", 390, 192, 330, 40,
            (G.confirmId === "dev_wipe" && G.confirmT > 0) ? "Точно? Нажми ещё раз" : "Стереть весь прогресс",
-           null, { size:13, sel: G.confirmId === "dev_wipe" && G.confirmT > 0, selBorder:"#ff8080" });
+           null, { size:14, sel: G.confirmId === "dev_wipe" && G.confirmT > 0, selBorder:"#ff8080" });
+
+  text("«Сбросить статистику» обнуляет счётчики, скины и достижения.", VW/2, 268, 12,
+       "rgba(220,235,255,.55)", "center", 600);
+  text("«Стереть весь прогресс» вдобавок чистит память браузера: рекорды, моды и сид.",
+       VW/2, 290, 12, "rgba(220,235,255,.55)", "center", 600);
+  text("Отменить это нельзя, поэтому обе кнопки просят нажать дважды.",
+       VW/2, 312, 12, "rgba(255,150,150,.6)", "center", 600);
+  text(devGod || powOn() ? "сейчас включены читы — рекорд не сохранится" : "читы выключены, забег честный",
+       VW/2, 342, 12, devGod || powOn() ? "#ffb98a" : "rgba(139,255,207,.6)", "center", 700);
+}
+
+function drawAdmin(){
+  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 462, "rgba(255,120,120,.9)");
+  gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 42, 21, "#ffd9d9", "#e05050");
+
+  var tab = G.admTab || "res", i;
+  for(i=0;i<ADM_TABS.length;i++)
+    uiButton("adm_" + ADM_TABS[i][0], 40 + i*176, 56, 168, 30, ADM_TABS[i][1], null,
+             { size:12, sel: tab === ADM_TABS[i][0], selBorder:"#ff8080" });
+
+  if(tab === "run") admRun();
+  else if(tab === "pow") admPow();
+  else if(tab === "bad") admBad();
+  else admRes();
 
   if(G.toastT > 0 && G.toast)
-    text(G.toast, VW/2, 396, 13, "#ffd98a", "center", 700);
+    text(G.toast, VW/2, 392, 13, "#ffd98a", "center", 700);
   else
-    text("булок " + STATS.buns + "   ·   скинов " + STATS.owned.length + " из " + SKINS.length +
-         "   ·   в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
+    text("булок " + STATS.buns + "   ·   в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
+         (devGod ? "   ·   бессмертие" : "") + (powOn() ? "   ·   силы накручены" : "") +
          (G.cheated ? "   ·   забег помечен" : ""),
-         VW/2, 396, 12, "rgba(220,235,255,.65)", "center", 600);
-  uiButton("back", 300, 408, 200, 42, "ЗАКРЫТЬ", null, { size:16, sel:true });
+         VW/2, 392, 12, "rgba(220,235,255,.65)", "center", 600);
+  uiButton("back", 300, 406, 200, 42, "ЗАКРЫТЬ", null, { size:16, sel:true });
 }
 
 function drawBanner(){
@@ -3834,6 +4066,7 @@ function render(){
     for(var i=0;i<G.level.enemies.length;i++) drawEnemy(G.level.enemies[i]);
     drawParts();
     if(G.player) drawPlayer();
+    if(devBox) drawHitboxes();
     ctx.restore();
   }
 
@@ -3929,7 +4162,7 @@ function frame(ts){
   if(!last) last = ts;
   var dt = Math.min(0.1, (ts - last)/1000);
   last = ts;
-  acc += dt * (mod("fastgame") ? 1.2 : 1);
+  acc += dt * (mod("fastgame") ? 1.2 : 1) * POW.time;
   var guard = 0;
   while(acc >= STEP && guard < 5){ update(STEP); acc -= STEP; guard++; }
   if(guard >= 5) acc = 0;
@@ -3954,7 +4187,8 @@ window.PEREMENA_DEBUG = {
   ach: achCheck, achs: function(){ return ACHS; },
   stage: skinStage, maxStage: skinMaxStage, setStage: setStage,
   end: lessonEnd,
-  dev: function(){ return { on: devOn, god: devGod }; }, devDo: devDo, devOpen: devOpen
+  dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
+  devDo: devDo, devOpen: devOpen, pow: function(){ return POW; }, powDo: powDo
 };
 
 modLoad();
