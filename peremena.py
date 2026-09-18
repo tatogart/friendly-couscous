@@ -389,6 +389,22 @@ ACHS = [
     ("shopaholic", "Богатый ученик", "потратить 5000 булок",        "spent",      5000, 350),
 ]
 
+# ================== ПРЕДМЕТЫ УРОКОВ ==================
+# Отжимания на литературе выглядели странно: у каждой мини-игры свои предметы.
+LESSON_SUBJ = {
+    "copy":    ["Контрольная по математике", "Контрольная по физике",
+                "Контрольная по геометрии", "Самостоятельная по алгебре"],
+    "quiz":    ["Математика", "История", "География", "Биология", "Физика",
+                "Литература", "Обществознание", "Астрономия"],
+    "dict":    ["Русский язык", "Литература", "Иностранный язык", "История"],
+    "canteen": ["Большая перемена", "Обед в столовой", "Дежурство по столовой"],
+    "pushups": ["Физкультура"],
+    "sleep":   ["История", "Обществознание", "Мировая культура", "География"],
+}
+LESSON_TAG = {"copy": "контрольная", "quiz": "устный опрос", "dict": "диктант",
+              "canteen": "перемена", "pushups": "разминка", "sleep": "последний урок"}
+
+
 # ================== ВИКТОРИНА ==================
 QUIZ = [
     ("Сколько будет 7 × 8?", ["56", "54", "48"], 0),
@@ -2017,8 +2033,7 @@ class Game(object):
     def open_lesson(self):
         kind = random.choice(["quiz", "quiz", "sleep", "copy", "dict", "canteen", "pushups"])
         strict = mod("strict")
-        subject = random.choice(["Математика", "Русский язык", "История", "Физика",
-                                 "Биология", "География", "Литература", "Геометрия"])
+        subject = random.choice(LESSON_SUBJ.get(kind, ["Математика"]))
         if kind == "quiz":
             qs = random.sample(QUIZ, 3)
             mixed = []
@@ -2047,13 +2062,13 @@ class Game(object):
                            "limit": (16 if strict else 22) * 60, "done": False, "end_t": 0}
         elif kind == "canteen":
             need = 12 if mod("exam") else (5 if mod("easyclass") else 8)
-            self.lesson = {"kind": "canteen", "subject": "Большая перемена", "drops": [],
+            self.lesson = {"kind": "canteen", "subject": subject, "drops": [],
                            "tray": VW / 2.0, "got": 0, "need": need, "left": need + 6,
                            "spawn": 0, "limit": (16 if strict else 24) * 60,
                            "done": False, "end_t": 0}
         else:
             need = 16 if mod("exam") else (9 if mod("easyclass") else 13)
-            self.lesson = {"kind": "pushups", "subject": "Физкультура", "reps": 0,
+            self.lesson = {"kind": "pushups", "subject": subject, "reps": 0,
                            "need": need, "nxt": "left", "down": 0,
                            "limit": (16 if strict else 22) * 60, "done": False, "end_t": 0}
         self.state = "lesson"
@@ -3323,10 +3338,12 @@ def draw_lesson(surf, g):
         if L["kind"] == "copy" and L["phase"] == "watch":
             draw_text(surf, "!", 190, 258, 20, RED, "center")
 
-    head = pygame.Surface((380, 34), pygame.SRCALPHA)
-    rrect(head, (9, 16, 32, 160), (0, 0, 380, 34), 12)
-    surf.blit(head, (VW // 2 - 190, 10))
-    draw_text(surf, "УРОК · " + L["subject"].upper(), VW // 2, 18, 15, GOLD, "center")
+    head = pygame.Surface((380, 44), pygame.SRCALPHA)
+    rrect(head, (9, 16, 32, 175), (0, 0, 380, 44), 12)
+    surf.blit(head, (VW // 2 - 190, 8))
+    fit_text(surf, "УРОК · " + L["subject"].upper(), VW // 2, 14, 15, GOLD, 350, "center")
+    draw_text(surf, LESSON_TAG.get(L["kind"], "урок"), VW // 2, 32, 10,
+              (200, 220, 245), "center", bold=False)
 
     if L["done"]:
         p = pygame.Surface((520, 190), pygame.SRCALPHA)

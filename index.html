@@ -879,6 +879,21 @@ function buySkin(sk){
    Справился — к перемене добавят времени, нет — отнимут. */
 var LESSON_NAMES = ["Математика","Русский язык","История","Физика",
                     "Биология","География","Литература","Геометрия"];
+/* Отжимания на литературе выглядели странно: у каждой мини-игры свои предметы. */
+var LESSON_SUBJ = {
+  copy:    ["Контрольная по математике","Контрольная по физике","Контрольная по геометрии",
+            "Самостоятельная по алгебре","Контрольная по химии"],
+  quiz:    ["Математика","История","География","Биология","Физика","Литература",
+            "Обществознание","Астрономия"],
+  notes:   ["Русский язык","Литература","Иностранный язык","История"],
+  canteen: ["Большая перемена","Обед в столовой","Дежурство по столовой"],
+  pushups: ["Физкультура"],
+  sleep:   ["История","Обществознание","Мировая культура","География","Литература"]
+};
+var LESSON_TAG = {
+  copy:"контрольная", quiz:"устный опрос", notes:"диктант",
+  canteen:"перемена", pushups:"разминка", sleep:"последний урок"
+};
 var QUIZ = [
   /* математика */
   { q:"Сколько будет 7 × 8?",              a:["56","54","58"] },
@@ -975,8 +990,11 @@ function startLesson(i, force){
   var r = mulberry(hashSeed(curSeed + "les" + i + curDiff.key));
   var kinds = ["copy","quiz","notes","canteen","pushups","sleep"];
   var cfg = lessonCfg();
-  var L = { kind: force || kinds[Math.floor(r()*kinds.length)], i:i, t:0, done:false, ok:false, endT:0,
-            cfg: cfg, subject: LESSON_NAMES[Math.floor(r()*LESSON_NAMES.length)] };
+  var kind = force || kinds[Math.floor(r()*kinds.length)];
+  var subjList = LESSON_SUBJ[kind] || LESSON_NAMES;
+  var L = { kind: kind, i:i, t:0, done:false, ok:false, endT:0, cfg: cfg,
+            subject: subjList[Math.floor(r()*subjList.length)],
+            tag: LESSON_TAG[kind] || "урок" };
   if(L.kind === "copy"){
     L.prog = 0; L.phase = "away"; L.pt = 100; L.strikes = 0; L.stun = 0;
     L.limit = (cfg.strict ? 28 : 34)*60;
@@ -1437,42 +1455,78 @@ function devConfirm(id, msg){          // опасное просит нажат
   sfx.hurt();
   return false;
 }
+var devLog = [];
+function devSay(msg){                    // журнал последних действий панели
+  devLog.push(msg);
+  if(devLog.length > 3) devLog.shift();
+  toast(msg);
+}
 function devDo(id){
   var i, lv = G.level;
   if(id !== "dev_reset" && id !== "dev_wipe") G.cheated = true;
-  if(id === "dev_buns100"){ STATS.buns += 100; statSave(); toast("+100 булок"); }
-  else if(id === "dev_buns1000"){ STATS.buns += 1000; statSave(); toast("+1000 булок"); }
+  if(id === "dev_buns100"){ STATS.buns += 100; statSave(); devSay("+100 булок"); }
+  else if(id === "dev_buns1000"){ STATS.buns += 1000; statSave(); devSay("+1000 булок"); }
   else if(id === "dev_skins"){
     for(i=0;i<SKINS.length;i++) if(!owns(SKINS[i].k)) STATS.owned.push(SKINS[i].k);
-    statSave(); toast("Все скины открыты");
+    statSave(); devSay("Все скины открыты");
   }
   else if(id.indexOf("dev_item_") === 0){
     G.item = id.slice(9);
     toast("Выдано: " + ITEMS[G.item].n);
   }
-  else if(id === "dev_time"){ G.timeLeft += 60; toast("+60 секунд"); }
+  else if(id === "dev_time"){ G.timeLeft += 60; devSay("+60 секунд"); }
   else if(id === "dev_coins"){
     if(lv && lv.coins){
       for(i=0;i<lv.coins.length;i++) if(!lv.coins[i].got){
         lv.coins[i].got = true; G.coins++; stat("pies"); stat("buns");
       }
-      statSave(); toast("Все пирожки собраны");
+      statSave(); devSay("Все пирожки собраны");
     }
   }
   else if(id === "dev_skip"){
     if(G.state === "admin" && (G.back === "paused" || G.back === "play")){
       G.state = "play"; G.back = null; nextLevel();
-      toast("Уровень пропущен");
+      devSay("Уровень пропущен");
       return;
     }
     toast("Работает только во время забега");
   }
+  else if(id.indexOf("dev_goto") === 0){
+    var gi = parseInt(id.slice(8), 10);
+    if(inRun() && LEVELS[gi]){
+      G.state = "play"; G.back = null;
+      G.levelIndex = gi; loadLevel(gi);
+      devSay("Этаж " + (gi + 1) + ": " + LEVELS[gi].name);
+    } else devSay("Работает только во время забега");
+  }
+  else if(id === "dev_prev" || id === "dev_next"){
+    if(inRun()){
+      var ni = clamp(G.levelIndex + (id === "dev_next" ? 1 : -1), 0, LEVELS.length - 1);
+      G.state = "play"; G.back = null;
+      G.levelIndex = ni; loadLevel(ni);
+      devSay("Этаж " + (ni + 1));
+    } else devSay("Работает только во время забега");
+  }
+  else if(id === "dev_restart"){ G.state = "play"; G.back = null; startRun(curDiff.key); devSay("Забег начат заново"); }
+  else if(id === "dev_lesson"){
+    if(inRun()){ G.state = "play"; G.back = null; startLesson(G.levelIndex, null); devSay("Урок вызван"); }
+    else devSay("Работает только во время забега");
+  }
+  else if(id === "dev_win"){
+    if(inRun()){ G.state = "play"; G.back = null; G.levelIndex = LEVELS.length - 1; finishRun(); devSay("Победа выдана"); }
+    else devSay("Работает только во время забега");
+  }
+  else if(id === "dev_lose"){
+    if(inRun()){ G.state = "play"; G.back = null; goOver("bell"); devSay("Забег провален"); }
+    else devSay("Работает только во время забега");
+  }
+  else if(id === "dev_uncheat"){ G.cheated = false; devSay("Пометка читера снята"); }
   else if(id === "dev_god"){
     devGod = !devGod;
     toast(devGod ? "Бессмертие включено" : "Бессмертие выключено");
   }
-  else if(id === "dev_shield"){ G.shield = true; toast("Портфель выдан"); }
-  else if(id === "dev_buns10000" || id === "dev_buns10000b"){ STATS.buns += 10000; statSave(); toast("+10000 булок"); }
+  else if(id === "dev_shield"){ G.shield = true; devSay("Портфель выдан"); }
+  else if(id === "dev_buns10000" || id === "dev_buns10000b"){ STATS.buns += 10000; statSave(); devSay("+10000 булок"); }
   else if(id === "dev_teleport"){
     if(lv && lv.door && G.player){
       G.player.x = lv.door.cx - G.player.w/2;
@@ -1480,7 +1534,7 @@ function devDo(id){
       G.player.vx = G.player.vy = 0;
       G.cam = camTarget();
       puff(lv.door.cx, lv.door.y + 20, 16, "#9fd8ff", 3);
-      toast("Телепорт к двери");
+      devSay("Телепорт к двери");
     } else toast("Работает только во время забега");
   }
   else if(id === "dev_key"){
@@ -1511,14 +1565,14 @@ function devDo(id){
   else if(id === "dev_upg"){
     for(i=0;i<UPGRADES.length;i++) STATS.upg[UPGRADES[i].k] = UPGRADES[i].lv;
     STATS.upgTotal = UPG_MAX;
-    statSave(); toast("Все улучшения выданы");
+    statSave(); devSay("Все улучшения выданы");
   }
   else if(id === "dev_tasks"){
     for(i=0;i<DAILY.tasks.length;i++){
       var tt = taskBy(DAILY.tasks[i].k);
       if(tt) DAILY.tasks[i].have = tt.v;
     }
-    dailySave(); toast("Задания дня выполнены");
+    dailySave(); devSay("Задания дня выполнены");
   }
   else if(id === "dev_achs"){
     var n = 0;
@@ -1530,18 +1584,18 @@ function devDo(id){
   else if(id === "dev_wear"){
     for(i=0;i<SKINS.length;i++)
       STATS.wear[SKINS[i].k] = Math.max(skinWear(SKINS[i].k), STAGE_NEED[2]);
-    statSave(); toast("Все этапы скинов открыты");
+    statSave(); devSay("Все этапы скинов открыты");
   }
   else if(id === "dev_mods"){ modOn = {}; modSave(); applySource(); toast("Модификаторы сняты"); }
   else if(id === "dev_reset"){
     if(!devConfirm(id, "Сбросить статистику? Нажми ещё раз")) return;
     STATS = freshStats(); curSkin = "pupil";
-    statSave(); toast("Статистика сброшена");
+    statSave(); devSay("Статистика сброшена");
   }
   else if(id === "dev_wipe"){
     if(!devConfirm(id, "Стереть ВЕСЬ прогресс? Нажми ещё раз")) return;
     wipeProgress();
-    toast("Прогресс стёрт полностью");
+    devSay("Прогресс стёрт полностью");
     sfx.bell();
   }
 }
@@ -1634,6 +1688,7 @@ function doButton(id){
   else if(id === "tab_class"){ G.modTab = "class"; }
   else if(id === "rec_stats"){ G.recTab = "stats"; }
   else if(id === "rec_achs"){ G.recTab = "achs"; }
+  else if(id === "rec_tasks"){ G.recTab = "tasks"; sfx.key(); }
   else if(id === "mods_back"){ G.state = G.back || "menu"; G.back = null; }
   else if(id === "mods_clear"){ modOn = {}; modSave(); applySource(); }
   else if(id.indexOf("mod_") === 0){
@@ -4245,8 +4300,9 @@ function drawLesson(){
 
   /* шапка */
   ctx.fillStyle = "rgba(9,16,32,.6)";
-  rrect(VW/2-190, 10, 380, 34, 12); ctx.fill();
-  text("УРОК · " + L.subject.toUpperCase(), VW/2, 32, 15, "#ffd166", "center");
+  rrect(VW/2-190, 8, 380, 44, 12); ctx.fill();
+  textFit("УРОК · " + L.subject.toUpperCase(), VW/2, 28, 15, "#ffd166", "center", 700, 340);
+  text(L.tag || "урок", VW/2, 44, 10, "rgba(220,235,255,.55)", "center", 600);
 
   if(L.kind === "copy"){
     var col = L.phase === "away" ? "#8bffcf" : (L.phase === "turn" ? "#ffd166" : "#ff8080");
@@ -4624,11 +4680,11 @@ function drawRecords(){
   uiButton("rec_tasks", 536, 64, 180, 32, "ЗАДАНИЯ" + (ready ? " · " + ready + "!" : ""), null,
            { size:12, sel: tab === "tasks", selBorder:"#8bffcf" });
   var perPage = 22, pages = Math.ceil(ACHS.length / perPage);
-  if(tab === "achs" && pages > 1){
+  if(tab === "achs" && pages > 1){          // стрелки внизу, чтобы не спорить с вкладками
     G.achPage = clamp(G.achPage || 0, 0, pages - 1);
-    uiButton("ach_prev", 614, 64, 42, 32, "◀", null, { size:14 });
-    uiButton("ach_next", 662, 64, 42, 32, "▶", null, { size:14 });
-    text((G.achPage + 1) + "/" + pages, 726, 85, 12, "rgba(220,235,255,.6)", "center", 700);
+    uiButton("ach_prev", 196, 400, 54, 34, "◀", null, { size:14 });
+    uiButton("ach_next", 540, 400, 54, 34, "▶", null, { size:14 });
+    text("стр. " + (G.achPage + 1) + "/" + pages, 60, 420, 12, "rgba(220,235,255,.6)", "left", 700);
   }
 
   if(tab === "tasks"){ drawTasks(); }
@@ -4723,8 +4779,38 @@ function drawCode(){
 function devRow(label, y, col){                     // подпись над рядом кнопок
   text(label, 40, y - 6, 10, col, "left", 700);
 }
-var ADM_TABS = [["res","РЕСУРСЫ"], ["run","ЗАБЕГ"], ["pow","СИЛЫ"], ["bad","ОПАСНОЕ"]];
+var ADM_TABS = [["res","РЕСУРСЫ","#ffb98a"], ["run","ЗАБЕГ","#9fd8ff"],
+                ["lvl","ЭТАЖИ","#c9a0ff"], ["pow","СИЛЫ","#8bffcf"], ["bad","ОПАСНОЕ","#ff8080"]];
 function inRun(){ return G.back === "play" || G.back === "paused" || G.back === "clear"; }
+
+function admLvl(){
+  var i, n = LEVELS.length, cols = 7;
+  devRow("ПЕРЕЙТИ НА ЭТАЖ", 124, "rgba(201,160,255,.8)");
+  for(i=0;i<Math.min(n, 14);i++){
+    uiButton("dev_goto" + i, 40 + (i % cols) * 102, 124 + Math.floor(i / cols) * 46, 94, 40,
+             String(i + 1), LEVELS[i].name.slice(0, 8),
+             { size:15, subSize:7.5, sel: inRun() && G.levelIndex === i, selBorder:"#c9a0ff" });
+  }
+  var rowY = 124 + Math.ceil(Math.min(n, 14) / cols) * 46 + 14;
+
+  devRow("УПРАВЛЕНИЕ ЗАБЕГОМ", rowY, "rgba(159,216,255,.8)");
+  uiButton("dev_prev", 40, rowY, 172, 38, "◀ Этаж назад", null, { size:13 });
+  uiButton("dev_next", 218, rowY, 172, 38, "Этаж вперёд ▶", null, { size:13 });
+  uiButton("dev_restart", 396, rowY, 172, 38, "Начать заново", null, { size:13 });
+  uiButton("dev_lesson", 574, rowY, 172, 38, "Вызвать урок", null, { size:13 });
+
+  devRow("ЗАКОНЧИТЬ ЗАБЕГ", rowY + 58, "rgba(255,209,102,.8)");
+  uiButton("dev_win", 40, rowY + 58, 226, 38, "Победа сейчас", null, { size:13, selBorder:"#8bffcf" });
+  uiButton("dev_lose", 282, rowY + 58, 226, 38, "Проигрыш сейчас", null, { size:13, selBorder:"#ff8080" });
+  uiButton("dev_uncheat", 524, rowY + 58, 222, 38,
+           G.cheated ? "Снять пометку читера" : "Забег чистый", null,
+           { size:13, sel: !G.cheated, selBorder:"#8bffcf" });
+
+  text(inRun() ? "сейчас этаж " + (G.levelIndex + 1) + " из " + LEVELS.length + " · " +
+                 (G.level ? G.level.name : "?")
+               : "перейти можно во время забега — сначала запусти игру",
+       VW/2, rowY + 118, 12, inRun() ? "rgba(220,235,255,.6)" : "rgba(255,190,190,.7)", "center", 600);
+}
 
 function admRes(){
   devRow("БУЛКИ", 118, "rgba(255,185,138,.8)");
@@ -4831,28 +4917,63 @@ function admBad(){
 }
 
 function drawAdmin(){
-  ctx.fillStyle = "rgba(4,10,22,.82)"; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle = "rgba(4,10,22,.86)"; ctx.fillRect(0,0,VW,VH);
   panel(760, 462, "rgba(255,120,120,.9)");
-  gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 42, 21, "#ffd9d9", "#e05050");
+  gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 34, 20, "#ffd9d9", "#e05050");
 
-  var tab = G.admTab || "res", i;
+  ctx.fillStyle = "rgba(255,80,80,.18)";            // бейдж слева от заголовка
+  rrect(40, 18, 54, 22, 7); ctx.fill();
+  ctx.strokeStyle = "#ff8080"; ctx.lineWidth = 1.4;
+  rrect(40, 18, 54, 22, 7); ctx.stroke();
+  text("DEV", 67, 33, 12, "#ff9c9c", "center", 700);
+
+  var fps = Math.round(1000 / Math.max(1, frameAvg));
+  text(fps + " fps", 720, 33, 11, "rgba(220,235,255,.5)", "right", 600);
+
+  /* живая строка состояния — видно, что происходит, не выходя из панели */
+  ctx.fillStyle = "rgba(0,0,0,.3)";
+  rrect(40, 44, 680, 22, 7); ctx.fill();
+  var st = inRun() ? ("этаж " + (G.levelIndex + 1) + "/" + LEVELS.length +
+                      " · " + (G.level ? G.level.name : "?") +
+                      " · " + fmtTime(Math.max(0, G.timeLeft)) +
+                      " · пирожков " + G.coins + "/" + G.coinsMax)
+                   : ("вне забега · " + (G.back === "hub" ? "холл" : "меню"));
+  text(st, 52, 59, 11, "rgba(220,235,255,.75)", "left", 600);
+  text(curDiff.name + " · ×" + modMult().toFixed(2) +
+       (curSrc === "seed" ? " · сид " + curSeed : " · классика"),
+       708, 59, 11, G.cheated ? "#ff9c9c" : "rgba(220,235,255,.6)", "right", 600);
+
+  var tab = G.admTab || "res", i, tw = 136;
   for(i=0;i<ADM_TABS.length;i++)
-    uiButton("adm_" + ADM_TABS[i][0], 40 + i*176, 56, 168, 30, ADM_TABS[i][1], null,
-             { size:12, sel: tab === ADM_TABS[i][0], selBorder:"#ff8080" });
+    uiButton("adm_" + ADM_TABS[i][0], 40 + i*142, 72, tw, 28, ADM_TABS[i][1], null,
+             { size:11, sel: tab === ADM_TABS[i][0], selBorder: ADM_TABS[i][2] });
 
   if(tab === "run") admRun();
+  else if(tab === "lvl") admLvl();
   else if(tab === "pow") admPow();
   else if(tab === "bad") admBad();
   else admRes();
 
-  if(G.toastT > 0 && G.toast)
-    text(G.toast, VW/2, 392, 13, "#ffd98a", "center", 700);
-  else
-    text("булок " + STATS.buns + "   ·   в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
-         (devGod ? "   ·   бессмертие" : "") + (powOn() ? "   ·   силы накручены" : "") +
-         (G.cheated ? "   ·   забег помечен" : ""),
-         VW/2, 392, 12, "rgba(220,235,255,.65)", "center", 600);
-  uiButton("back", 300, 406, 200, 42, "ЗАКРЫТЬ", null, { size:16, sel:true });
+  /* журнал: что панель делала последним */
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  rrect(40, 352, 400, 50, 8); ctx.fill();
+  text("ЖУРНАЛ", 52, 366, 9, "rgba(255,156,156,.75)", "left", 700);
+  for(i=0;i<3;i++){
+    var line = devLog[devLog.length - 1 - i];
+    if(!line) continue;
+    text("› " + line, 52 + (i ? 0 : 0), 380 + i*11, 10,
+         i === 0 ? "rgba(255,217,138,.9)" : "rgba(220,235,255,.4)", "left", 600);
+  }
+  text("булок " + STATS.buns + " · скинов " + STATS.owned.length + "/" + SKINS.length +
+       " · улучшений " + STATS.upgTotal + "/" + UPG_MAX,
+       456, 366, 11, "rgba(220,235,255,.65)", "left", 600);
+  text("в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
+       (G.item2 ? " + " + ITEMS[G.item2].n : ""),
+       456, 382, 11, "rgba(220,235,255,.5)", "left", 600);
+  text((devGod ? "бессмертие · " : "") + (powOn() ? "силы накручены · " : "") +
+       (G.cheated ? "забег помечен" : "забег чистый"),
+       456, 398, 11, G.cheated || devGod || powOn() ? "#ffb98a" : "rgba(139,255,207,.7)", "left", 600);
+  uiButton("back", 300, 410, 200, 40, "ЗАКРЫТЬ", null, { size:16, sel:true });
 }
 
 function setSeg(key, label, opts, y){          // строка настройки с переключателем
@@ -5167,6 +5288,7 @@ window.PEREMENA_DEBUG = {
   end: lessonEnd,
   set: function(){ return SET; }, muted: function(){ return muted; }, fancy: fancy,
   daily: function(){ return DAILY; }, taskBy: taskBy, upg: upg, skins: function(){ return SKINS; },
+  devLog: function(){ return devLog; }, lesson: startLesson,
   startItem: function(){ return startItem; }, upgrades: function(){ return UPGRADES; },
   cache: function(){ return imgKeys.length; },
   dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
