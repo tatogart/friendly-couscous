@@ -538,6 +538,68 @@ var SKINS = [
   { k:"dir",   n:"Директор",      d:"костюм, которого все боятся", shirt:"#1e2234", hair:"#787882", acc:"tie", price:800 },
   { k:"king",  n:"Король перемен",d:"корона за все достижения", shirt:"#fac83c", hair:"#785020", acc:"crown", price:1200 }
 ];
+/* ================== ПЯТЁРКИ ==================
+   Вторая валюта: капают за достижения и события, тратятся на редкое. */
+function stars(){ return STATS.stars || 0; }
+function addStars(n, why){
+  STATS.stars = stars() + n;
+  statSave();
+  if(why) toast("+" + n + " пятёрок · " + why);
+}
+
+/* ================== НОВОСТИ ==================
+   Летопись обновлений. Новое отмечается точкой в меню, пока не прочитают. */
+var NEWS_VERSION = "2026-09-19";
+var NEWS = [
+  { v:"2026-09-19", d:"19 сентября", n:"Пятёрки, новости и события",
+    lines:[
+      "Бесконечный режим будет удалён 23 сентября. Ачивки, связанные с этим режимом, удалены не будут.",
+      "Новая валюта — пятёрки. Капают за достижения и события.",
+      "Награды за достижения: сундуки на 5, 15, 30 и 45 штук.",
+      "Пять новых достижений за бесконечный режим.",
+      "Появилась кнопка СОБЫТИЯ и первый ивент — CONTENT CONTENT CONTENT.",
+      "В магазине новая вкладка «ЗА ПЯТЁРКИ»: два редких скина и три штуки на забег."
+    ] }
+];
+function newsUnread(){
+  var seen = "";
+  try{ seen = localStorage.getItem("peremena_news") || ""; }catch(e){}
+  return seen !== NEWS_VERSION;
+}
+function newsRead(){
+  try{ localStorage.setItem("peremena_news", NEWS_VERSION); }catch(e){}
+}
+
+/* ================== СОБЫТИЯ ==================
+   Даты живут в коде: игра сама считает, сколько осталось. */
+var EVENTS = [
+  { k:"content", n:"CONTENT CONTENT CONTENT", date:"2026-09-23",
+    d:"День, когда контента станет слишком много.",
+    lines:["В этот день бесконечный режим уходит на покой.",
+           "Достижения бесконечного остаются с тобой навсегда.",
+           "Загляни в новости — там будет, что почитать."],
+    prize:"5 пятёрок и 500 булок" }
+];
+function eventDays(ev){                   // сколько дней осталось до события
+  var t = ev.date.split("-");
+  var when = new Date(+t[0], +t[1] - 1, +t[2]);
+  var now = new Date();
+  now = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((when - now) / 86400000);
+}
+function eventState(ev){
+  var d = eventDays(ev);
+  return d > 0 ? "скоро" : (d === 0 ? "сегодня" : "прошло");
+}
+function eventSoon(){                     // ближайшее событие для кнопки в меню
+  var i, best = null, bd = 9999, d;
+  for(i=0;i<EVENTS.length;i++){
+    d = eventDays(EVENTS[i]);
+    if(d >= 0 && d < bd){ bd = d; best = EVENTS[i]; }
+  }
+  return best;
+}
+
 /* ================== УЛУЧШЕНИЯ ==================
    Покупаются за булки навсегда и работают во всех режимах. */
 var UPGRADES = [
@@ -669,7 +731,7 @@ function freshStats(){            // единственное место, где
            maxFloor:0, bestMult:0, fastRun:0,
            jumps:0, pads:0, lockers:0, keys:0, maxCombo:0, quizOk:0, days:1, lastDay:"",
            noFall:0, glass:0, spent:0, seedRuns:0, endRuns:0, modRun:0,
-           upgTotal:0, tasksDone:0, bought:0,
+           upgTotal:0, tasksDone:0, bought:0, stars:0, achChest:0, evPrize:"",
            owned:["pupil"], achs:[], wear:{}, stage:{}, upg:{} };
 }
 var STATS = freshStats();
@@ -679,10 +741,10 @@ var STATS = freshStats();
 var ACHS = [
   { k:"first",   n:"Первая перемена",  d:"добежать до выхода",             s:"runs",      v:1,    r:25 },
   { k:"regular", n:"Завсегдатай",      d:"пять забегов до конца",          s:"runs",      v:5,    r:60 },
-  { k:"hardcore",n:"Хардкорщик",       d:"пройти хардкор",                 s:"hardRuns",  v:1,    r:120 },
+  { k:"hardcore",n:"Хардкорщик",       d:"пройти хардкор",                 s:"hardRuns",  v:1,    r:120, st:1 },
   { k:"floors",  n:"Марафонец",        d:"десять этажей в бесконечном",    s:"maxFloor",  v:10,   r:90 },
   { k:"sweet",   n:"Сладкоежка",       d:"собрать 250 пирожков",           s:"pies",      v:250,  r:50 },
-  { k:"baker",   n:"Кондитер",         d:"собрать 1000 пирожков",          s:"pies",      v:1000, r:150 },
+  { k:"baker",   n:"Кондитер",         d:"собрать 1000 пирожков",          s:"pies",      v:1000, r:150, st:2 },
   { k:"stomper", n:"Прыгун",           d:"затоптать 50 завучей",           s:"stomps",    v:50,   r:70 },
   { k:"striker", n:"Футболист",        d:"выбить завуча мячом",            s:"goals",     v:1,    r:40 },
   { k:"ringer",  n:"Звонарь",          d:"нажать звонок пять раз",         s:"bells",     v:5,    r:40 },
@@ -690,10 +752,10 @@ var ACHS = [
   { k:"student", n:"Зубрила",          d:"сдать десять уроков",            s:"lessonsOk", v:10,   r:80 },
   { k:"loser",   n:"Двоечник",         d:"завалить пять уроков",           s:"lessonsBad",v:5,    r:30 },
   { k:"styler",  n:"Модник",           d:"купить три скина",               s:"skins",     v:3,    r:60 },
-  { k:"collect", n:"Коллекционер",     d:"купить все скины",               s:"skins",     v:9,    r:250 },
+  { k:"collect", n:"Коллекционер",     d:"купить все скины",               s:"skins",     v:9,    r:250, st:4 },
   { k:"risky",   n:"Рисковый",         d:"забег с множителем от 2.0",      s:"bestMult",  v:200,  r:120 },
   { k:"clumsy",  n:"Неваляшка",        d:"упасть пятьдесят раз",           s:"falls",     v:50,   r:40 },
-  { k:"swift",   n:"Скороход",         d:"забег быстрее пяти минут",       s:"fastRun",   v:1,    r:110 },
+  { k:"swift",   n:"Скороход",         d:"забег быстрее пяти минут",       s:"fastRun",   v:1,    r:110, st:2 },
   { k:"user",    n:"Гурман",           d:"использовать 25 предметов",      s:"items",     v:25,   r:60 },
   { k:"walker",  n:"Старожил",         d:"пройти 50 уровней",              s:"levels",    v:50,   r:100 },
   { k:"rich",    n:"Богач",            d:"накопить 500 булок",             s:"buns",      v:500,  r:80 },
@@ -705,15 +767,20 @@ var ACHS = [
   { k:"keeper",  n:"Ключник",         d:"найти десять ключей",            s:"keys",      v:10,   r:70 },
   { k:"combo",   n:"Пирожковая серия",d:"собрать ×5 подряд",              s:"maxCombo",  v:5,    r:90 },
   { k:"quizzer", n:"Знаток",          d:"25 верных ответов",              s:"quizOk",    v:25,   r:80 },
-  { k:"quizzer2",n:"Ходячий учебник", d:"100 верных ответов",             s:"quizOk",    v:100,  r:200 },
+  { k:"quizzer2",n:"Ходячий учебник", d:"100 верных ответов",             s:"quizOk",    v:100,  r:200, st:2 },
   { k:"nofall",  n:"Ни разу не упал", d:"пройти забег без падений",       s:"noFall",    v:1,    r:150 },
-  { k:"nofall5", n:"Канатоходец",     d:"пять забегов без падений",       s:"noFall",    v:5,    r:280 },
+  { k:"nofall5", n:"Канатоходец",     d:"пять забегов без падений",       s:"noFall",    v:5,    r:280, st:3 },
   { k:"glassy",  n:"Стеклобой",       d:"проломить 50 досок",             s:"glass",     v:50,   r:70 },
   { k:"spender", n:"Транжира",        d:"потратить 1000 булок",           s:"spent",     v:1000, r:90 },
   { k:"seeder",  n:"Сидовод",         d:"пять забегов по сиду",           s:"seedRuns",  v:5,    r:70 },
   { k:"endless", n:"Без конца",       d:"три забега в бесконечном",       s:"endRuns",   v:3,    r:80 },
   { k:"tower",   n:"Небоскрёб",       d:"25 этажей в бесконечном",        s:"maxFloor",  v:25,   r:200 },
-  { k:"hard5",   n:"Железный",        d:"пять хардкорных забегов",        s:"hardRuns",  v:5,    r:220 },
+  { k:"high40",  n:"Высотник",        d:"40 этажей в бесконечном",        s:"maxFloor",  v:40,   r:300, st:3 },
+  { k:"high60",  n:"Лифтёр",          d:"60 этажей в бесконечном",        s:"maxFloor",  v:60,   r:500, st:5 },
+  { k:"high100", n:"Небожитель",      d:"сто этажей в бесконечном",       s:"maxFloor",  v:100,  r:900, st:10 },
+  { k:"end10",   n:"Бесконечный ученик", d:"десять забегов в бесконечном", s:"endRuns",   v:10,   r:220, st:2 },
+  { k:"end25",   n:"Вечная перемена", d:"25 забегов в бесконечном",       s:"endRuns",   v:25,   r:450, st:4 },
+  { k:"hard5",   n:"Железный",        d:"пять хардкорных забегов",        s:"hardRuns",  v:5,    r:220, st:2 },
   { k:"stomp2",  n:"Гроза завучей",   d:"затоптать 200 завучей",          s:"stomps",    v:200,  r:160 },
   { k:"goal10",  n:"Бомбардир",       d:"десять голов мячом",             s:"goals",     v:10,   r:120 },
   { k:"ringer2", n:"Колокольчик",     d:"нажать звонок 25 раз",           s:"bells",     v:25,   r:90 },
@@ -722,15 +789,15 @@ var ACHS = [
   { k:"stage2",  n:"Новый образ",     d:"открыть второй этап скина",      s:"stage2",    v:1,    r:80 },
   { k:"stage3",  n:"Финальная форма", d:"открыть третий этап скина",      s:"stage3",    v:1,    r:180 },
   { k:"stage3x3",n:"Три образа",      d:"три скина на третьем этапе",     s:"stage3",    v:3,    r:300 },
-  { k:"veteran", n:"Ветеран школы",   d:"пройти 200 уровней",             s:"levels",    v:200,  r:400 },
+  { k:"veteran", n:"Ветеран школы",   d:"пройти 200 уровней",             s:"levels",    v:200,  r:400, st:5 },
   { k:"days3",   n:"Постоянный",      d:"заходить три дня подряд",        s:"days",      v:3,    r:90 },
-  { k:"days7",   n:"Каждую перемену", d:"заходить неделю подряд",         s:"days",      v:7,    r:260 },
+  { k:"days7",   n:"Каждую перемену", d:"заходить неделю подряд",         s:"days",      v:7,    r:260, st:2 },
   { k:"shopper", n:"Первая покупка",  d:"купить улучшение",               s:"upgTotal",  v:1,    r:40 },
   { k:"tuned",   n:"Прокачанный",     d:"пять уровней улучшений",         s:"upgTotal",  v:5,    r:120 },
-  { k:"maxed",   n:"Всё своё ношу",   d:"выкупить все улучшения",         s:"upgTotal",  v:18,   r:400 },
+  { k:"maxed",   n:"Всё своё ношу",   d:"выкупить все улучшения",         s:"upgTotal",  v:18,   r:400, st:5 },
   { k:"tasker",  n:"Дежурный",        d:"выполнить 5 заданий дня",        s:"tasksDone", v:5,    r:100 },
-  { k:"tasker2", n:"Староста",        d:"выполнить 25 заданий дня",       s:"tasksDone", v:25,   r:300 },
-  { k:"rich2",   n:"Богатый ученик",  d:"потратить 5000 булок",           s:"spent",     v:5000, r:350 }
+  { k:"tasker2", n:"Староста",        d:"выполнить 25 заданий дня",       s:"tasksDone", v:25,   r:300, st:3 },
+  { k:"rich2",   n:"Богатый ученик",  d:"потратить 5000 булок",           s:"spent",     v:5000, r:350, st:3 }
 ];
 function stagesAt(n){                       // сколько скинов доросло до этапа n
   var c = 0, i;
@@ -744,6 +811,31 @@ function achValue(a){
   return STATS[a.s] || 0;
 }
 function achDone(a){ return STATS.achs.indexOf(a.k) >= 0; }
+/* сундуки за количество собранных достижений */
+var ACH_CHESTS = [
+  { need:5,  buns:150,  st:2  },
+  { need:15, buns:400,  st:5  },
+  { need:30, buns:900,  st:10 },
+  { need:45, buns:2000, st:20, skin:"king" }
+];
+function chestReady(){
+  var n = STATS.achs.length, i, got = STATS.achChest || 0;
+  for(i=got;i<ACH_CHESTS.length;i++) if(n >= ACH_CHESTS[i].need) return i;
+  return -1;
+}
+function claimChest(){
+  var i = chestReady();
+  if(i < 0) return;
+  var c = ACH_CHESTS[i];
+  STATS.achChest = i + 1;
+  STATS.buns += c.buns;
+  STATS.stars = stars() + c.st;
+  if(c.skin && !owns(c.skin)) STATS.owned.push(c.skin);
+  statBump();
+  sfx.win();
+  toast("Сундук открыт: +" + c.buns + " булок и +" + c.st + " пятёрок" +
+        (c.skin ? " и скин «" + skinBy(c.skin).n + "»" : ""));
+}
 function achBuns(){                       // сколько булок уже принесли достижения
   var sum = 0, i;
   for(i=0;i<ACHS.length;i++) if(achDone(ACHS[i])) sum += ACHS[i].r;
@@ -756,6 +848,7 @@ function achCheck(){
     if(achDone(a) || achValue(a) < a.v) continue;
     STATS.achs.push(a.k);
     STATS.buns += a.r;
+    if(a.st) STATS.stars = stars() + a.st;
     got++;
     G.achQueue.push(a);
     buzz(40);
@@ -779,6 +872,7 @@ function statLoad(){
       if(raw.wear) STATS.wear = raw.wear;
       if(raw.stage) STATS.stage = raw.stage;
       if(raw.upg) STATS.upg = raw.upg;
+      if(typeof raw.evPrize === "string") STATS.evPrize = raw.evPrize;
       if(typeof raw.lastDay === "string") STATS.lastDay = raw.lastDay;
     }
     curSkin = localStorage.getItem("peremena_skin") || "pupil";
@@ -1521,6 +1615,12 @@ function devDo(id){
     else devSay("Работает только во время забега");
   }
   else if(id === "dev_uncheat"){ G.cheated = false; devSay("Пометка читера снята"); }
+  else if(id === "dev_stars"){ STATS.stars = stars() + 25; statSave(); devSay("+25 пятёрок"); }
+  else if(id === "dev_chest"){ STATS.achChest = 0; statSave(); devSay("Сундуки достижений сброшены"); }
+  else if(id === "dev_news"){
+    try{ localStorage.removeItem("peremena_news"); }catch(e){}
+    devSay("Новости снова непрочитанные");
+  }
   else if(id === "dev_god"){
     devGod = !devGod;
     toast(devGod ? "Бессмертие включено" : "Бессмертие выключено");
@@ -1677,6 +1777,10 @@ function doButton(id){
   else if(id.indexOf("item_") === 0){ buyStartItem(id.slice(5)); }
   else if(id.indexOf("task_") === 0){ claimTask(id.slice(5)); }
   else if(id === "claim_day"){ claimDaily(); }
+  else if(id === "chest"){ claimChest(); }
+  else if(id.indexOf("star_") === 0){ buyStar(id.slice(5)); }
+  else if(id === "news_open"){ G.back = G.state; G.state = "news"; newsRead(); sfx.key(); }
+  else if(id === "events_open"){ G.back = G.state; G.state = "events"; sfx.key(); }
   else if(id.indexOf("skin_") === 0){ buySkin(skinBy(id.slice(5))); }
   else if(id.indexOf("stage_") === 0){
     var sp = id.split("_");
@@ -2061,7 +2165,7 @@ function newGame(){
            parts:[], pops:[], rings:[], trail:[], hitStop:0, lead:0, landT:0,
            shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
-           item:null, item2:null, reviveLeft:0, walletPaid:0,
+           item:null, item2:null, reviveLeft:0, walletPaid:0, dblBuns:false,
            buff:{ soda:0, gum:0, pass:0 }, shield:false,
            combo:0, comboT:0, comboPts:0, bonusPts:0, allPies:0, toast:"", toastT:0, invul:0, freeze:0 };
 }
@@ -2111,7 +2215,10 @@ function startRun(mode, src){
   var pick = curDiff.key;
   G = newGame();
   G.pick = pick;
-  G.reviveLeft = upg("revive");
+  G.reviveLeft = upg("revive") + (starBuff.life|0);
+  if(starBuff.life){ starBuff.life = 0; starBuffSave(); toast("Запасное дыхание наготове"); }
+  G.dblBuns = starBuff.double;
+  if(starBuff.double){ starBuff.double = false; starBuffSave(); toast("Двойные булки на этот забег"); }
   if(devGod || powOn()) G.cheated = true;   // с читами рекорд не в счёт
   try{ localStorage.setItem("peremena_mode", pick); }catch(e){}
   G.state = "play";
@@ -2403,7 +2510,7 @@ function updatePlayer(dt){
       }
     }
     if(overlap(p, c)){
-      c.got = true; G.coins++; stat("pies"); stat("buns");
+      c.got = true; G.coins++; stat("pies"); stat("buns", G.dblBuns ? 2 : 1);
       G.combo = (G.comboT > 0) ? Math.min(5, G.combo + 1) : 1;
       G.comboT = 110;
       G.comboPts += 10 * (G.combo - 1);
@@ -4160,14 +4267,28 @@ function drawMenu(){
            modCount() ? "МОДЫ · " + modCount() : "МОДЫ", null,
            { size:13, sel: modCount() > 0, selBorder:"#ffb98a" });
 
-  uiButton("hub_open", 122, 276, 200, 46, "ХОЛЛ", "скины и булки", { size:15, subSize:11, selBorder:"#ff9ff3" });
+  uiButton("hub_open", 122, 276, 200, 46, "ХОЛЛ", "магазин и задания", { size:15, subSize:11, selBorder:"#ff9ff3" });
   uiButton("play", 340, 276, 338, 46, "ИГРАТЬ  ×" + modMult().toFixed(2), null,
            { size:20, sel:true, selBorder:"#8bffcf" });
+
+  var ev = eventSoon(), evd = ev ? eventDays(ev) : -1;
+  uiButton("news_open", 122, 330, 150, 28, newsUnread() ? "НОВОСТИ  •" : "НОВОСТИ", null,
+           { size:12, sel: newsUnread(), selBorder:"#ffd166" });
+  uiButton("events_open", 282, 330, 180, 28,
+           ev ? ("СОБЫТИЯ · " + (evd === 0 ? "сегодня!" : "через " + evd + " дн.")) : "СОБЫТИЯ",
+           null, { size:12, sel: evd === 0, selBorder:"#c9a0ff" });
+  drawStar(482, 344, 0.62);
+  text(stars() + "", 496, 349, 12, "rgba(255,217,138,.9)", "left", 700);
+  if(DAILY.reward > 0)
+    uiButton("claim_day", 528, 330, 150, 28, "+" + DAILY.reward + " ЗА ДЕНЬ", null,
+             { size:12, sel:true, selBorder:"#ffd166" });
+  else if(taskReady())
+    text("задания: " + taskReady() + " готовы", 604, 349, 11, "#8bffcf", "center", 700);
 
   if(showHints())
     text(isTouch ? "слева бежать · справа прыжок и предмет"
                  : "← →  бежать · ПРОБЕЛ прыжок · E предмет · F весь экран · P пауза",
-         VW/2, 346, 11, "rgba(200,220,255,.55)", "center", 600);
+         VW/2, 382, 10.5, "rgba(200,220,255,.5)", "center", 600);
 
   iconBtn("sound", 700, 78, 36, "sound");
   if(isTouch) iconBtn("buzz", 700, 120, 36, "buzz");
@@ -4482,7 +4603,71 @@ function drawHubHUD(){
 }
 
 var ITEM_PRICE = { soda:50, gum:55, bag:70, watch:60, pass:65 };
-var SHOP_TABS = [["skins","СКИНЫ"], ["upg","УЛУЧШЕНИЯ"], ["items","ПРЕДМЕТЫ"]];
+var SHOP_TABS = [["skins","СКИНЫ"], ["upg","УЛУЧШЕНИЯ"], ["items","ПРЕДМЕТЫ"], ["star","ЗА ПЯТЁРКИ"]];
+/* За пятёрки — редкое: два скина и три штуки на один забег. */
+var STAR_GOODS = [
+  { k:"skin_gold",  n:"Золотой медалист", d:"скин: медаль и блеск",        p:12, kind:"skin", v:"king" },
+  { k:"skin_ghost", n:"Призрак школы",    d:"скин из старых легенд",       p:8,  kind:"skin", v:"ghost" },
+  { k:"reroll",     n:"Пересдача",        d:"новые задания дня прямо сейчас", p:2, kind:"reroll" },
+  { k:"double",     n:"Двойные булки",    d:"весь следующий забег ×2 булок", p:4, kind:"double" },
+  { k:"life",       n:"Запасное дыхание", d:"ещё одно падение не в счёт",   p:3, kind:"life" }
+];
+var starBuff = { double:false, life:0 };
+function starBuffLoad(){
+  try{
+    var raw = JSON.parse(localStorage.getItem("peremena_starbuff") || "null");
+    if(raw){ starBuff.double = !!raw.double; starBuff.life = raw.life|0; }
+  }catch(e){}
+}
+function starBuffSave(){
+  try{ localStorage.setItem("peremena_starbuff", JSON.stringify(starBuff)); }catch(e){}
+}
+function buyStar(k){
+  var i, g = null;
+  for(i=0;i<STAR_GOODS.length;i++) if(STAR_GOODS[i].k === k) g = STAR_GOODS[i];
+  if(!g) return;
+  if(g.kind === "skin" && owns(g.v)){ toast("Этот скин уже твой"); return; }
+  if(stars() < g.p){ toast("Не хватает пятёрок: нужно " + g.p); sfx.hurt(); return; }
+  STATS.stars = stars() - g.p;
+  if(g.kind === "skin"){ STATS.owned.push(g.v); curSkin = g.v; toast("Скин «" + skinBy(g.v).n + "» твой!"); }
+  else if(g.kind === "reroll"){
+    DAILY.day = "";
+    dailyRoll();
+    toast("Задания дня обновлены");
+  }
+  else if(g.kind === "double"){ starBuff.double = true; starBuffSave(); toast("Следующий забег — двойные булки"); }
+  else if(g.kind === "life"){ starBuff.life = (starBuff.life|0) + 1; starBuffSave(); toast("Запасное дыхание в кармане"); }
+  statBump();
+  sfx.win();
+}
+
+function shopStar(){
+  var i, g, y, can;
+  text("Пятёрки капают за достижения, сундуки и события", VW/2, 96, 12,
+       "rgba(200,220,255,.7)", "center", 600);
+  for(i=0;i<STAR_GOODS.length;i++){
+    g = STAR_GOODS[i];
+    y = 116 + i*52;
+    var mine = (g.kind === "skin" && owns(g.v));
+    ctx.fillStyle = mine ? "rgba(139,255,207,.1)" : "rgba(255,255,255,.055)";
+    rrect(40, y, 680, 44, 10); ctx.fill();
+    text(g.n, 56, y + 20, 15, "#ffffff", "left", 700);
+    textFit(g.d, 56, y + 36, 11, "rgba(185,205,232,.8)", "left", 600, 300);
+    if(g.kind === "double" && starBuff.double)
+      text("уже ждёт забега", 420, y + 28, 12, "#8bffcf", "left", 700);
+    if(g.kind === "life" && starBuff.life)
+      text("в кармане: " + starBuff.life, 420, y + 28, 12, "#8bffcf", "left", 700);
+    if(mine) text("уже твой", 700, y + 28, 13, "#8bffcf", "right", 700);
+    else {
+      can = stars() >= g.p;
+      drawStar(566, y + 22, 0.7);
+      text(g.p + "", 580, y + 27, 14, can ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
+      uiButton("star_" + g.k, 600, y + 6, 120, 32, "купить", null,
+               { size:13, sel: can, selBorder: can ? "#8bffcf" : "#ff8080" });
+    }
+  }
+
+}
 
 function shopSkins(){
   var per = 12, pages = Math.ceil(SKINS.length / per), i, sk, cx, cy, on, has;
@@ -4597,20 +4782,89 @@ function drawSkins(){                    // магазин: скины, улуч
   ctx.fillStyle = "rgba(4,10,22,.8)"; ctx.fillRect(0,0,VW,VH);
   panel(780, 450, "rgba(255,159,243,.9)");
   gradText("МАГАЗИН", VW/2, 44, 26, "#ffe3fb", "#e86bd0");
-  drawBun(600, 38, 0.8);
-  text(STATS.buns + " булок", 616, 44, 16, "#ffd98a", "left");
+  drawBun(520, 38, 0.8);
+  text(STATS.buns + " булок", 536, 44, 15, "#ffd98a", "left");
+  drawStar(660, 38, 0.8);
+  text(stars() + "", 676, 44, 15, "#ffd98a", "left");
   var tab = G.shopTab || "skins", i;
   for(i=0;i<SHOP_TABS.length;i++)
-    uiButton("shoptab_" + SHOP_TABS[i][0], 30 + i*176, 54, 168, 30, SHOP_TABS[i][1], null,
-             { size:13, sel: tab === SHOP_TABS[i][0], selBorder:"#ff9ff3" });
+    uiButton("shoptab_" + SHOP_TABS[i][0], 30 + i*188, 54, 180, 30, SHOP_TABS[i][1], null,
+             { size:13, sel: tab === SHOP_TABS[i][0],
+               selBorder: SHOP_TABS[i][0] === "star" ? "#ff5f6d" : "#ff9ff3" });
   if(tab === "upg"){
     text("работают во всех режимах и рекордам не мешают", 600, 66, 10,
          "rgba(170,195,225,.6)", "center", 600);
     shopUpgrades();
   }
+  else if(tab === "star") shopStar();
   else if(tab === "items") shopItems();
   else shopSkins();
   uiButton("back", 315, 414, 170, 34, "НАЗАД", null, { size:14, sel:true });
+}
+
+function drawStar(x, y, s){               // пятёрка: кружок с цифрой 5
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = "#ff5f6d";
+  ctx.beginPath(); ctx.arc(0, 0, 10, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.25)";
+  ctx.beginPath(); ctx.arc(-3, -3, 4, 0, 6.2832); ctx.fill();
+  text("5", 0, 5, 13, "#fff2f2", "center", 700);
+  ctx.restore();
+}
+
+function drawNews(){
+  ctx.fillStyle = "rgba(4,10,22,.85)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 452, "rgba(255,209,102,.9)");
+  gradText("НОВОСТИ", VW/2, 44, 24, "#fff3c4", "#f0a83a");
+  text("что нового в «Перемене»", VW/2, 64, 11, "rgba(200,220,255,.6)", "center", 600);
+  var i, j, y = 86, item, ln;
+  for(i=0; i<NEWS.length && y < 380; i++){
+    item = NEWS[i];
+    ctx.fillStyle = i === 0 ? "rgba(255,209,102,.1)" : "rgba(255,255,255,.05)";
+    rrect(40, y, 680, 26 + item.lines.length*18, 10); ctx.fill();
+    ctx.strokeStyle = i === 0 ? "rgba(255,209,102,.5)" : "rgba(255,255,255,.14)";
+    ctx.lineWidth = 1.4; rrect(40, y, 680, 26 + item.lines.length*18, 10); ctx.stroke();
+    text(item.n, 56, y + 18, 15, "#ffffff", "left", 700);
+    text(item.d, 704, y + 18, 12, "rgba(255,217,138,.9)", "right", 700);
+    for(j=0;j<item.lines.length;j++){
+      ln = item.lines[j];
+      textFit("• " + ln, 56, y + 38 + j*18, 12,
+              j === 0 && i === 0 ? "#ffb98a" : "rgba(220,235,255,.75)", "left", 600, 640);
+    }
+    y += 26 + item.lines.length*18 + 12;
+  }
+  text("новости ведутся с этого обновления", VW/2, 398, 11, "rgba(200,220,255,.45)", "center", 600);
+  uiButton("back", 300, 410, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
+}
+
+function drawEvents(){
+  ctx.fillStyle = "rgba(4,10,22,.85)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 452, "rgba(201,160,255,.9)");
+  gradText("СОБЫТИЯ", VW/2, 44, 24, "#efe3ff", "#a06be8");
+  text("школьный календарь", VW/2, 64, 11, "rgba(200,220,255,.6)", "center", 600);
+  var i, j, ev, y = 88, d, stt, col;
+  for(i=0;i<EVENTS.length;i++){
+    ev = EVENTS[i]; d = eventDays(ev); stt = eventState(ev);
+    col = stt === "сегодня" ? "#8bffcf" : (stt === "скоро" ? "#c9a0ff" : "rgba(255,255,255,.3)");
+    ctx.fillStyle = "rgba(255,255,255,.06)";
+    rrect(40, y, 680, 150, 12); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = stt === "прошло" ? 1.2 : 2;
+    rrect(40, y, 680, 150, 12); ctx.stroke();
+    gradText(ev.n, VW/2, y + 32, 22, "#ffffff", col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
+    text(ev.d, VW/2, y + 52, 12, "rgba(220,235,255,.7)", "center", 600);
+    for(j=0;j<ev.lines.length;j++)
+      text("• " + ev.lines[j], 70, y + 74 + j*17, 11.5, "rgba(220,235,255,.65)", "left", 600);
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    rrect(508, y + 66, 196, 34, 9); ctx.fill();
+    text(stt === "скоро" ? "через " + d + " дн." : (stt === "сегодня" ? "СЕГОДНЯ!" : "уже прошло"),
+         606, y + 88, 15, col, "center", 700);
+    drawStar(534, y + 122, 0.7);
+    text("награда: " + ev.prize, 548, y + 127, 12, "rgba(255,217,138,.9)", "left", 600);
+    y += 162;
+  }
+  text("даты школьные, а значит — железные", VW/2, 398, 11, "rgba(200,220,255,.45)", "center", 600);
+  uiButton("back", 300, 410, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
 }
 
 function drawTasks(){
@@ -4680,6 +4934,21 @@ function drawRecords(){
   uiButton("rec_tasks", 536, 64, 180, 32, "ЗАДАНИЯ" + (ready ? " · " + ready + "!" : ""), null,
            { size:12, sel: tab === "tasks", selBorder:"#8bffcf" });
   var perPage = 22, pages = Math.ceil(ACHS.length / perPage);
+  if(tab === "achs"){                      // сундуки за количество достижений
+    var ci = chestReady(), cg = STATS.achChest || 0;
+    var nextC = ACH_CHESTS[Math.min(cg, ACH_CHESTS.length - 1)];
+    ctx.fillStyle = ci >= 0 ? "rgba(255,209,102,.14)" : "rgba(255,255,255,.05)";
+    rrect(44, 372, 352, 24, 8); ctx.fill();
+    if(cg >= ACH_CHESTS.length)
+      text("все сундуки открыты", 60, 388, 12, "#8bffcf", "left", 700);
+    else
+      text("сундук за " + nextC.need + " достижений: +" + nextC.buns + " булок и +" +
+           nextC.st + " пятёрок" + (nextC.skin ? " и скин" : ""),
+           60, 388, 11, ci >= 0 ? "#ffd98a" : "rgba(220,235,255,.6)", "left", 600);
+    if(ci >= 0)
+      uiButton("chest", 404, 370, 150, 28, "ОТКРЫТЬ СУНДУК", null,
+               { size:12, sel:true, selBorder:"#ffd166" });
+  }
   if(tab === "achs" && pages > 1){          // стрелки внизу, чтобы не спорить с вкладками
     G.achPage = clamp(G.achPage || 0, 0, pages - 1);
     uiButton("ach_prev", 196, 400, 54, 34, "◀", null, { size:14 });
@@ -4834,9 +5103,12 @@ function admRes(){
   uiButton("dev_startitem", 500, 330, 220, 34,
            startItem ? "На старте: " + ITEMS[startItem].n : "Предмет на старт", null, { size:12 });
 
-  text("сид " + curSeed + "   ·   набор " + (curSrc === "seed" ? "по сиду" : "классика") +
-       "   ·   множитель ×" + modMult().toFixed(2),
-       VW/2, 380, 12, "rgba(220,235,255,.55)", "center", 600);
+  devRow("ПЯТЁРКИ И НОВОСТИ", 374, "rgba(255,95,109,.85)");
+  uiButton("dev_stars", 40, 374, 220, 32, "+25 пятёрок (" + stars() + ")", null, { size:12 });
+  uiButton("dev_chest", 270, 374, 220, 32, "Сбросить сундуки", null, { size:12 });
+  uiButton("dev_news", 500, 374, 220, 32, "Новости непрочитанные", null, { size:12 });
+
+
 }
 
 function admRun(){
@@ -5202,6 +5474,12 @@ function render(){
     drawMods(); drawToast(); drawAch(); drawCursor(); return;
   }
   if(G.state === "skins"){ drawHubHUD(); drawSkins(); drawToast(); drawAch(); return; }
+  if(G.state === "news" || G.state === "events"){
+    if(G.back === "hub") drawHubHUD(); else drawMenu();
+    if(G.state === "news") drawNews(); else drawEvents();
+    drawToast(); drawAch(); drawCursor();
+    return;
+  }
   if(G.state === "iteminfo"){ drawHubHUD(); drawItemInfo(); return; }
   if(G.state === "records"){ drawHubHUD(); drawRecords(); return; }
   if(G.state === "hub"){ drawHubHUD(); drawToast(); drawAch(); return; }
@@ -5289,6 +5567,8 @@ window.PEREMENA_DEBUG = {
   set: function(){ return SET; }, muted: function(){ return muted; }, fancy: fancy,
   daily: function(){ return DAILY; }, taskBy: taskBy, upg: upg, skins: function(){ return SKINS; },
   devLog: function(){ return devLog; }, lesson: startLesson,
+  newsUnread: newsUnread, events: function(){ return EVENTS; }, eventDays: eventDays,
+  stars: stars, chest: claimChest,
   startItem: function(){ return startItem; }, upgrades: function(){ return UPGRADES; },
   cache: function(){ return imgKeys.length; },
   dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
@@ -5299,6 +5579,7 @@ modLoad();
 statLoad();
 setLoad();
 startItemLoad();
+starBuffLoad();
 dayStreak();
 dailyLoad();
 dailyRoll();
