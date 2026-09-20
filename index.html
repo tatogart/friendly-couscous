@@ -549,8 +549,16 @@ function addStars(n, why){
 
 /* ================== НОВОСТИ ==================
    Летопись обновлений. Новое отмечается точкой в меню, пока не прочитают. */
-var NEWS_VERSION = "2026-09-19";
+var NEWS_VERSION = "2026-09-20";
 var NEWS = [
+  { v:"2026-09-20", d:"20 сентября", n:"Админ арбуз и подарочные коды",
+    lines:[
+      "21 сентября — АДМИН АРБУЗ: 500 пирожков и 25 пятёрок каждому.",
+      "Призы событий теперь забираются кнопкой на экране СОБЫТИЯ.",
+      "Появились подарочные коды: приз лежит внутри кода и открывается у любого.",
+      "Код можно продиктовать или отдать ссылкой — но только один раз на браузер.",
+      "Экраны причесаны: надписи больше не налезают друг на друга."
+    ] },
   { v:"2026-09-19", d:"19 сентября", n:"Пятёрки, новости и события",
     lines:[
       "Бесконечный режим будет удалён 23 сентября. Ачивки, связанные с этим режимом, удалены не будут.",
@@ -573,12 +581,20 @@ function newsRead(){
 /* ================== СОБЫТИЯ ==================
    Даты живут в коде: игра сама считает, сколько осталось. */
 var EVENTS = [
+  { k:"arbuz", n:"АДМИН АРБУЗ", date:"2026-09-21",
+    d:"Админ абьюз, но с арбузом: сегодня угощают всех.",
+    lines:["Приз забирается прямо здесь, один раз.",
+           "Админ может нарезать код подарка и раздать его друзьям.",
+           "Код работает у любого — хоть по ссылке, хоть с бумажки."],
+    gift:{ p:500, s:25 },
+    prize:"500 пирожков и 25 пятёрок" },
   { k:"content", n:"CONTENT CONTENT CONTENT", date:"2026-09-23",
     d:"День, когда контента станет слишком много.",
     lines:["В этот день бесконечный режим уходит на покой.",
            "Достижения бесконечного остаются с тобой навсегда.",
            "Загляни в новости — там будет, что почитать."],
-    prize:"5 пятёрок и 500 булок" }
+    gift:{ b:500, s:5 },
+    prize:"500 булок и 5 пятёрок" }
 ];
 function eventDays(ev){                   // сколько дней осталось до события
   var t = ev.date.split("-");
@@ -598,6 +614,146 @@ function eventSoon(){                     // ближайшее событие �
     if(d >= 0 && d < bd){ bd = d; best = EVENTS[i]; }
   }
   return best;
+}
+function eventBy(k){
+  for(var i=0;i<EVENTS.length;i++) if(EVENTS[i].k === k) return EVENTS[i];
+  return null;
+}
+
+/* ================== ПОДАРКИ ==================
+   Сервера у игры нет, поэтому приз ездит в самом коде: в нём лежат
+   пирожки, булки и пятёрки плюс подпись, чтобы случайный набор букв
+   не сработал. Код одноразовый — браузер помнит, что уже открывал. */
+var GIFT_SALT = "peremena/arbuz/2026";
+function giftSign(body){
+  var h = 2166136261, i, str = GIFT_SALT + "|" + body + "|" + GIFT_SALT;
+  for(i=0;i<str.length;i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+  for(i=0;i<20000;i++){
+    h ^= h >>> 13;
+    h = Math.imul(h, 2246822519) >>> 0;
+    h = ((h << 5) | (h >>> 27)) >>> 0;
+  }
+  return ("0000" + h.toString(36)).slice(-4).toUpperCase();
+}
+function giftCode(g){                     // приз -> код, который можно продиктовать
+  var body = [(g.p|0).toString(36), (g.b|0).toString(36), (g.s|0).toString(36),
+              Math.floor(Math.random()*46655 + 1).toString(36)].join("-").toUpperCase();
+  return body + "-" + giftSign(body);
+}
+function giftRead(code){                  // код -> приз, если подпись сходится
+  code = String(code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
+  var part = code.split("-");
+  if(part.length !== 5) return null;
+  if(giftSign(part.slice(0, 4).join("-")) !== part[4]) return null;
+  var g = { p: parseInt(part[0], 36) || 0,
+            b: parseInt(part[1], 36) || 0,
+            s: parseInt(part[2], 36) || 0 };
+  if(g.p > 9999 || g.b > 99999 || g.s > 999) return null;   // явная подделка
+  if(!(g.p || g.b || g.s)) return null;
+  return { g:g, id:code };
+}
+function giftText(g){
+  var out = [];
+  if(g.p) out.push(g.p + " пирожков");
+  if(g.b) out.push(g.b + " булок");
+  if(g.s) out.push(g.s + " пятёрок");
+  return out.join(" и ");
+}
+function giftGive(g, why){                // пирожок в кармане — это булка
+  if(g.p){ stat("pies", g.p); stat("buns", g.p); }
+  if(g.b) stat("buns", g.b);
+  if(g.s) STATS.stars = stars() + (g.s | 0);
+  statBump();
+  toast((why ? why + ": " : "") + "+" + giftText(g));
+  sfx.win();
+}
+function giftUsed(id){
+  try{ return (localStorage.getItem("peremena_gifts") || "").split(",").indexOf(id) >= 0; }
+  catch(e){ return false; }
+}
+function giftMark(id){
+  try{
+    var was = (localStorage.getItem("peremena_gifts") || "").split(",").filter(Boolean);
+    was.push(id);
+    while(was.length > 60) was.shift();
+    localStorage.setItem("peremena_gifts", was.join(","));
+  }catch(e){}
+}
+function giftClaim(code, why){            // открыть код: и по ссылке, и руками
+  var got = giftRead(code);
+  if(!got){ toast("Код не подошёл"); sfx.hurt(); return false; }
+  if(giftUsed(got.id)){ toast("Этот код уже открывали"); sfx.hurt(); return false; }
+  giftMark(got.id);
+  giftGive(got.g, why || "Подарок");
+  return true;
+}
+function giftKit(k){
+  for(var i=0;i<GIFT_KITS.length;i++) if(GIFT_KITS[i].k === k) return GIFT_KITS[i];
+  return null;
+}
+function giftCut(k){                      // админ нарезает новый код
+  var kit = giftKit(k);
+  if(!kit) return;
+  giftLast = { code: giftCode(kit.g), g: kit.g, n: kit.n };
+  sfx.win();
+  if(devOn) devSay("Код «" + kit.n + "»: " + giftLast.code);
+  copyOut(giftLast.code, "Код нарезан и скопирован", "Код нарезан: " + giftLast.code);
+}
+function giftAsk(){                       // ввод чужого кода с клавиатуры
+  var got = null;
+  try{ got = window.prompt("Код подарка:", ""); }catch(e){ got = null; }
+  if(got === null){ toast("Код можно ввести позже"); return; }
+  giftClaim(got, "Подарок");
+}
+var giftPending = "";                     // подарок из ссылки, ждёт запуска игры
+function giftFromUrl(code){
+  if(!code) return;
+  try{ location.hash = "gift"; }catch(e){}   // чтобы приз не открылся дважды
+  if(!G){ giftPending = code; return; }
+  if(giftClaim(code, "Подарок по ссылке")){
+    G.back = G.state === "menu" ? "menu" : G.state;
+    if(G.state === "menu"){ G.state = "events"; sfx.key(); }
+  }
+}
+function giftLink(code){
+  try{ return location.href.split("#")[0] + "#g=" + code; }catch(e){ return code; }
+}
+function copyOut(str, ok, no){            // копируем в буфер, если браузер даёт
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(str);
+      toast(ok);
+      return true;
+    }
+  }catch(e){}
+  toast(no);
+  return false;
+}
+
+/* ---------------- призы событий ---------------- */
+var evGot = null;                         // кэш: в браузер лазаем только после изменения
+function evList(){
+  if(evGot) return evGot;
+  try{ evGot = (localStorage.getItem("peremena_evgift") || "").split(",").filter(Boolean); }
+  catch(e){ evGot = []; }
+  return evGot;
+}
+function evTaken(k){ return evList().indexOf(k) >= 0; }
+function evTake(ev){
+  if(!ev || !ev.gift || evTaken(ev.k) || eventDays(ev) > 0) return;
+  var was = evList().slice();
+  was.push(ev.k);
+  evGot = was;
+  try{ localStorage.setItem("peremena_evgift", was.join(",")); }catch(e){}
+  giftGive(ev.gift, ev.n);
+}
+function evReady(){                       // есть ли приз, который можно забрать
+  var i, ev;
+  for(i=0;i<EVENTS.length;i++){
+    ev = EVENTS[i];
+    if(ev.gift && eventDays(ev) <= 0 && !evTaken(ev.k)) return ev;
+  }
+  return null;
 }
 
 /* ================== УЛУЧШЕНИЯ ==================
@@ -1785,7 +1941,7 @@ function doButton(id){
   else if(id === "to_hub"){ enterHub(); }
   else if(id.indexOf("shoptab_") === 0){ G.shopTab = id.slice(8); G.shopPage = 0; sfx.key(); }
   else if(id === "shop_prev"){ G.shopPage = Math.max(0, (G.shopPage||0) - 1); }
-  else if(id === "shop_next"){ G.shopPage = Math.min(Math.ceil(SKINS.length/12) - 1, (G.shopPage||0) + 1); }
+  else if(id === "shop_next"){ G.shopPage = Math.min(Math.ceil(SKINS.length/SHOP_PER) - 1, (G.shopPage||0) + 1); }
   else if(id.indexOf("buy_") === 0){ buyUpgrade(id.slice(4)); }
   else if(id.indexOf("item_") === 0){ buyStartItem(id.slice(5)); }
   else if(id.indexOf("task_") === 0){ claimTask(id.slice(5)); }
@@ -1794,6 +1950,27 @@ function doButton(id){
   else if(id.indexOf("star_") === 0){ buyStar(id.slice(5)); }
   else if(id === "news_open"){ G.back = G.state; G.state = "news"; newsRead(); sfx.key(); }
   else if(id === "events_open"){ G.back = G.state; G.state = "events"; sfx.key(); }
+  else if(id.indexOf("ev_take_") === 0){ evTake(eventBy(id.slice(8))); }
+  else if(id.indexOf("gift_cut_") === 0){ giftCut(id.slice(9)); }
+  else if(id === "gift_copy"){
+    if(giftLast) copyOut(giftLast.code, "Код скопирован", "Код: " + giftLast.code);
+  }
+  else if(id === "gift_url"){
+    if(giftLast) copyOut(giftLink(giftLast.code), "Ссылка скопирована", "Ссылку скопировать не вышло");
+  }
+  else if(id === "gift_self"){
+    if(giftLast) giftClaim(giftLast.code, "Подарок себе");
+  }
+  else if(id === "gift_in"){ giftAsk(); }
+  else if(id === "gift_forget"){
+    evGot = null;
+    try{
+      localStorage.removeItem("peremena_gifts");
+      localStorage.removeItem("peremena_evgift");
+    }catch(e){}
+    toast("Коды и призы событий снова открыты");
+    if(devOn) devSay("Список открытых кодов очищен");
+  }
   else if(id.indexOf("skin_") === 0){ buySkin(skinBy(id.slice(5))); }
   else if(id.indexOf("stage_") === 0){
     var sp = id.split("_");
@@ -2210,6 +2387,7 @@ function setSeed(sd, src){
 window.addEventListener("hashchange", function(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){ return; }
+  if(/^g=/i.test(h)){ giftFromUrl(h.slice(2)); return; }
   if(/^s=/i.test(h)){
     var sd = cleanSeed(h.slice(2));
     if(sd && (sd !== curSeed || curSrc !== "seed")) setSeed(sd, "seed");
@@ -4295,12 +4473,14 @@ function drawMenu(){
   uiButton("play", 340, 276, 338, 46, "ИГРАТЬ  ×" + modMult().toFixed(2), null,
            { size:20, sel:true, selBorder:"#8bffcf" });
 
-  var ev = eventSoon(), evd = ev ? eventDays(ev) : -1;
+  var ev = eventSoon(), evd = ev ? eventDays(ev) : -1, gift = evReady();
   uiButton("news_open", 122, 330, 150, 28, newsUnread() ? "НОВОСТИ  •" : "НОВОСТИ", null,
            { size:12, sel: newsUnread(), selBorder:"#ffd166" });
   uiButton("events_open", 282, 330, 180, 28,
-           ev ? ("СОБЫТИЯ · " + (evd === 0 ? "сегодня!" : "через " + evd + " дн.")) : "СОБЫТИЯ",
-           null, { size:12, sel: evd === 0, selBorder:"#c9a0ff" });
+           gift ? "СОБЫТИЯ · ПРИЗ!"
+                : (ev ? ("СОБЫТИЯ · " + (evd === 0 ? "сегодня!" : "через " + evd + " дн."))
+                      : "СОБЫТИЯ"),
+           null, { size:12, sel: !!gift || evd === 0, selBorder:"#c9a0ff" });
   ctx.fillStyle = "rgba(255,255,255,.07)";
   rrect(468, 330, 52, 28, 9); ctx.fill();
   ctx.strokeStyle = "rgba(255,95,109,.35)"; ctx.lineWidth = 1.2;
@@ -4640,6 +4820,7 @@ function drawHubHUD(){
 
 var ITEM_PRICE = { soda:50, gum:55, bag:70, watch:60, pass:65 };
 var SHOP_TABS = [["skins","СКИНЫ"], ["upg","УЛУЧШЕНИЯ"], ["items","ПРЕДМЕТЫ"], ["star","ЗА ПЯТЁРКИ"]];
+var SHOP_PER = 16;                        // скинов на страницу витрины
 /* За пятёрки — редкое: два скина и три штуки на один забег. */
 var STAR_GOODS = [
   { k:"skin_gold",  n:"Золотой медалист", d:"скин: медаль и блеск",        p:12, kind:"skin", v:"king" },
@@ -4706,7 +4887,7 @@ function shopStar(){
 }
 
 function shopSkins(){
-  var per = 16, pages = Math.ceil(SKINS.length / per), i, sk, cx, cy, on, has;
+  var per = SHOP_PER, pages = Math.ceil(SKINS.length / per), i, sk, cx, cy, on, has;
   G.shopPage = clamp(G.shopPage || 0, 0, pages - 1);
   var from = G.shopPage * per;
   for(i = from; i < Math.min(SKINS.length, from + per); i++){
@@ -4886,7 +5067,7 @@ function drawNews(){
 
 function drawEvents(){
   ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
-  var i, j, ev, d, stt, col, cardH = 150;
+  var i, j, ev, d, stt, col, cardH = 142;
   var shown = Math.max(1, Math.min(EVENTS.length, 2));
   var H = clamp(148 + shown*(cardH + 12), 240, 456), top = VH/2 - H/2;
   panel(760, H, "rgba(201,160,255,.9)");
@@ -4900,22 +5081,31 @@ function drawEvents(){
     rrect(40, y, 680, cardH, 12); ctx.fill();
     ctx.strokeStyle = col; ctx.lineWidth = stt === "прошло" ? 1.2 : 2;
     rrect(40, y, 680, cardH, 12); ctx.stroke();
-    gradText(ev.n, VW/2, y + 32, 22, "#ffffff", col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
-    text(ev.d, VW/2, y + 52, 12, "rgba(220,235,255,.7)", "center", 600);
+    gradText(ev.n, VW/2, y + 30, 22, "#ffffff", col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
+    text(ev.d, VW/2, y + 50, 12, "rgba(220,235,255,.7)", "center", 600);
     for(j=0;j<ev.lines.length;j++)
-      textFit("• " + ev.lines[j], 70, y + 76 + j*18, 11.5,
+      textFit("• " + ev.lines[j], 70, y + 72 + j*18, 11.5,
               "rgba(220,235,255,.65)", "left", 600, 420);
     ctx.fillStyle = "rgba(0,0,0,.3)";
-    rrect(508, y + 62, 196, 34, 9); ctx.fill();
+    rrect(508, y + 50, 196, 32, 9); ctx.fill();
     text(stt === "скоро" ? "через " + d + " дн." : (stt === "сегодня" ? "СЕГОДНЯ!" : "уже прошло"),
-         606, y + 84, 15, col, "center", 700);
-    drawStar(520, y + 120, 0.68);          /* награда держится внутри карточки */
-    textFit("награда: " + ev.prize, 534, y + 125, 12, "rgba(255,217,138,.9)", "left", 600, 170);
+         606, y + 71, 15, col, "center", 700);
+    drawStar(520, y + 91, 0.66);            /* награда держится внутри карточки */
+    textFit("приз: " + ev.prize, 534, y + 96, 12, "rgba(255,217,138,.9)", "left", 600, 170);
+    if(ev.gift && d <= 0 && !evTaken(ev.k))
+      uiButton("ev_take_" + ev.k, 508, y + 104, 196, 30, "ЗАБРАТЬ ПРИЗ", null,
+               { size:13, sel:true, selBorder:"#8bffcf" });
+    else if(ev.gift && evTaken(ev.k))
+      text("приз уже забран", 606, y + 124, 12, "#8bffcf", "center", 700);
+    else if(ev.gift)
+      text("приз откроется в этот день", 606, y + 124, 11, "rgba(200,220,255,.45)", "center", 600);
     y += cardH + 12;
   }
-  text("даты школьные, а значит — железные", VW/2, top + H - 62, 11,
-       "rgba(200,220,255,.45)", "center", 600);
-  uiButton("back", 300, top + H - 50, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
+  text("код подарка работает у любого — хоть по ссылке, хоть с бумажки",
+       VW/2, top + H - 62, 11, "rgba(200,220,255,.45)", "center", 600);
+  uiButton("gift_in", 176, top + H - 50, 200, 38, "ВВЕСТИ КОД", null,
+           { size:15, selBorder:"#ffd166" });
+  uiButton("back", 424, top + H - 50, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
 }
 
 function drawTasks(){
@@ -5101,7 +5291,16 @@ function devRow(label, y, col){                     // подпись над р�
   text(label, 40, y - 6, 10, col, "left", 700);
 }
 var ADM_TABS = [["res","РЕСУРСЫ","#ffb98a"], ["run","ЗАБЕГ","#9fd8ff"],
-                ["lvl","ЭТАЖИ","#c9a0ff"], ["pow","СИЛЫ","#8bffcf"], ["bad","ОПАСНОЕ","#ff8080"]];
+                ["lvl","ЭТАЖИ","#c9a0ff"], ["pow","СИЛЫ","#8bffcf"],
+                ["gift","ПОДАРКИ","#ff9ff3"], ["bad","ОПАСНОЕ","#ff8080"]];
+/* Наборы, которые админ может нарезать в код и раздать кому угодно. */
+var GIFT_KITS = [
+  { k:"arbuz", n:"АДМИН АРБУЗ", g:{ p:500, s:25 } },
+  { k:"pies",  n:"500 пирожков", g:{ p:500 } },
+  { k:"buns",  n:"1000 булок",   g:{ b:1000 } },
+  { k:"stars", n:"25 пятёрок",   g:{ s:25 } }
+];
+var giftLast = null;                      // последний нарезанный код
 function inRun(){ return G.back === "play" || G.back === "paused" || G.back === "clear"; }
 
 function admLvl(){
@@ -5212,6 +5411,42 @@ function admPow(){
            { size:13, selBorder:"#ff8080" });
 }
 
+function admGift(){
+  var i, k;
+  devRow("НАРЕЗАТЬ КОД", 116, "rgba(255,159,243,.85)");
+  for(i=0;i<GIFT_KITS.length;i++){
+    k = GIFT_KITS[i];
+    uiButton("gift_cut_" + k.k, 40 + (i % 2) * 350, 116 + Math.floor(i / 2) * 46, 340, 38,
+             k.n, giftText(k.g), { size:14, subSize:10 });
+  }
+
+  devRow("ПОСЛЕДНИЙ КОД", 222, "rgba(139,255,207,.85)");
+  ctx.fillStyle = "rgba(0,0,0,.32)";
+  rrect(40, 222, 680, 46, 9); ctx.fill();
+  if(giftLast){
+    textFit(giftLast.code, VW/2, 244, 22, "#8bffcf", "center", 700, 640);
+    text(giftText(giftLast.g) + " · одноразовый, у каждого свой", VW/2, 260, 10,
+         "rgba(220,235,255,.5)", "center", 600);
+  } else
+    text("выбери набор сверху — код появится здесь", VW/2, 250, 13,
+         "rgba(200,220,255,.45)", "center", 600);
+
+  uiButton("gift_copy", 40, 278, 220, 36, "Скопировать код", null,
+           { size:13, dim: !giftLast });
+  uiButton("gift_url", 270, 278, 220, 36, "Скопировать ссылку", null,
+           { size:13, dim: !giftLast });
+  uiButton("gift_self", 500, 278, 220, 36, "Открыть себе", null,
+           { size:13, dim: !giftLast, selBorder:"#8bffcf" });
+
+  devRow("ВВЕСТИ ЧУЖОЙ КОД", 336, "rgba(159,216,255,.85)");
+  uiButton("gift_in", 40, 336, 340, 36, "Ввести код подарка", null, { size:13 });
+  uiButton("gift_forget", 390, 336, 330, 36, "Забыть открытые коды", null, { size:13 });
+
+  text("Код несёт приз внутри себя: продиктуй его другу или дай ссылку — " +
+       "откроется на любом устройстве, но только один раз.",
+       VW/2, 388, 10.5, "rgba(200,220,255,.5)", "center", 600);
+}
+
 function admBad(){
   devRow("ЧИТЫ", 118, "rgba(255,140,140,.8)");
   uiButton("dev_god", 40, 118, 220, 40, devGod ? "Бессмертие: ВКЛ" : "Бессмертие: выкл", null,
@@ -5265,14 +5500,15 @@ function drawAdmin(){
        (curSrc === "seed" ? " · сид " + curSeed : " · классика"),
        708, 59, 11, G.cheated ? "#ff9c9c" : "rgba(220,235,255,.6)", "right", 600);
 
-  var tab = G.admTab || "res", i, tw = 136;
+  var tab = G.admTab || "res", i, tw = 112;
   for(i=0;i<ADM_TABS.length;i++)
-    uiButton("adm_" + ADM_TABS[i][0], 40 + i*142, 72, tw, 28, ADM_TABS[i][1], null,
+    uiButton("adm_" + ADM_TABS[i][0], 40 + i*118, 72, tw, 28, ADM_TABS[i][1], null,
              { size:11, sel: tab === ADM_TABS[i][0], selBorder: ADM_TABS[i][2] });
 
   if(tab === "run") admRun();
   else if(tab === "lvl") admLvl();
   else if(tab === "pow") admPow();
+  else if(tab === "gift") admGift();
   else if(tab === "bad") admBad();
   else admRes();
 
@@ -5632,7 +5868,11 @@ window.PEREMENA_DEBUG = {
   startItem: function(){ return startItem; }, upgrades: function(){ return UPGRADES; },
   cache: function(){ return imgKeys.length; },
   dev: function(){ return { on: devOn, god: devGod, box: devBox }; },
-  devDo: devDo, devOpen: devOpen, pow: function(){ return POW; }, powDo: powDo
+  devDo: devDo, devOpen: devOpen, pow: function(){ return POW; }, powDo: powDo,
+  devOn: function(v){ devOn = (v !== false); },
+  giftCode: giftCode, giftRead: giftRead, giftLink: giftLink, giftClaim: giftClaim,
+  giftLast: function(){ return giftLast; }, giftKits: function(){ return GIFT_KITS; },
+  evTaken: evTaken, evReady: evReady, eventBy: eventBy
 };
 
 modLoad();
@@ -5646,6 +5886,10 @@ dailyRoll();
 (function initSeed(){
   var h = "";
   try{ h = (location.hash || "").replace(/^#/, ""); }catch(e){}
+  if(/^g=/i.test(h)){
+    giftPending = h.slice(2); h = "";
+    try{ location.hash = "gift"; }catch(e){}
+  }
   if(/^s=/i.test(h)){ curSeed = cleanSeed(h.slice(2)); curSrc = "seed"; }
   else {
     try{
@@ -5658,6 +5902,10 @@ dailyRoll();
 })();
 
 G = newGame();
+if(giftPending){                          // ссылка с подарком: открываем сразу на старте
+  giftClaim(giftPending, "Подарок по ссылке");
+  giftPending = "";
+}
 G.coinsMax = 0;
 for(var li=0; li<LEVELS.length; li++) G.coinsMax += buildLevel(LEVELS[li]).coinTotal;
 G.level = buildLevel(LEVELS[0]);
