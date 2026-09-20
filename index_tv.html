@@ -600,12 +600,32 @@ var EVENTS = [
     gift:{ b:500, s:5 },
     prize:"500 булок и 5 пятёрок" }
 ];
+var evDates = null;                       // сдвинутые из админки даты, кэш на кадр
+function evDateAll(){
+  if(evDates) return evDates;
+  try{ evDates = JSON.parse(localStorage.getItem("peremena_evdates") || "null") || {}; }
+  catch(e){ evDates = {}; }
+  return evDates;
+}
+function evDate(ev){ return evDateAll()[ev.k] || ev.date; }
+function evDateSave(){
+  try{ localStorage.setItem("peremena_evdates", JSON.stringify(evDateAll())); }catch(e){}
+}
+function evToday(){                       // сегодняшняя дата в том же виде, что в таблице
+  var d = new Date(), z = function(x){ return (x < 10 ? "0" : "") + x; };
+  return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+}
 function eventDays(ev){                   // сколько дней осталось до события
-  var t = ev.date.split("-");
+  var t = evDate(ev).split("-");
   var when = new Date(+t[0], +t[1] - 1, +t[2]);
   var now = new Date();
   now = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((when - now) / 86400000);
+}
+function evShifted(ev){ return evDate(ev) !== ev.date; }
+function evShort(iso){                    // 2026-09-21 -> 21.09
+  var t = String(iso || "").split("-");
+  return t.length === 3 ? t[2] + "." + t[1] : String(iso || "");
 }
 function eventState(ev){
   var d = eventDays(ev);
@@ -750,6 +770,30 @@ function evTake(ev){
   evGot = was;
   try{ localStorage.setItem("peremena_evgift", was.join(",")); }catch(e){}
   giftGive(ev.gift, ev.n);
+}
+function evRun(ev){                       // запустить событие прямо сейчас
+  if(!ev) return;
+  evDateAll()[ev.k] = evToday();
+  evDateSave();
+  toast("Событие «" + ev.n + "» запущено");
+  sfx.win();
+}
+function evSched(ev){                     // вернуть событие на свою дату
+  if(!ev) return;
+  delete evDateAll()[ev.k];
+  evDateSave();
+  toast("«" + ev.n + "» снова по расписанию");
+  sfx.key();
+}
+function evFree(ev){                      // разрешить забрать приз ещё раз
+  if(!ev) return;
+  var was = evList().slice(), at = was.indexOf(ev.k);
+  if(at < 0){ toast("Приз и так не забран"); return; }
+  was.splice(at, 1);
+  evGot = was;
+  try{ localStorage.setItem("peremena_evgift", was.join(",")); }catch(e){}
+  toast("Приз «" + ev.n + "» снова можно забрать");
+  sfx.key();
 }
 function evReady(){                       // есть ли приз, который можно забрать
   var i, ev;
@@ -1677,6 +1721,8 @@ function wipeProgress(){               // стираем всё, что игра
     for(i=0;i<keys.length;i++) localStorage.removeItem(keys[i]);
   }catch(e){}
   if(G){ G.achQueue.length = 0; G.achT = 0; G.achShow = null; }
+  evGot = null; evDates = null;         // календарь и забранные призы тоже стёрлись
+  giftLast = null;
   STATS = freshStats();
   curSkin = "pupil";
   modOn = {};
@@ -1955,6 +2001,21 @@ function doButton(id){
   else if(id === "news_open"){ G.back = G.state; G.state = "news"; newsRead(); sfx.key(); }
   else if(id === "events_open"){ G.back = G.state; G.state = "events"; sfx.key(); }
   else if(id.indexOf("ev_take_") === 0){ evTake(eventBy(id.slice(8))); }
+  else if(id.indexOf("ev_run_") === 0){
+    var evr = eventBy(id.slice(7));
+    evRun(evr);
+    if(evr && devOn) devSay("Запущено: " + evr.n);
+  }
+  else if(id.indexOf("ev_sched_") === 0){
+    var evs = eventBy(id.slice(9));
+    evSched(evs);
+    if(evs && devOn) devSay(evs.n + " — по расписанию " + evShort(evs.date));
+  }
+  else if(id.indexOf("ev_free_") === 0){
+    var evf = eventBy(id.slice(8));
+    evFree(evf);
+    if(evf && devOn) devSay("Приз возвращён: " + evf.n);
+  }
   else if(id.indexOf("gift_cut_") === 0){ giftCut(id.slice(9)); }
   else if(id === "gift_copy"){
     if(giftLast) copyOut(giftLast.code, "Код скопирован", "Код: " + giftLast.code);
@@ -5415,39 +5476,62 @@ function admPow(){
 }
 
 function admGift(){
-  var i, k;
-  devRow("НАРЕЗАТЬ КОД", 116, "rgba(255,159,243,.85)");
-  for(i=0;i<GIFT_KITS.length;i++){
-    k = GIFT_KITS[i];
-    uiButton("gift_cut_" + k.k, 40 + (i % 2) * 350, 116 + Math.floor(i / 2) * 46, 340, 38,
-             k.n, giftText(k.g), { size:14, subSize:10 });
+  var i, k, ev, d, y, st;
+
+  /* ---- события: можно запустить вручную, не дожидаясь даты ---- */
+  devRow("СОБЫТИЯ", 116, "rgba(201,160,255,.85)");
+  for(i=0;i<EVENTS.length && i<2;i++){
+    ev = EVENTS[i]; d = eventDays(ev); y = 116 + i*38;
+    ctx.fillStyle = d === 0 ? "rgba(139,255,207,.1)" : "rgba(255,255,255,.05)";
+    rrect(40, y, 282, 32, 8); ctx.fill();
+    textFit(ev.n, 52, y + 14, 12, d === 0 ? "#8bffcf" : "#ffffff", "left", 700, 258);
+    st = (d === 0 ? "идёт сейчас" : (d > 0 ? "через " + d + " дн." : "прошло")) +
+         (evShifted(ev) ? " · запущено вручную" : " · по плану " + evShort(ev.date)) +
+         (evTaken(ev.k) ? " · приз забран" : "");
+    textFit(st, 52, y + 26, 9.5, evTaken(ev.k) ? "rgba(255,185,138,.8)" : "rgba(200,220,255,.5)",
+            "left", 600, 258);
+    uiButton("ev_run_" + ev.k, 330, y, 128, 32, "Запустить", null,
+             { size:12, sel: d === 0, selBorder:"#8bffcf" });
+    uiButton("ev_sched_" + ev.k, 466, y, 148, 32, "По расписанию", null,
+             { size:12, dim: !evShifted(ev) });
+    uiButton("ev_free_" + ev.k, 622, y, 98, 32, "Вернуть приз", null,
+             { size:11, dim: !evTaken(ev.k) });
   }
 
-  devRow("ПОСЛЕДНИЙ КОД", 222, "rgba(139,255,207,.85)");
+  devRow("НАРЕЗАТЬ КОД", 206, "rgba(255,159,243,.85)");
+  for(i=0;i<GIFT_KITS.length;i++){
+    k = GIFT_KITS[i];
+    uiButton("gift_cut_" + k.k, 40 + i*172, 206, 164, 38, k.n, giftText(k.g),
+             { size:12, subSize:9.5 });
+  }
+
+  devRow("ПОСЛЕДНИЙ КОД", 266, "rgba(139,255,207,.85)");
   ctx.fillStyle = "rgba(0,0,0,.32)";
-  rrect(40, 222, 680, 46, 9); ctx.fill();
+  rrect(40, 266, 680, 42, 9); ctx.fill();
   if(giftLast){
-    textFit(giftLast.code, VW/2, 244, 22, "#8bffcf", "center", 700, 640);
-    text(giftText(giftLast.g) + " · одноразовый, у каждого свой", VW/2, 260, 10,
+    textFit(giftLast.code, VW/2, 286, 21, "#8bffcf", "center", 700, 640);
+    text(giftText(giftLast.g) + " · одноразовый, у каждого свой", VW/2, 301, 10,
          "rgba(220,235,255,.5)", "center", 600);
   } else
-    text("выбери набор сверху — код появится здесь", VW/2, 250, 13,
+    text("выбери набор сверху — код появится здесь", VW/2, 292, 13,
          "rgba(200,220,255,.45)", "center", 600);
 
-  uiButton("gift_copy", 40, 278, 220, 36, "Скопировать код", null,
-           { size:13, dim: !giftLast });
-  uiButton("gift_url", 270, 278, 220, 36, "Скопировать ссылку", null,
-           { size:13, dim: !giftLast });
-  uiButton("gift_self", 500, 278, 220, 36, "Открыть себе", null,
-           { size:13, dim: !giftLast, selBorder:"#8bffcf" });
+  var acts = [["gift_copy", "Скопировать код", !giftLast],
+              ["gift_url", "Скопировать ссылку", !giftLast],
+              ["gift_self", "Открыть себе", !giftLast],
+              ["gift_in", "Ввести чужой код", false],
+              ["gift_forget", "Забыть коды", false]];
+  for(i=0;i<acts.length;i++)
+    uiButton(acts[i][0], 40 + i*138, 318, 132, 34, acts[i][1], null,
+             { size:11, dim: acts[i][2],
+               selBorder: acts[i][0] === "gift_self" ? "#8bffcf" : null });
 
-  devRow("ВВЕСТИ ЧУЖОЙ КОД", 336, "rgba(159,216,255,.85)");
-  uiButton("gift_in", 40, 336, 340, 36, "Ввести код подарка", null, { size:13 });
-  uiButton("gift_forget", 390, 336, 330, 36, "Забыть открытые коды", null, { size:13 });
-
+  text("«Запустить» ставит событию сегодняшнюю дату: приз сразу можно забрать " +
+       "на экране СОБЫТИЯ, кнопка в меню зовёт.", VW/2, 368, 10.5,
+       "rgba(200,220,255,.5)", "center", 600);
   text("Код несёт приз внутри себя: продиктуй его другу или дай ссылку — " +
        "откроется на любом устройстве, но только один раз.",
-       VW/2, 388, 10.5, "rgba(200,220,255,.5)", "center", 600);
+       VW/2, 384, 10.5, "rgba(200,220,255,.5)", "center", 600);
 }
 
 function admBad(){
@@ -6115,7 +6199,9 @@ window.PEREMENA_DEBUG = {
   devOn: function(v){ devOn = (v !== false); },
   giftCode: giftCode, giftRead: giftRead, giftLink: giftLink, giftClaim: giftClaim,
   giftLast: function(){ return giftLast; }, giftKits: function(){ return GIFT_KITS; },
-  evTaken: evTaken, evReady: evReady, eventBy: eventBy
+  evTaken: evTaken, evReady: evReady, eventBy: eventBy,
+  evRun: evRun, evSched: evSched, evFree: evFree,
+  evDate: evDate, evShifted: evShifted
 };
 
 modLoad();
