@@ -977,94 +977,106 @@ var LESSON_NAMES = ["Математика","Русский язык","Истор
 var LESSON_SUBJ = {
   copy:    ["Контрольная по математике","Контрольная по физике","Контрольная по геометрии",
             "Самостоятельная по алгебре","Контрольная по химии"],
-  quiz:    ["Математика","История","География","Биология","Физика","Литература",
-            "Обществознание","Астрономия"],
+  quiz:    null,                          /* подставляется из QUIZ_SUBJ */
   notes:   ["Русский язык","Литература","Иностранный язык","История"],
   canteen: ["Большая перемена","Обед в столовой","Дежурство по столовой"],
   pushups: ["Физкультура"],
   sleep:   ["История","Обществознание","Мировая культура","География","Литература"]
 };
 var LESSON_TAG = {
-  copy:"контрольная", quiz:"устный опрос", notes:"диктант",
+  copy:"списать у соседа", quiz:"устный опрос", notes:"диктант",
   canteen:"перемена", pushups:"разминка", sleep:"последний урок"
 };
 var QUIZ = [
   /* математика */
-  { q:"Сколько будет 7 × 8?",              a:["56","54","58"] },
-  { q:"Сколько будет 12 × 12?",            a:["144","124","148"] },
-  { q:"Сколько будет 9 × 6?",              a:["54","56","48"] },
-  { q:"Сколько будет 15 + 27?",            a:["42","41","43"] },
-  { q:"Сколько будет 100 − 37?",           a:["63","67","73"] },
-  { q:"Чему равно 8²?",                    a:["64","16","72"] },
-  { q:"Сколько будет 144 ÷ 12?",           a:["12","14","11"] },
-  { q:"Сколько будет 25% от 80?",          a:["20","25","16"] },
-  { q:"Чему равно 3³?",                    a:["27","9","81"] },
-  { q:"Площадь квадрата со стороной 6?",   a:["36","24","12"] },
-  { q:"Периметр квадрата со стороной 5?",  a:["20","25","10"] },
-  { q:"Сколько будет 17 × 3?",             a:["51","48","54"] },
-  { q:"Чему равен корень из 81?",          a:["9","8","7"] },
-  { q:"Сколько минут в 2,5 часах?",        a:["150","120","165"] },
-  { q:"Сколько рёбер у куба?",             a:["12","8","10"] },
-  { q:"Сколько сторон у пятиугольника?",   a:["5","6","7"] },
-  { q:"Сумма углов треугольника?",         a:["180°","360°","90°"] },
-  { q:"Сколько будет 6 × 7 − 12?",         a:["30","32","28"] },
-  { q:"Половина от 96?",                   a:["48","46","44"] },
-  { q:"Сколько сантиметров в метре?",      a:["100","10","1000"] },
+  { q:"Сколько будет 7 × 8?",              a:["56","54","58"], s:"Математика" },
+  { q:"Сколько будет 12 × 12?",            a:["144","124","148"], s:"Математика" },
+  { q:"Сколько будет 9 × 6?",              a:["54","56","48"], s:"Математика" },
+  { q:"Сколько будет 15 + 27?",            a:["42","41","43"], s:"Математика" },
+  { q:"Сколько будет 100 − 37?",           a:["63","67","73"], s:"Математика" },
+  { q:"Чему равно 8²?",                    a:["64","16","72"], s:"Математика" },
+  { q:"Сколько будет 144 ÷ 12?",           a:["12","14","11"], s:"Математика" },
+  { q:"Сколько будет 25% от 80?",          a:["20","25","16"], s:"Математика" },
+  { q:"Чему равно 3³?",                    a:["27","9","81"], s:"Математика" },
+  { q:"Площадь квадрата со стороной 6?",   a:["36","24","12"], s:"Математика" },
+  { q:"Периметр квадрата со стороной 5?",  a:["20","25","10"], s:"Математика" },
+  { q:"Сколько будет 17 × 3?",             a:["51","48","54"], s:"Математика" },
+  { q:"Чему равен корень из 81?",          a:["9","8","7"], s:"Математика" },
+  { q:"Сколько минут в 2,5 часах?",        a:["150","120","165"], s:"Математика" },
+  { q:"Сколько рёбер у куба?",             a:["12","8","10"], s:"Математика" },
+  { q:"Сколько сторон у пятиугольника?",   a:["5","6","7"], s:"Математика" },
+  { q:"Сумма углов треугольника?",         a:["180°","360°","90°"], s:"Математика" },
+  { q:"Сколько будет 6 × 7 − 12?",         a:["30","32","28"], s:"Математика" },
+  { q:"Половина от 96?",                   a:["48","46","44"], s:"Математика" },
+  { q:"Сколько сантиметров в метре?",      a:["100","10","1000"], s:"Математика" },
   /* русский и литература */
-  { q:"Сколько букв в русском алфавите?",  a:["33","31","35"] },
-  { q:"Сколько падежей в русском языке?",  a:["6","5","7"] },
-  { q:"«Жи» и «ши» пиши с буквой…",        a:["и","ы","е"] },
-  { q:"«Не» с глаголами пишется…",         a:["раздельно","слитно","через дефис"] },
-  { q:"Сколько гласных букв в алфавите?",  a:["10","6","12"] },
-  { q:"«Быстро» — какая часть речи?",      a:["наречие","глагол","прилагательное"] },
-  { q:"Кто написал «Муму»?",               a:["Тургенев","Толстой","Чехов"] },
-  { q:"Кто написал «Войну и мир»?",        a:["Толстой","Достоевский","Гоголь"] },
-  { q:"Кто написал «Евгения Онегина»?",    a:["Пушкин","Лермонтов","Некрасов"] },
-  { q:"Кто написал «Мёртвые души»?",       a:["Гоголь","Тургенев","Пушкин"] },
-  { q:"Кто написал «Ревизора»?",           a:["Гоголь","Островский","Чехов"] },
-  { q:"Сколько букв не обозначают звука?", a:["2","1","3"] },
-  { q:"«Корова» — это слово…",             a:["словарное","проверяемое","с приставкой"] },
-  { q:"Что ставят в конце вопроса?",       a:["знак вопроса","точку","тире"] },
+  { q:"Сколько букв в русском алфавите?",  a:["33","31","35"], s:"Русский язык" },
+  { q:"Сколько падежей в русском языке?",  a:["6","5","7"], s:"Русский язык" },
+  { q:"«Жи» и «ши» пиши с буквой…",        a:["и","ы","е"], s:"Русский язык" },
+  { q:"«Не» с глаголами пишется…",         a:["раздельно","слитно","через дефис"], s:"Русский язык" },
+  { q:"Сколько гласных букв в алфавите?",  a:["10","6","12"], s:"Русский язык" },
+  { q:"«Быстро» — какая часть речи?",      a:["наречие","глагол","прилагательное"], s:"Русский язык" },
+  { q:"Кто написал «Муму»?",               a:["Тургенев","Толстой","Чехов"], s:"Литература" },
+  { q:"Кто написал «Войну и мир»?",        a:["Толстой","Достоевский","Гоголь"], s:"Литература" },
+  { q:"Кто написал «Евгения Онегина»?",    a:["Пушкин","Лермонтов","Некрасов"], s:"Литература" },
+  { q:"Кто написал «Мёртвые души»?",       a:["Гоголь","Тургенев","Пушкин"], s:"Литература" },
+  { q:"Кто написал «Ревизора»?",           a:["Гоголь","Островский","Чехов"], s:"Литература" },
+  { q:"Сколько букв не обозначают звука?", a:["2","1","3"], s:"Русский язык" },
+  { q:"«Корова» — это слово…",             a:["словарное","проверяемое","с приставкой"], s:"Русский язык" },
+  { q:"Что ставят в конце вопроса?",       a:["знак вопроса","точку","тире"], s:"Русский язык" },
   /* география */
-  { q:"Столица Франции?",                  a:["Париж","Лион","Марсель"] },
-  { q:"Столица Японии?",                   a:["Токио","Осака","Киото"] },
-  { q:"Самое глубокое озеро?",             a:["Байкал","Каспий","Онежское"] },
-  { q:"Самая длинная река мира?",          a:["Нил","Волга","Амазонка"] },
-  { q:"Сколько на Земле материков?",       a:["6","5","7"] },
-  { q:"Самый большой океан?",              a:["Тихий","Атлантический","Индийский"] },
-  { q:"Самая высокая гора мира?",          a:["Эверест","Эльбрус","Монблан"] },
-  { q:"На каком материке Египет?",         a:["Африка","Азия","Европа"] },
-  { q:"Сколько океанов на Земле?",         a:["4","3","5"] },
+  { q:"Столица Франции?",                  a:["Париж","Лион","Марсель"], s:"География" },
+  { q:"Столица Японии?",                   a:["Токио","Осака","Киото"], s:"География" },
+  { q:"Самое глубокое озеро?",             a:["Байкал","Каспий","Онежское"], s:"География" },
+  { q:"Самая длинная река мира?",          a:["Нил","Волга","Амазонка"], s:"География" },
+  { q:"Сколько на Земле материков?",       a:["6","5","7"], s:"География" },
+  { q:"Самый большой океан?",              a:["Тихий","Атлантический","Индийский"], s:"География" },
+  { q:"Самая высокая гора мира?",          a:["Эверест","Эльбрус","Монблан"], s:"География" },
+  { q:"На каком материке Египет?",         a:["Африка","Азия","Европа"], s:"География" },
+  { q:"Сколько океанов на Земле?",         a:["4","3","5"], s:"География" },
   /* биология */
-  { q:"Какой газ нужен для дыхания?",      a:["кислород","азот","гелий"] },
-  { q:"Где идёт фотосинтез?",              a:["в листьях","в корнях","в стебле"] },
-  { q:"Что качает кровь?",                 a:["сердце","печень","лёгкие"] },
-  { q:"Самое большое животное?",           a:["синий кит","слон","жираф"] },
-  { q:"Сколько ног у паука?",              a:["8","6","10"] },
-  { q:"Орган слуха?",                      a:["ухо","нос","язык"] },
-  { q:"Что растение берёт из почвы?",      a:["воду","кислород","свет"] },
+  { q:"Какой газ нужен для дыхания?",      a:["кислород","азот","гелий"], s:"Биология" },
+  { q:"Где идёт фотосинтез?",              a:["в листьях","в корнях","в стебле"], s:"Биология" },
+  { q:"Что качает кровь?",                 a:["сердце","печень","лёгкие"], s:"Биология" },
+  { q:"Самое большое животное?",           a:["синий кит","слон","жираф"], s:"Биология" },
+  { q:"Сколько ног у паука?",              a:["8","6","10"], s:"Биология" },
+  { q:"Орган слуха?",                      a:["ухо","нос","язык"], s:"Биология" },
+  { q:"Что растение берёт из почвы?",      a:["воду","кислород","свет"], s:"Биология" },
   /* физика и химия */
-  { q:"При какой температуре кипит вода?", a:["100 °C","90 °C","120 °C"] },
-  { q:"При какой температуре тает лёд?",   a:["0 °C","−10 °C","5 °C"] },
-  { q:"H₂O — это…",                        a:["вода","соль","кислота"] },
-  { q:"В чём измеряют силу?",              a:["в ньютонах","в ваттах","в вольтах"] },
-  { q:"В чём измеряют силу тока?",         a:["в амперах","в омах","в джоулях"] },
-  { q:"Что притягивает предметы к Земле?", a:["притяжение","магнит","давление"] },
-  { q:"Скорость света примерно…",          a:["300 000 км/с","3 000 км/с","30 км/с"] },
+  { q:"При какой температуре кипит вода?", a:["100 °C","90 °C","120 °C"], s:"Физика" },
+  { q:"При какой температуре тает лёд?",   a:["0 °C","−10 °C","5 °C"], s:"Физика" },
+  { q:"H₂O — это…",                        a:["вода","соль","кислота"], s:"Физика" },
+  { q:"В чём измеряют силу?",              a:["в ньютонах","в ваттах","в вольтах"], s:"Физика" },
+  { q:"В чём измеряют силу тока?",         a:["в амперах","в омах","в джоулях"], s:"Физика" },
+  { q:"Что притягивает предметы к Земле?", a:["притяжение","магнит","давление"], s:"Физика" },
+  { q:"Скорость света примерно…",          a:["300 000 км/с","3 000 км/с","30 км/с"], s:"Физика" },
   /* история и космос */
-  { q:"В каком году полетел Гагарин?",     a:["1961","1957","1969"] },
-  { q:"Когда началась Великая Отечественная?", a:["1941","1939","1945"] },
-  { q:"Кто основал Петербург?",            a:["Пётр I","Иван Грозный","Екатерина II"] },
-  { q:"Год Куликовской битвы?",            a:["1380","1240","1480"] },
-  { q:"Год Крещения Руси?",                a:["988","1054","1147"] },
-  { q:"Самая большая планета?",            a:["Юпитер","Сатурн","Земля"] },
-  { q:"Спутник Земли?",                    a:["Луна","Марс","Венера"] },
-  { q:"Сколько планет в Солнечной системе?", a:["8","9","7"] },
-  { q:"Ближайшая к Солнцу планета?",       a:["Меркурий","Венера","Марс"] },
-  { q:"Сколько цветов в радуге?",          a:["7","5","9"] },
-  { q:"Сколько дней в високосном году?",   a:["366","365","364"] }
+  { q:"В каком году полетел Гагарин?",     a:["1961","1957","1969"], s:"История" },
+  { q:"Когда началась Великая Отечественная?", a:["1941","1939","1945"], s:"История" },
+  { q:"Кто основал Петербург?",            a:["Пётр I","Иван Грозный","Екатерина II"], s:"История" },
+  { q:"Год Куликовской битвы?",            a:["1380","1240","1480"], s:"История" },
+  { q:"Год Крещения Руси?",                a:["988","1054","1147"], s:"История" },
+  { q:"Самая большая планета?",            a:["Юпитер","Сатурн","Земля"], s:"Астрономия" },
+  { q:"Спутник Земли?",                    a:["Луна","Марс","Венера"], s:"Астрономия" },
+  { q:"Сколько планет в Солнечной системе?", a:["8","9","7"], s:"Астрономия" },
+  { q:"Ближайшая к Солнцу планета?",       a:["Меркурий","Венера","Марс"], s:"Астрономия" },
+  { q:"Сколько цветов в радуге?",          a:["7","5","9"], s:"Астрономия" },
+  { q:"Сколько дней в високосном году?",   a:["366","365","364"], s:"Астрономия" }
 ];
 
+/* Предмет урока и вопросы должны совпадать: у каждого вопроса свой предмет. */
+/* Дорожки диктанта живут под доской и правее учителя — одни числа на всех. */
+var NOTE_Y = [288, 334], NOTE_HIT = 264, NOTE_X = 232, NOTE_W = 540;
+var QUIZ_SUBJ = (function(){
+  var out = [], seen = {}, i;
+  for(i=0;i<QUIZ.length;i++) if(!seen[QUIZ[i].s]){ seen[QUIZ[i].s] = 1; out.push(QUIZ[i].s); }
+  return out;
+})();
+function quizPool(subj){
+  var out = [], i;
+  for(i=0;i<QUIZ.length;i++) if(QUIZ[i].s === subj) out.push(i);
+  return out.length >= 3 ? out : null;
+}
 function shuffleQuestion(src, r){
   var a = src.a.slice(), i, j, t;
   for(i = a.length - 1; i > 0; i--){              // тасуем Фишером — Йетсом
@@ -1085,7 +1097,7 @@ function startLesson(i, force){
   var kinds = ["copy","quiz","notes","canteen","pushups","sleep"];
   var cfg = lessonCfg();
   var kind = force || kinds[Math.floor(r()*kinds.length)];
-  var subjList = LESSON_SUBJ[kind] || LESSON_NAMES;
+  var subjList = (kind === "quiz" ? QUIZ_SUBJ : LESSON_SUBJ[kind]) || LESSON_NAMES;
   var L = { kind: kind, i:i, t:0, done:false, ok:false, endT:0, cfg: cfg,
             subject: subjList[Math.floor(r()*subjList.length)],
             tag: LESSON_TAG[kind] || "урок" };
@@ -1095,8 +1107,9 @@ function startLesson(i, force){
     L.maxStrikes = cfg.exam ? 2 : (cfg.easy ? 5 : 3);
   } else if(L.kind === "quiz"){
     L.qs = []; L.used = {};
+    var pool = quizPool(L.subject);                  // вопросы строго по предмету урока
     while(L.qs.length < 3){
-      var qi = Math.floor(r()*QUIZ.length);
+      var qi = pool ? pool[Math.floor(r()*pool.length)] : Math.floor(r()*QUIZ.length);
       if(L.used[qi]) continue;
       L.used[qi] = 1;
       L.qs.push(shuffleQuestion(QUIZ[qi], r));       // варианты каждый раз в новом порядке
@@ -1169,13 +1182,13 @@ function lessonPress(k){
     for(i=0;i<L.notes.length;i++){
       nt = L.notes[i];
       if(nt.lane !== lane || nt.hit) continue;
-      d = Math.abs(nt.x - 210);
+      d = Math.abs(nt.x - NOTE_HIT);
       if(d < bd){ bd = d; best = i; }
     }
     if(best >= 0 && bd < 40){
       L.notes[best].hit = true; L.hits++;
       L.pop = 1; L.popT = 18;
-      puff(210, 200 + lane*70, 8, "#8bffcf", 2.4);
+      puff(NOTE_HIT, NOTE_Y[lane], 8, "#8bffcf", 2.4);
       sfx.coin();
     } else {
       L.miss++; L.pop = -1; L.popT = 18; sfx.hurt();
@@ -1271,8 +1284,8 @@ function lessonUpdate(){
     for(i=L.notes.length-1; i>=0; i--){
       nt = L.notes[i];
       nt.x -= L.speed;
-      if(nt.hit && nt.x < 190){ L.notes.splice(i,1); continue; }
-      if(!nt.hit && nt.x < 165){ L.notes.splice(i,1); L.miss++; L.pop = -1; L.popT = 14; }
+      if(nt.hit && nt.x < NOTE_HIT - 20){ L.notes.splice(i,1); continue; }
+      if(!nt.hit && nt.x < NOTE_HIT - 46){ L.notes.splice(i,1); L.miss++; L.pop = -1; L.popT = 14; }
     }
     if(L.left <= 0 && !L.notes.length) lessonEnd(L.hits >= L.need);
   }
@@ -1572,7 +1585,7 @@ function devDo(id){
   else if(id === "dev_coins"){
     if(lv && lv.coins){
       for(i=0;i<lv.coins.length;i++) if(!lv.coins[i].got){
-        lv.coins[i].got = true; G.coins++; stat("pies"); stat("buns");
+        lv.coins[i].got = true; G.coins++; stat("pies"); stat("buns"); G.runBuns++;
       }
       statSave(); devSay("Все пирожки собраны");
     }
@@ -2165,7 +2178,7 @@ function newGame(){
            parts:[], pops:[], rings:[], trail:[], hitStop:0, lead:0, landT:0,
            shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
-           item:null, item2:null, reviveLeft:0, walletPaid:0, dblBuns:false,
+           item:null, item2:null, reviveLeft:0, walletPaid:0, dblBuns:false, runBuns:0,
            buff:{ soda:0, gum:0, pass:0 }, shield:false,
            combo:0, comboT:0, comboPts:0, bonusPts:0, allPies:0, toast:"", toastT:0, invul:0, freeze:0 };
 }
@@ -2510,7 +2523,8 @@ function updatePlayer(dt){
       }
     }
     if(overlap(p, c)){
-      c.got = true; G.coins++; stat("pies"); stat("buns", G.dblBuns ? 2 : 1);
+      c.got = true; G.coins++; stat("pies");
+      stat("buns", G.dblBuns ? 2 : 1); G.runBuns += G.dblBuns ? 2 : 1;
       G.combo = (G.comboT > 0) ? Math.min(5, G.combo + 1) : 1;
       G.comboT = 110;
       G.comboPts += 10 * (G.combo - 1);
@@ -2749,6 +2763,7 @@ function nextLevel(){
     if(extra > 0){
       STATS.buns += extra;
       G.walletPaid += extra;
+      G.runBuns += extra;
       if(G.player) pop(G.player.x+10, G.player.y-26, "+" + extra + " булок", "#ffd166", 13);
     }
   }
@@ -2864,6 +2879,7 @@ function update(dtSec){
 
 /* ================== ОТРИСОВКА ================== */
 function rrect(x,y,w,h,r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);   // узкая полоска не должна крючиться
   ctx.beginPath();
   ctx.moveTo(x+r,y);
   ctx.arcTo(x+w,y,x+w,y+h,r);
@@ -3781,9 +3797,11 @@ function buttonBody(w, h, label, sub, o, sel, hov){
     ctx.stroke();
   }
   var fs = o.size || 22;
-  text(label, w/2, h/2 + (sub ? -2 : fs*0.36) + 1, fs, "rgba(0,0,0,.4)", "center");
-  text(label, w/2, h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center");
-  if(sub) text(sub, w/2, h/2 + 20, o.subSize || 12, "rgba(226,238,255,.8)", "center", 600);
+  var lw = w - (sel ? 38 : 18);                   // у выделенной кнопки есть уголки
+  textFit(label, w/2, h/2 + (sub ? -2 : fs*0.36) + 1, fs, "rgba(0,0,0,.4)", "center", 700, lw);
+  textFit(label, w/2, h/2 + (sub ? -2 : fs*0.36), fs, o.col || "#ffffff", "center", 700, lw);
+  if(sub) textFit(sub, w/2 + (sel ? 3 : 0), h/2 + Math.min(20, h/2 - 6),
+                  o.subSize || 12, "rgba(226,238,255,.8)", "center", 600, w - (sel ? 32 : 12));
 }
 var BTN_PAD = 26;
 function uiButton(id, x, y, w, h, label, sub, o){
@@ -3940,10 +3958,15 @@ function drawSlot(){
   }
 }
 
+function achBanner(){        /* плашка висит под шапкой забега или урока, а не на ней */
+  return G.state === "play" || G.state === "clear" || G.state === "paused" ||
+         G.state === "lesson" || !!G.lesson;
+}
 function drawAch(){
   if(G.achT <= 0 || !G.achShow) return;
   if(G.state === "admin" || G.state === "code") return;      // панель показывает счёт сама
-  var a = G.achShow, k = Math.min(1, (200 - G.achT) / 12), x = VW/2 - 190, y = 16 - (1-k)*40;
+  var a = G.achShow, k = Math.min(1, (200 - G.achT) / 12);
+  var x = VW/2 - 190, y = (achBanner() ? 58 : 16) - (1-k)*40;
   ctx.save();
   ctx.globalAlpha = Math.min(1, G.achT/30) * k;
   ctx.fillStyle = "rgba(9,16,32,.92)";
@@ -3956,8 +3979,8 @@ function drawAch(){
   ctx.closePath(); ctx.fill();
   text("ДОСТИЖЕНИЕ", x+54, y+22, 10, "rgba(255,209,102,.8)", "left", 700);
   text(a.n, x+54, y+38, 15, "#ffffff", "left", 700);
-  text("+" + a.r, x+364, y+34, 15, "#ffd98a", "right", 700);
-  drawBun(x+330, y+29, 0.8);
+  drawBun(x+306, y+30, 0.75);
+  text("+" + a.r, x+320, y+35, 15, "#ffd98a", "left", 700);
   ctx.restore();
 }
 function drawToast(){
@@ -4105,7 +4128,7 @@ function drawHUD(){
   text(G.coins + " / " + G.coinsMax, VW-134, 34, 19, G.coinPop > 0 ? "#ffffff" : "#ffd98a");
   ctx.restore();
   if(G.combo > 1 && G.comboT > 0){                 // серия пирожков видна, а не только слышна
-    var cw = 128, cx3 = VW/2 - cw/2, cy3 = 58;
+    var cw = 128, cx3 = VW/2 - cw/2, cy3 = (G.achT > 0 && G.achShow) ? 118 : 58;
     ctx.fillStyle = "rgba(9,16,32,.6)";
     rrect(cx3, cy3, cw, 22, 8); ctx.fill();
     ctx.fillStyle = "rgba(139,255,207,.25)";
@@ -4267,7 +4290,8 @@ function drawMenu(){
            modCount() ? "МОДЫ · " + modCount() : "МОДЫ", null,
            { size:13, sel: modCount() > 0, selBorder:"#ffb98a" });
 
-  uiButton("hub_open", 122, 276, 200, 46, "ХОЛЛ", "магазин и задания", { size:15, subSize:11, selBorder:"#ff9ff3" });
+  uiButton("hub_open", 122, 276, 200, 46, "ХОЛЛ", STATS.buns + " булок · магазин",
+           { size:15, subSize:11, selBorder:"#ff9ff3" });
   uiButton("play", 340, 276, 338, 46, "ИГРАТЬ  ×" + modMult().toFixed(2), null,
            { size:20, sel:true, selBorder:"#8bffcf" });
 
@@ -4277,8 +4301,12 @@ function drawMenu(){
   uiButton("events_open", 282, 330, 180, 28,
            ev ? ("СОБЫТИЯ · " + (evd === 0 ? "сегодня!" : "через " + evd + " дн.")) : "СОБЫТИЯ",
            null, { size:12, sel: evd === 0, selBorder:"#c9a0ff" });
-  drawStar(482, 344, 0.62);
-  text(stars() + "", 496, 349, 12, "rgba(255,217,138,.9)", "left", 700);
+  ctx.fillStyle = "rgba(255,255,255,.07)";
+  rrect(468, 330, 52, 28, 9); ctx.fill();
+  ctx.strokeStyle = "rgba(255,95,109,.35)"; ctx.lineWidth = 1.2;
+  rrect(468, 330, 52, 28, 9); ctx.stroke();
+  drawStar(484, 344, 0.62);
+  textFit(stars() + "", 497, 349, 12, "rgba(255,217,138,.9)", "left", 700, 20);
   if(DAILY.reward > 0)
     uiButton("claim_day", 528, 330, 150, 28, "+" + DAILY.reward + " ЗА ДЕНЬ", null,
              { size:12, sel:true, selBorder:"#ffd166" });
@@ -4483,7 +4511,7 @@ function drawLesson(){
     }
     ctx.fillStyle = "#b9c6d8"; rrect(L.tray-48, VH-152, 96, 12, 5); ctx.fill();
     ctx.fillStyle = "#8c9aad"; rrect(L.tray-42, VH-142, 84, 8, 4); ctx.fill();
-    text(isTouch ? "двигай ◀ ▶" : "двигай поднос ← →", VW/2, VH-96, 13, "rgba(220,235,255,.7)", "center", 600);
+    hintPlate(isTouch ? "двигай ◀ ▶" : "двигай поднос ← →", VH-42, 13, "rgba(220,235,255,.85)");
   }
   else if(L.kind === "pushups"){
     text("Физра. Отжимания по команде физрука!", VW/2, 116, 15, "rgba(230,240,255,.85)", "center", 600);
@@ -4505,9 +4533,9 @@ function drawLesson(){
     var nx = L.next === "left" ? VW/2 - 70 : VW/2 + 70;
     ctx.globalAlpha = 0.65 + 0.35*Math.sin(G.tick*0.2);
     ctx.fillStyle = "#ffd166";
-    rrect(nx - 34, 360, 68, 46, 12); ctx.fill();
+    rrect(nx - 34, 336, 68, 46, 12); ctx.fill();
     ctx.globalAlpha = 1;
-    text(L.next === "left" ? "←" : "→", nx, 392, 26, "#0d1626", "center");
+    text(L.next === "left" ? "←" : "→", nx, 368, 26, "#0d1626", "center");
     hintPlate(isTouch ? "жми ◀ и ▶ по очереди" : "жми ← и → по очереди", VH-70, 13, "rgba(220,235,255,.85)");
     ctx.fillStyle = "rgba(255,255,255,.14)"; rrect(240, VH-48, 330, 8, 4); ctx.fill();
     ctx.fillStyle = L.limit < 300 ? "#ff8080" : "#9fd8ff";
@@ -4539,26 +4567,32 @@ function drawLesson(){
     text("записано " + L.hits + " из 12 · нужно " + L.need, VW/2+40, 146, 13,
          L.hits >= L.need ? "#8bffcf" : "rgba(220,235,255,.7)", "center", 700);
     for(i=0;i<2;i++){
-      y = 200 + i*70;
-      ctx.fillStyle = "rgba(9,16,32,.35)"; rrect(150, y-26, VW-180, 52, 10); ctx.fill();
+      y = NOTE_Y[i];
+      ctx.fillStyle = "rgba(9,16,32,.35)"; rrect(NOTE_X, y-20, NOTE_W, 40, 10); ctx.fill();
       ctx.strokeStyle = (L.popT > 0 && L.pop > 0) ? "#8bffcf" : "rgba(255,255,255,.4)";
       ctx.lineWidth = 2.4;
-      rrect(182, y-26, 56, 52, 10); ctx.stroke();
-      text(i ? "→" : "←", 210, y+8, 22, "rgba(255,255,255,.55)", "center");
+      rrect(NOTE_HIT - 24, y-20, 48, 40, 10); ctx.stroke();
+      text(i ? "→" : "←", NOTE_HIT, y+7, 20, "rgba(255,255,255,.55)", "center");
     }
+    ctx.save();
+    rrect(NOTE_X, NOTE_Y[0]-20, NOTE_W, NOTE_Y[1]+20 - (NOTE_Y[0]-20), 10);
+    ctx.clip();                                   /* листки не вылетают за дорожку */
     for(i=0;i<L.notes.length;i++){
       var nt = L.notes[i];
-      y = 200 + nt.lane*70;
+      y = NOTE_Y[nt.lane];
       ctx.save();
       if(nt.hit){ ctx.globalAlpha = 0.5; }
       ctx.fillStyle = nt.hit ? "#8bffcf" : (nt.lane ? "#9fd8ff" : "#ffd166");
-      rrect(nt.x-20, y-18, 40, 36, 9); ctx.fill();
-      text(nt.lane ? "→" : "←", nt.x, y+7, 19, "#0d1626", "center");
+      rrect(nt.x-18, y-16, 36, 32, 8); ctx.fill();
+      text(nt.lane ? "→" : "←", nt.x, y+6, 18, "#0d1626", "center");
       ctx.restore();
     }
-    text(isTouch ? "жми ◀ и ▶ в такт" : "жми ← и → в такт", VW/2, 330, 13, "rgba(220,235,255,.7)", "center", 600);
+    ctx.restore();
     if(L.popT > 0)
-      text(L.pop > 0 ? "записал!" : "мимо", 210, 350, 15, L.pop > 0 ? "#8bffcf" : "#ff8080", "center");
+      text(L.pop > 0 ? "записал!" : "мимо", NOTE_HIT, NOTE_Y[1] + 44, 15,
+           L.pop > 0 ? "#8bffcf" : "#ff8080", "center");
+    hintPlate(isTouch ? "жми ◀ и ▶ в такт" : "жми ← и → в такт", VH-42, 13,
+              "rgba(220,235,255,.85)");
   }
 
   if(L.done){
@@ -4580,15 +4614,17 @@ function drawLesson(){
 
 function drawHubHUD(){
   ctx.fillStyle = "rgba(9,16,32,.52)";
-  rrect(10, 10, 260, 44, 12); ctx.fill();
-  drawBun(36, 32, 0.95);
-  text(STATS.buns + " булок", 56, 39, 20, "#ffd98a", "left");
-  text("ШКОЛЬНЫЙ ХОЛЛ", VW/2, 30, 17, "#ffffff", "center");
+  rrect(10, 10, 268, 44, 12); ctx.fill();
+  drawBun(34, 32, 0.9);
+  textFit(STATS.buns + " булок", 52, 39, 19, "#ffd98a", "left", 700, 142);
+  drawStar(212, 31, 0.68);
+  textFit(stars() + "", 228, 37, 15, "#ffd98a", "left", 700, 44);
+  text("ШКОЛЬНЫЙ ХОЛЛ", VW/2, 34, 17, "#ffffff", "center");
   if(taskReady())
-    text("задания дня готовы: " + taskReady() + " — загляни в КАБИНЕТ", VW/2, 46, 11,
+    text("задания дня готовы: " + taskReady() + " — загляни в КАБИНЕТ", VW/2, 74, 11,
          "#8bffcf", "center", 700);
   else
-    text("собранные пирожки — это булки на скины и улучшения", VW/2, 46, 11,
+    text("собранные пирожки — это булки на скины и улучшения", VW/2, 74, 11,
          "rgba(220,235,255,.65)", "center", 600);
   if(G.state === "hub"){
     uiButton("back", VW-158, 12, 146, 40, "В МЕНЮ", null, { size:14 });
@@ -4643,7 +4679,7 @@ function buyStar(k){
 
 function shopStar(){
   var i, g, y, can;
-  text("Пятёрки капают за достижения, сундуки и события", VW/2, 96, 12,
+  text("Пятёрки капают за достижения, сундуки и события", VW/2, 98, 11.5,
        "rgba(200,220,255,.7)", "center", 600);
   for(i=0;i<STAR_GOODS.length;i++){
     g = STAR_GOODS[i];
@@ -4660,8 +4696,8 @@ function shopStar(){
     if(mine) text("уже твой", 700, y + 28, 13, "#8bffcf", "right", 700);
     else {
       can = stars() >= g.p;
-      drawStar(566, y + 22, 0.7);
-      text(g.p + "", 580, y + 27, 14, can ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
+      drawStar(534, y + 22, 0.7);
+      text(g.p + "", 548, y + 27, 14, can ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
       uiButton("star_" + g.k, 600, y + 6, 120, 32, "купить", null,
                { size:13, sel: can, selBorder: can ? "#8bffcf" : "#ff8080" });
     }
@@ -4670,37 +4706,37 @@ function shopStar(){
 }
 
 function shopSkins(){
-  var per = 12, pages = Math.ceil(SKINS.length / per), i, sk, cx, cy, on, has;
+  var per = 16, pages = Math.ceil(SKINS.length / per), i, sk, cx, cy, on, has;
   G.shopPage = clamp(G.shopPage || 0, 0, pages - 1);
   var from = G.shopPage * per;
   for(i = from; i < Math.min(SKINS.length, from + per); i++){
     sk = SKINS[i];
     var j = i - from;
     cx = 26 + (j % 4) * 188;
-    cy = 96 + Math.floor(j / 4) * 84;
+    cy = 92 + Math.floor(j / 4) * 76;
     on = (curSkin === sk.k); has = owns(sk.k);
-    var hv = hovered(cx, cy, 180, 78);
+    var hv = hovered(cx, cy, 180, 70);
     if(hv) G.uiHover = true;
     ctx.fillStyle = on ? "rgba(139,255,207,.16)"
                        : (hv ? "rgba(255,255,255,.18)" : (has ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.05)"));
-    rrect(cx, cy, 180, 78, 12); ctx.fill();
+    rrect(cx, cy, 180, 70, 12); ctx.fill();
     ctx.strokeStyle = on ? "#8bffcf" : (has ? "rgba(159,216,255,.5)" : "rgba(255,255,255,.16)");
     ctx.lineWidth = on ? 2.6 : 1.4;
-    rrect(cx, cy, 180, 78, 12); ctx.stroke();
+    rrect(cx, cy, 180, 70, 12); ctx.stroke();
     ctx.save();
     if(!has) ctx.globalAlpha = 0.45;
-    drawCharacter({ x:cx+14, y:cy+30, w:20, h:28, dir:1, grounded:true, vx:0,
+    drawCharacter({ x:cx+14, y:cy+28, w:20, h:28, dir:1, grounded:true, vx:0,
                     anim:0, sqx:1, sqy:1, dead:false },
                   has ? skinView(sk.k) : sk, 1);
     ctx.restore();
-    textFit(sk.n, cx+52, cy+22, 13, has ? "#ffffff" : "rgba(230,240,255,.7)", "left", 700, 120);
-    textFit(sk.d, cx+52, cy+38, 9.5, "rgba(200,220,255,.5)", "left", 600, 120);
+    textFit(sk.n, cx+52, cy+20, 13, has ? "#ffffff" : "rgba(230,240,255,.7)", "left", 700, 120);
+    textFit(sk.d, cx+52, cy+34, 9.5, "rgba(200,220,255,.5)", "left", 600, 120);
     if(has){
-      text(on ? "НАДЕТ" : "надеть", cx+52, cy+58, on ? 12 : 11, on ? "#8bffcf" : "#9fd8ff", "left", 700);
-      text(skinWear(sk.k) + " ур.", cx+128, cy+58, 9.5, "rgba(200,220,255,.45)", "left", 600);
+      text(on ? "НАДЕТ" : "надеть", cx+52, cy+53, on ? 12 : 11, on ? "#8bffcf" : "#9fd8ff", "left", 700);
+      text(skinWear(sk.k) + " ур.", cx+128, cy+51, 9, "rgba(200,220,255,.45)", "left", 600);
       var st, maxSt = skinMaxStage(sk.k), cur = skinStage(sk.k);
       for(st=1; st<=3; st++){
-        var sx2 = cx + 116 + (st-1)*21, sy2 = cy + 62, open = st <= maxSt;
+        var sx2 = cx + 116 + (st-1)*21, sy2 = cy + 55, open = st <= maxSt;
         ctx.fillStyle = (on && cur === st) ? "rgba(255,209,102,.85)"
                       : (open ? "rgba(255,255,255,.16)" : "rgba(255,255,255,.05)");
         rrect(sx2, sy2, 19, 13, 4); ctx.fill();
@@ -4708,26 +4744,28 @@ function shopSkins(){
              (on && cur === st) ? "#14202c" : (open ? "#ffffff" : "rgba(255,255,255,.3)"), "center", 700);
         G.buttons.push({ id:"stage_" + sk.k + "_" + st, x:sx2, y:sy2, w:19, h:13 });
       }
-      G.buttons.push({ id:"skin_" + sk.k, x:cx, y:cy, w:110, h:78 });
+      G.buttons.push({ id:"skin_" + sk.k, x:cx, y:cy, w:110, h:70 });
     } else {
-      drawBun(cx+60, cy+60, 0.6);
-      text(sk.price + "", cx+74, cy+66, 14,
+      drawBun(cx+60, cy+54, 0.6);
+      text(sk.price + "", cx+74, cy+60, 14,
            STATS.buns >= sk.price ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
-      G.buttons.push({ id:"skin_" + sk.k, x:cx, y:cy, w:180, h:78 });
+      G.buttons.push({ id:"skin_" + sk.k, x:cx, y:cy, w:180, h:70 });
     }
   }
   if(pages > 1){
-    uiButton("shop_prev", 250, 352, 60, 32, "◀", null, { size:15 });
-    uiButton("shop_next", 490, 352, 60, 32, "▶", null, { size:15 });
-    text((G.shopPage + 1) + "/" + pages, VW/2, 373, 13, "rgba(200,220,255,.7)", "center", 700);
-  }
+    uiButton("shop_prev", 250, 366, 60, 30, "◀", null, { size:15 });
+    uiButton("shop_next", 490, 366, 60, 30, "▶", null, { size:15 });
+    text((G.shopPage + 1) + "/" + pages, VW/2, 386, 13, "rgba(200,220,255,.7)", "center", 700);
+  } else
+    text("образ растёт вместе с тобой: I, II, III — этапы за пройденные уровни",
+         VW/2, 402, 11, "rgba(170,195,225,.6)", "center", 600);
 }
 
 function shopUpgrades(){
   var i, u, y, have, price, k;
   for(i=0;i<UPGRADES.length;i++){
     u = UPGRADES[i];
-    y = 92 + i*38;
+    y = 112 + i*37;
     have = upg(u.k);
     ctx.fillStyle = have >= u.lv ? "rgba(139,255,207,.1)" : "rgba(255,255,255,.055)";
     rrect(38, y, 724, 34, 9); ctx.fill();
@@ -4748,7 +4786,7 @@ function shopUpgrades(){
 
 function shopItems(){
   text("Купленный предмет окажется в руках в начале следующего забега",
-       VW/2, 96, 12, "rgba(200,220,255,.7)", "center", 600);
+       VW/2, 98, 11.5, "rgba(200,220,255,.7)", "center", 600);
   var i, k, it, cx, cy, price, picked;
   for(i=0;i<ITEM_KEYS.length;i++){
     k = ITEM_KEYS[i]; it = ITEMS[k];
@@ -4779,7 +4817,7 @@ function shopItems(){
 }
 
 function drawSkins(){                    // магазин: скины, улучшения и предметы
-  ctx.fillStyle = "rgba(4,10,22,.8)"; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
   panel(780, 450, "rgba(255,159,243,.9)");
   gradText("МАГАЗИН", VW/2, 44, 26, "#ffe3fb", "#e86bd0");
   drawBun(520, 38, 0.8);
@@ -4792,8 +4830,8 @@ function drawSkins(){                    // магазин: скины, улуч
              { size:13, sel: tab === SHOP_TABS[i][0],
                selBorder: SHOP_TABS[i][0] === "star" ? "#ff5f6d" : "#ff9ff3" });
   if(tab === "upg"){
-    text("работают во всех режимах и рекордам не мешают", 600, 66, 10,
-         "rgba(170,195,225,.6)", "center", 600);
+    text("работают во всех режимах и рекордам не мешают", VW/2, 98, 11.5,
+         "rgba(200,220,255,.7)", "center", 600);
     shopUpgrades();
   }
   else if(tab === "star") shopStar();
@@ -4814,62 +4852,75 @@ function drawStar(x, y, s){               // пятёрка: кружок с ц�
 }
 
 function drawNews(){
-  ctx.fillStyle = "rgba(4,10,22,.85)"; ctx.fillRect(0,0,VW,VH);
-  panel(760, 452, "rgba(255,209,102,.9)");
-  gradText("НОВОСТИ", VW/2, 44, 24, "#fff3c4", "#f0a83a");
-  text("что нового в «Перемене»", VW/2, 64, 11, "rgba(200,220,255,.6)", "center", 600);
-  var i, j, y = 86, item, ln;
-  for(i=0; i<NEWS.length && y < 380; i++){
-    item = NEWS[i];
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
+  var i, j, item, ln, list = [], ch = 0, ih;
+  for(i=0; i<NEWS.length && list.length < 4; i++){        // панель ровно по содержимому
+    ih = 34 + NEWS[i].lines.length*18;
+    if(ch + ih + 12 > 300 && list.length) break;
+    list.push(NEWS[i]); ch += ih + 12;
+  }
+  var H = clamp(148 + ch, 240, 456), top = VH/2 - H/2;
+  panel(760, H, "rgba(255,209,102,.9)");
+  gradText("НОВОСТИ", VW/2, top + 36, 24, "#fff3c4", "#f0a83a");
+  text("что нового в «Перемене»", VW/2, top + 56, 11, "rgba(200,220,255,.6)", "center", 600);
+  var y = top + 76;
+  for(i=0; i<list.length; i++){
+    item = list[i]; ih = 34 + item.lines.length*18;
     ctx.fillStyle = i === 0 ? "rgba(255,209,102,.1)" : "rgba(255,255,255,.05)";
-    rrect(40, y, 680, 26 + item.lines.length*18, 10); ctx.fill();
+    rrect(40, y, 680, ih, 10); ctx.fill();
     ctx.strokeStyle = i === 0 ? "rgba(255,209,102,.5)" : "rgba(255,255,255,.14)";
-    ctx.lineWidth = 1.4; rrect(40, y, 680, 26 + item.lines.length*18, 10); ctx.stroke();
-    text(item.n, 56, y + 18, 15, "#ffffff", "left", 700);
+    ctx.lineWidth = 1.4; rrect(40, y, 680, ih, 10); ctx.stroke();
+    textFit(item.n, 56, y + 18, 15, "#ffffff", "left", 700, 460);
     text(item.d, 704, y + 18, 12, "rgba(255,217,138,.9)", "right", 700);
     for(j=0;j<item.lines.length;j++){
       ln = item.lines[j];
-      textFit("• " + ln, 56, y + 38 + j*18, 12,
+      textFit("• " + ln, 56, y + 42 + j*18, 12,
               j === 0 && i === 0 ? "#ffb98a" : "rgba(220,235,255,.75)", "left", 600, 640);
     }
-    y += 26 + item.lines.length*18 + 12;
+    y += ih + 12;
   }
-  text("новости ведутся с этого обновления", VW/2, 398, 11, "rgba(200,220,255,.45)", "center", 600);
-  uiButton("back", 300, 410, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
+  text("новости ведутся с этого обновления", VW/2, top + H - 62, 11,
+       "rgba(200,220,255,.45)", "center", 600);
+  uiButton("back", 300, top + H - 50, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
 }
 
 function drawEvents(){
-  ctx.fillStyle = "rgba(4,10,22,.85)"; ctx.fillRect(0,0,VW,VH);
-  panel(760, 452, "rgba(201,160,255,.9)");
-  gradText("СОБЫТИЯ", VW/2, 44, 24, "#efe3ff", "#a06be8");
-  text("школьный календарь", VW/2, 64, 11, "rgba(200,220,255,.6)", "center", 600);
-  var i, j, ev, y = 88, d, stt, col;
-  for(i=0;i<EVENTS.length;i++){
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
+  var i, j, ev, d, stt, col, cardH = 150;
+  var shown = Math.max(1, Math.min(EVENTS.length, 2));
+  var H = clamp(148 + shown*(cardH + 12), 240, 456), top = VH/2 - H/2;
+  panel(760, H, "rgba(201,160,255,.9)");
+  gradText("СОБЫТИЯ", VW/2, top + 36, 24, "#efe3ff", "#a06be8");
+  text("школьный календарь", VW/2, top + 56, 11, "rgba(200,220,255,.6)", "center", 600);
+  var y = top + 76;
+  for(i=0;i<EVENTS.length && i<shown;i++){
     ev = EVENTS[i]; d = eventDays(ev); stt = eventState(ev);
     col = stt === "сегодня" ? "#8bffcf" : (stt === "скоро" ? "#c9a0ff" : "rgba(255,255,255,.3)");
     ctx.fillStyle = "rgba(255,255,255,.06)";
-    rrect(40, y, 680, 150, 12); ctx.fill();
+    rrect(40, y, 680, cardH, 12); ctx.fill();
     ctx.strokeStyle = col; ctx.lineWidth = stt === "прошло" ? 1.2 : 2;
-    rrect(40, y, 680, 150, 12); ctx.stroke();
+    rrect(40, y, 680, cardH, 12); ctx.stroke();
     gradText(ev.n, VW/2, y + 32, 22, "#ffffff", col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
     text(ev.d, VW/2, y + 52, 12, "rgba(220,235,255,.7)", "center", 600);
     for(j=0;j<ev.lines.length;j++)
-      text("• " + ev.lines[j], 70, y + 74 + j*17, 11.5, "rgba(220,235,255,.65)", "left", 600);
+      textFit("• " + ev.lines[j], 70, y + 76 + j*18, 11.5,
+              "rgba(220,235,255,.65)", "left", 600, 420);
     ctx.fillStyle = "rgba(0,0,0,.3)";
-    rrect(508, y + 66, 196, 34, 9); ctx.fill();
+    rrect(508, y + 62, 196, 34, 9); ctx.fill();
     text(stt === "скоро" ? "через " + d + " дн." : (stt === "сегодня" ? "СЕГОДНЯ!" : "уже прошло"),
-         606, y + 88, 15, col, "center", 700);
-    drawStar(534, y + 122, 0.7);
-    text("награда: " + ev.prize, 548, y + 127, 12, "rgba(255,217,138,.9)", "left", 600);
-    y += 162;
+         606, y + 84, 15, col, "center", 700);
+    drawStar(520, y + 120, 0.68);          /* награда держится внутри карточки */
+    textFit("награда: " + ev.prize, 534, y + 125, 12, "rgba(255,217,138,.9)", "left", 600, 170);
+    y += cardH + 12;
   }
-  text("даты школьные, а значит — железные", VW/2, 398, 11, "rgba(200,220,255,.45)", "center", 600);
-  uiButton("back", 300, 410, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
+  text("даты школьные, а значит — железные", VW/2, top + H - 62, 11,
+       "rgba(200,220,255,.45)", "center", 600);
+  uiButton("back", 300, top + H - 50, 200, 38, "ЗАКРЫТЬ", null, { size:15, sel:true });
 }
 
 function drawTasks(){
   var i, t, tpl, y, done, frac;
-  text("Задания меняются каждый день в полночь", VW/2, 110, 12,
+  text("Задания меняются каждый день в полночь", VW/2, 116, 12,
        "rgba(190,210,235,.75)", "center", 600);
   for(i=0;i<DAILY.tasks.length;i++){
     t = DAILY.tasks[i]; tpl = taskBy(t.k);
@@ -4896,12 +4947,12 @@ function drawTasks(){
   text("Серия дней: " + (STATS.days || 1) + "   ·   выполнено заданий всего: " + STATS.tasksDone,
        VW/2, 352, 12, "rgba(190,210,235,.7)", "center", 600);
   if(DAILY.reward > 0)
-    uiButton("claim_day", 290, 366, 220, 32, "ЗАБРАТЬ +" + DAILY.reward + " ЗА ДЕНЬ", null,
+    uiButton("claim_day", 96, 404, 206, 34, "ЗАБРАТЬ +" + DAILY.reward + " ЗА ДЕНЬ", null,
              { size:13, sel:true, selBorder:"#ffd166" });
 }
 
 function drawItemInfo(){
-  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
   panel(700, 410);
   gradText("ПРЕДМЕТЫ", VW/2, 74, 26, "#dfffe8", "#3fd39a");
   text("Лежат в школьных шкафчиках. В руках помещается один — " +
@@ -4922,7 +4973,7 @@ function drawItemInfo(){
 }
 
 function drawRecords(){
-  ctx.fillStyle = "rgba(4,10,22,.78)"; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
   panel(760, 440, "rgba(159,216,255,.9)");
   gradText("КАБИНЕТ", VW/2, 52, 24, "#e4f3ff", "#5aa8e0");
   var tab = G.recTab || "stats", i, y, done = STATS.achs.length;
@@ -4933,27 +4984,28 @@ function drawRecords(){
   var ready = taskReady();
   uiButton("rec_tasks", 536, 64, 180, 32, "ЗАДАНИЯ" + (ready ? " · " + ready + "!" : ""), null,
            { size:12, sel: tab === "tasks", selBorder:"#8bffcf" });
-  var perPage = 22, pages = Math.ceil(ACHS.length / perPage);
+  var perPage = 20, pages = Math.ceil(ACHS.length / perPage);
   if(tab === "achs"){                      // сундуки за количество достижений
     var ci = chestReady(), cg = STATS.achChest || 0;
     var nextC = ACH_CHESTS[Math.min(cg, ACH_CHESTS.length - 1)];
+    var cw = ci >= 0 ? 528 : 712;
     ctx.fillStyle = ci >= 0 ? "rgba(255,209,102,.14)" : "rgba(255,255,255,.05)";
-    rrect(44, 372, 352, 24, 8); ctx.fill();
+    rrect(44, 366, cw, 28, 9); ctx.fill();
     if(cg >= ACH_CHESTS.length)
-      text("все сундуки открыты", 60, 388, 12, "#8bffcf", "left", 700);
+      text("все сундуки открыты", 60, 385, 12, "#8bffcf", "left", 700);
     else
-      text("сундук за " + nextC.need + " достижений: +" + nextC.buns + " булок и +" +
-           nextC.st + " пятёрок" + (nextC.skin ? " и скин" : ""),
-           60, 388, 11, ci >= 0 ? "#ffd98a" : "rgba(220,235,255,.6)", "left", 600);
+      textFit("сундук за " + nextC.need + " достижений: +" + nextC.buns + " булок и +" +
+              nextC.st + " пятёрок" + (nextC.skin ? " и скин" : ""),
+              60, 385, 12, ci >= 0 ? "#ffd98a" : "rgba(220,235,255,.6)", "left", 600, cw - 32);
     if(ci >= 0)
-      uiButton("chest", 404, 370, 150, 28, "ОТКРЫТЬ СУНДУК", null,
+      uiButton("chest", 586, 366, 170, 28, "ОТКРЫТЬ СУНДУК", null,
                { size:12, sel:true, selBorder:"#ffd166" });
   }
   if(tab === "achs" && pages > 1){          // стрелки внизу, чтобы не спорить с вкладками
     G.achPage = clamp(G.achPage || 0, 0, pages - 1);
-    uiButton("ach_prev", 196, 400, 54, 34, "◀", null, { size:14 });
-    uiButton("ach_next", 540, 400, 54, 34, "▶", null, { size:14 });
-    text("стр. " + (G.achPage + 1) + "/" + pages, 60, 420, 12, "rgba(220,235,255,.6)", "left", 700);
+    uiButton("ach_prev", 196, 404, 54, 34, "◀", null, { size:14 });
+    uiButton("ach_next", 540, 404, 54, 34, "▶", null, { size:14 });
+    text("стр. " + (G.achPage + 1) + "/" + pages, 60, 426, 12, "rgba(220,235,255,.6)", "left", 700);
   }
 
   if(tab === "tasks"){ drawTasks(); }
@@ -4988,7 +5040,7 @@ function drawRecords(){
     var from = (G.achPage || 0) * perPage, to = Math.min(ACHS.length, from + perPage);
     for(i=from;i<to;i++){
       var j = i - from, a2 = ACHS[i], ok = achDone(a2);
-      var ax = (j < 11) ? 44 : 404, ay = 104 + (j % 11) * 26;
+      var ax = (j < 10) ? 44 : 404, ay = 104 + (j % 10) * 26;
       var val = achValue(a2), near = !ok && val > 0;
       ctx.fillStyle = ok ? "rgba(139,255,207,.12)" : (near ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.04)");
       rrect(ax, ay, 352, 23, 7); ctx.fill();
@@ -5012,7 +5064,7 @@ function drawRecords(){
       text(prog, ax+344, ay+15, 10.5, ok ? "#ffd98a" : "rgba(200,220,255,.5)", "right", 700);
     }
     text("собрано " + done + " из " + ACHS.length + "   ·   булок за достижения " + achBuns(),
-         VW/2, 398, 11, "rgba(220,235,255,.5)", "center", 600);
+         VW/2, 450, 11, "rgba(220,235,255,.5)", "center", 600);
   }
   uiButton("back", 320, 404, 170, 34, "НАЗАД", null, { size:14, sel:true });
 }
@@ -5057,8 +5109,8 @@ function admLvl(){
   devRow("ПЕРЕЙТИ НА ЭТАЖ", 124, "rgba(201,160,255,.8)");
   for(i=0;i<Math.min(n, 14);i++){
     uiButton("dev_goto" + i, 40 + (i % cols) * 102, 124 + Math.floor(i / cols) * 46, 94, 40,
-             String(i + 1), LEVELS[i].name.slice(0, 8),
-             { size:15, subSize:7.5, sel: inRun() && G.levelIndex === i, selBorder:"#c9a0ff" });
+             String(i + 1), LEVELS[i].name,
+             { size:15, subSize:8, sel: inRun() && G.levelIndex === i, selBorder:"#c9a0ff" });
   }
   var rowY = 124 + Math.ceil(Math.min(n, 14) / cols) * 46 + 14;
 
@@ -5082,33 +5134,30 @@ function admLvl(){
 }
 
 function admRes(){
-  devRow("БУЛКИ", 118, "rgba(255,185,138,.8)");
-  uiButton("dev_buns100",   40, 118, 220, 40, "+100 булок", null, { size:15 });
-  uiButton("dev_buns1000", 270, 118, 220, 40, "+1000 булок", null, { size:15 });
-  uiButton("dev_buns10000",500, 118, 220, 40, "+10000 булок", null, { size:15 });
+  devRow("БУЛКИ", 114, "rgba(255,185,138,.8)");
+  uiButton("dev_buns100",   40, 114, 220, 38, "+100 булок", null, { size:15 });
+  uiButton("dev_buns1000", 270, 114, 220, 38, "+1000 булок", null, { size:15 });
+  uiButton("dev_buns10000",500, 114, 220, 38, "+10000 булок", null, { size:15 });
 
-  devRow("ОТКРЫТЬ", 192, "rgba(139,255,207,.8)");
-  uiButton("dev_skins", 40, 192, 220, 40, "Все скины · " + STATS.owned.length + "/" + SKINS.length, null, { size:13 });
-  uiButton("dev_wear", 270, 192, 220, 40, "Этапы скинов", null, { size:14 });
-  uiButton("dev_achs", 500, 192, 220, 40, "Достижения · " + STATS.achs.length + "/" + ACHS.length, null, { size:13 });
+  devRow("ОТКРЫТЬ", 184, "rgba(139,255,207,.8)");
+  uiButton("dev_skins", 40, 184, 220, 38, "Все скины · " + STATS.owned.length + "/" + SKINS.length, null, { size:13 });
+  uiButton("dev_wear", 270, 184, 220, 38, "Этапы скинов", null, { size:14 });
+  uiButton("dev_achs", 500, 184, 220, 38, "Достижения · " + STATS.achs.length + "/" + ACHS.length, null, { size:13 });
 
-  devRow("НАСТРОЙКИ ЗАБЕГА", 266, "rgba(159,216,255,.8)");
-  uiButton("dev_mods", 40, 266, 220, 40, modCount() ? "Снять моды · " + modCount() : "Модов нет", null, { size:13 });
-  uiButton("dev_allmods", 270, 266, 220, 40, "Включить все моды", null, { size:13 });
-  uiButton("dev_seed", 500, 266, 220, 40, "Новый сид", null, { size:14 });
+  devRow("НАСТРОЙКИ ЗАБЕГА", 254, "rgba(159,216,255,.8)");
+  uiButton("dev_mods", 40, 254, 220, 38, modCount() ? "Снять моды · " + modCount() : "Модов нет", null, { size:13 });
+  uiButton("dev_allmods", 270, 254, 220, 38, "Включить все моды", null, { size:13 });
+  uiButton("dev_seed", 500, 254, 220, 38, "Новый сид", null, { size:14 });
 
-  devRow("МАГАЗИН И ЗАДАНИЯ", 330, "rgba(255,159,243,.8)");
-  uiButton("dev_upg", 40, 330, 220, 34, "Все улучшения " + STATS.upgTotal + "/" + UPG_MAX, null, { size:12 });
-  uiButton("dev_tasks", 270, 330, 220, 34, "Выполнить задания дня", null, { size:12 });
-  uiButton("dev_startitem", 500, 330, 220, 34,
+  devRow("МАГАЗИН, ЗАДАНИЯ И ПЯТЁРКИ", 324, "rgba(255,159,243,.8)");
+  uiButton("dev_upg", 40, 324, 220, 30, "Все улучшения " + STATS.upgTotal + "/" + UPG_MAX, null, { size:12 });
+  uiButton("dev_tasks", 270, 324, 220, 30, "Выполнить задания дня", null, { size:12 });
+  uiButton("dev_startitem", 500, 324, 220, 30,
            startItem ? "На старте: " + ITEMS[startItem].n : "Предмет на старт", null, { size:12 });
 
-  devRow("ПЯТЁРКИ И НОВОСТИ", 374, "rgba(255,95,109,.85)");
-  uiButton("dev_stars", 40, 374, 220, 32, "+25 пятёрок (" + stars() + ")", null, { size:12 });
-  uiButton("dev_chest", 270, 374, 220, 32, "Сбросить сундуки", null, { size:12 });
-  uiButton("dev_news", 500, 374, 220, 32, "Новости непрочитанные", null, { size:12 });
-
-
+  uiButton("dev_stars", 40, 358, 220, 30, "+25 пятёрок (" + stars() + ")", null, { size:12 });
+  uiButton("dev_chest", 270, 358, 220, 30, "Сбросить сундуки", null, { size:12 });
+  uiButton("dev_news", 500, 358, 220, 30, "Новости непрочитанные", null, { size:12 });
 }
 
 function admRun(){
@@ -5130,7 +5179,8 @@ function admRun(){
   uiButton("pw_freeze",   574, 266, 172, 40, POW.freeze ? "Время: СТОП" : "Стоп-время", null,
            { size:13, sel: POW.freeze, selBorder:"#9fd8ff" });
 
-  text(inRun() ? "этаж " + (G.floor || 1) + " · " + (G.level ? G.level.name : "?") +
+  text(inRun() ? "этаж " + (curDiff.endless ? (G.floor || 1) : (G.levelIndex + 1)) +
+                 " · " + (G.level ? G.level.name : "?") +
                  "   ·   до звонка " + fmtTime(Math.max(0, G.timeLeft))
                 : "кнопки этого раздела работают во время забега",
        VW/2, 340, 12, "rgba(220,235,255,.55)", "center", 600);
@@ -5189,7 +5239,7 @@ function admBad(){
 }
 
 function drawAdmin(){
-  ctx.fillStyle = "rgba(4,10,22,.86)"; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle = "rgba(4,10,22,.92)"; ctx.fillRect(0,0,VW,VH);
   panel(760, 462, "rgba(255,120,120,.9)");
   gradText("ПАНЕЛЬ РАЗРАБОТЧИКА", VW/2, 34, 20, "#ffd9d9", "#e05050");
 
@@ -5226,26 +5276,27 @@ function drawAdmin(){
   else if(tab === "bad") admBad();
   else admRes();
 
-  /* журнал: что панель делала последним */
+  /* подвал: журнал слева, состояние по центру, выход справа */
   ctx.fillStyle = "rgba(0,0,0,.28)";
-  rrect(40, 352, 400, 50, 8); ctx.fill();
-  text("ЖУРНАЛ", 52, 366, 9, "rgba(255,156,156,.75)", "left", 700);
+  rrect(40, 396, 326, 52, 8); ctx.fill();
+  text("ЖУРНАЛ", 52, 409, 9, "rgba(255,156,156,.75)", "left", 700);
   for(i=0;i<3;i++){
     var line = devLog[devLog.length - 1 - i];
     if(!line) continue;
-    text("› " + line, 52 + (i ? 0 : 0), 380 + i*11, 10,
-         i === 0 ? "rgba(255,217,138,.9)" : "rgba(220,235,255,.4)", "left", 600);
+    textFit("› " + line, 52, 422 + i*11, 10,
+            i === 0 ? "rgba(255,217,138,.9)" : "rgba(220,235,255,.4)", "left", 600, 300);
   }
-  text("булок " + STATS.buns + " · скинов " + STATS.owned.length + "/" + SKINS.length +
-       " · улучшений " + STATS.upgTotal + "/" + UPG_MAX,
-       456, 366, 11, "rgba(220,235,255,.65)", "left", 600);
-  text("в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
-       (G.item2 ? " + " + ITEMS[G.item2].n : ""),
-       456, 382, 11, "rgba(220,235,255,.5)", "left", 600);
-  text((devGod ? "бессмертие · " : "") + (powOn() ? "силы накручены · " : "") +
-       (G.cheated ? "забег помечен" : "забег чистый"),
-       456, 398, 11, G.cheated || devGod || powOn() ? "#ffb98a" : "rgba(139,255,207,.7)", "left", 600);
-  uiButton("back", 300, 410, 200, 40, "ЗАКРЫТЬ", null, { size:16, sel:true });
+  textFit("булок " + STATS.buns + " · скинов " + STATS.owned.length + "/" + SKINS.length +
+          " · улучшений " + STATS.upgTotal + "/" + UPG_MAX,
+          380, 410, 11, "rgba(220,235,255,.65)", "left", 600, 214);
+  textFit("в руках " + (G.item ? ITEMS[G.item].n : "пусто") +
+          (G.item2 ? " + " + ITEMS[G.item2].n : ""),
+          380, 426, 11, "rgba(220,235,255,.5)", "left", 600, 214);
+  textFit((devGod ? "бессмертие · " : "") + (powOn() ? "силы накручены · " : "") +
+          (G.cheated ? "забег помечен" : "забег чистый"),
+          380, 442, 11, G.cheated || devGod || powOn() ? "#ffb98a" : "rgba(139,255,207,.7)",
+          "left", 600, 214);
+  uiButton("back", 606, 400, 134, 44, "ЗАКРЫТЬ", null, { size:15, sel:true });
 }
 
 function setSeg(key, label, opts, y){          // строка настройки с переключателем
@@ -5314,7 +5365,7 @@ function drawSeedIn(){
   uiButton("seed_day",  224, 350, 150, 40, "СИД ДНЯ", null, { size:13, selBorder:"#ffd166" });
   uiButton("seed_share",382, 350, 150, 40, "ССЫЛКА", null, { size:13 });
   uiButton("back",      540, 350, 136, 40, "ОТМЕНА", null, { size:13 });
-  uiButton("seed_ok",   224, 398, 308, 42, "ИГРАТЬ ПО ЭТОМУ СИДУ", null, { size:15, sel:true });
+  uiButton("seed_ok",   246, 398, 308, 42, "ИГРАТЬ ПО ЭТОМУ СИДУ", null, { size:15, sel:true });
 }
 
 function drawBanner(){
@@ -5338,7 +5389,7 @@ function rankOf(used, coins, deaths){
 }
 
 function endButtons(y){
-  uiButton("again", 120, y, 200, 60, "ЕЩЁ РАЗ", null, { size:19, selBg:"rgba(255,255,255,.2)" });
+  uiButton("again", 120, y, 200, 60, "ЕЩЁ РАЗ", null, { size:19, sel:true, selBorder:"#8bffcf" });
   uiButton("to_hub", 330, y, 160, 60, "В ХОЛЛ", null, { size:17, selBorder:"#ff9ff3" });
   uiButton("menu", 500, y, 180, 60, "В МЕНЮ", null, { size:19 });
 }
@@ -5366,13 +5417,16 @@ function drawWin(){
   if(G.record) text("★ новый рекорд ★", VW/2, 302, 14, "#ffd166", "center", 600);
   else if(G.best && G.best.score) text("рекорд: " + G.best.score + " очков", VW/2, 302, 13,
                                        "rgba(200,220,255,.7)", "center", 600);
-  if(curSrc === "seed") text("сид " + curSeed, VW/2, 322, 13, "#9fd8ff", "center", 600);
-  endButtons(344);
+  drawBun(VW/2 - 74, 322, 0.85);
+  text("+" + (G.runBuns || 0) + " булок за забег" + (G.dblBuns ? "  ×2" : ""),
+       VW/2 - 58, 328, 14, "#ffd98a", "left", 700);
+  if(curSrc === "seed") text("сид " + curSeed, VW/2, 348, 12, "#9fd8ff", "center", 600);
+  endButtons(364);
 }
 
 function drawOver(){
   ctx.fillStyle = "rgba(40,6,14,.68)"; ctx.fillRect(0,0,VW,VH);
-  panel(620, 380);
+  panel(620, 400);
   var dead = G.overReason === "dead";
   gradText(dead ? "ПОПАЛСЯ!" : "ДЗЫНЬ!", VW/2, 140, 46, "#ffd9d9", "#e05050");
   text(dead ? "В хардкоре жизнь одна — забег окончен."
@@ -5381,9 +5435,11 @@ function drawOver(){
   text(curDiff.endless ? "Этажей пройдено: " + ((G.floor || 1) - 1) + " · пирожков " + G.coins
                        : "Дошёл до уровня " + (G.levelIndex+1) + " · пирожков " + G.coins,
        VW/2, 206, 16, "#ffd98a", "center");
-  text(runScore() + " очков", VW/2, 232, 20, "#ffd166", "center");
-  if(curSrc === "seed") text("сид " + curSeed, VW/2, 238, 13, "rgba(200,220,255,.7)", "center", 600);
-  endButtons(268);
+  text(runScore() + " очков", VW/2, 234, 20, "#ffd166", "center");
+  drawBun(VW/2 - 74, 264, 0.85);
+  text("+" + (G.runBuns || 0) + " булок за забег", VW/2 - 58, 270, 14, "#ffd98a", "left", 700);
+  if(curSrc === "seed") text("сид " + curSeed, VW/2, 292, 12, "rgba(200,220,255,.7)", "center", 600);
+  endButtons(308);
 }
 
 function drawPaused(){
@@ -5394,8 +5450,12 @@ function drawPaused(){
   if(devOn) uiButton("dev_open", 560, 206, 76, 30, "DEV", null, { size:12, selBorder:"#ff8080" });
   uiButton("restart", 250, 274, 142, 54, "СНАЧАЛА", null, { size:17 });
   uiButton("menu", 408, 274, 142, 54, "В МЕНЮ", null, { size:17 });
-  iconBtn("settings", 164, 206, 36, "gear");
-  iconBtn("sound", 164, 248, 36, "sound");
+  iconBtn("settings", 166, 206, 36, "gear");
+  iconBtn("sound", 166, 248, 36, "sound");
+  text((G.level ? G.level.name + "   ·   " : "") +
+       "до звонка " + fmtTime(Math.max(0, G.timeLeft)) +
+       "   ·   пирожков " + G.coins + "/" + G.coinsMax,
+       VW/2, 352, 12, "rgba(200,220,255,.6)", "center", 600);
 }
 
 /* ================== КАДР ================== */
