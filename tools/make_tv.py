@@ -282,6 +282,8 @@ drawCursor = function(){};
 
 drawNews = tvTop(drawNews);           // экраны поверх фона
 drawEvents = tvTop(drawEvents);
+drawProfile = tvTop(drawProfile);
+drawFriends = tvTop(drawFriends);
 drawMods = tvTop(drawMods);
 drawSkins = tvTop(drawSkins);
 drawRecords = tvTop(drawRecords);
