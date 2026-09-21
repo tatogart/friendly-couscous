@@ -82,10 +82,10 @@
 var TS = 32, VW = 800, VH = 480;
 var GRAV = 0.62, MAXFALL = 13, JUMP_V = -12.2, PAD_V = -19, RUN_MAX = 4.4;
 var DIFFS = {
-  normal: { key:"normal", name:"Обычный", time:10*60, enemy:1, fly:1, range:3,
-            coyote:7, deathCost:0, oneLife:false, tag:"10 минут" },
-  hard:   { key:"hard",  name:"ХАРДКОР", time:6*60, enemy:1.6, fly:1.45, range:4.5,
-            coyote:3, deathCost:0, oneLife:true, tag:"6 минут · 1 жизнь" },
+  normal: { key:"normal", name:"Обычный", time:13*60, enemy:1, fly:1, range:3,
+            coyote:7, deathCost:0, oneLife:false, tag:"13 минут · 10 этажей" },
+  hard:   { key:"hard",  name:"ХАРДКОР", time:8*60, enemy:1.6, fly:1.45, range:4.5,
+            coyote:3, deathCost:0, oneLife:true, tag:"8 минут · 1 жизнь" },
   endless:{ key:"endless", name:"БЕСКОНЕЧНЫЙ", time:75, enemy:1.15, fly:1.1, range:3.5,
             coyote:6, deathCost:0, oneLife:false, endless:true, bonus:24,
             tag:"75 сек · +24/этаж" }
@@ -97,6 +97,7 @@ var SOLID = "#=";                      // символы-стены
    .  пустота      #  кирпич        =  доска
    @  старт        E  выход         o  пирожок
    ^  шипы         x  завуч         v  самолётик
+   g  охранник     z  дремлющий     j  с журналом
    J  батут        K  ключ                            */
 var CAMPAIGN = [
 {
@@ -239,6 +240,66 @@ var CAMPAIGN = [
   movers:[
     {tx:12, ty:9,  tw:2, axis:"y", dist:3, speed:0.020, phase:0},
     {tx:19, ty:11, tw:3, axis:"x", dist:3, speed:0.026, phase:1.6}]
+},
+{
+  name: "Раздевалка", theme:"gym", hint: "Охранник в каске — на голову ему не прыгнуть",
+  rows:[
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  ".....oo.................................",
+  "....====................................",
+  "........................................",
+  "............................ooo.........",
+  "...........................=====........",
+  "...............o........................",
+  "..............===.......................",
+  "........................................",
+  "..@..o.J.....g...?..o.....o...g..?..o.E.",
+  "#########..############..###############",
+  "#########..############..###############"]
+},
+{
+  name: "Кабинет химии", theme:"library", hint: "Не буди дремлющего завуча — или беги",
+  rows:[
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "...........oo...........................",
+  "..........====..........................",
+  "..........................z.o.o.........",
+  "........................========........",
+  "........................................",
+  ".....o.............................o....",
+  "....===...........................===...",
+  "........................................",
+  "..@...o....z...o.....^^...?...o...z.o.E.",
+  "########..#######..#####################",
+  "########..#######..#####################"],
+  movers:[
+    {tx:8,  ty:11, tw:3, axis:"x", dist:4, speed:0.018, phase:0.4},
+    {tx:17, ty:10, tw:2, axis:"y", dist:2, speed:0.022, phase:1.1}]
+},
+{
+  name: "Учительская", theme:"hall", hint: "Дежурный кидается журналом — прячься за угол",
+  rows:[
+  "........................................",
+  "........................................",
+  "........................................",
+  ".........ooo............................",
+  "........=====...........................",
+  "........................................",
+  "................j.......................",
+  "...............====.....................",
+  "........................................",
+  ".......................o................",
+  "......................===...............",
+  "........................................",
+  "..@.o....Ko.....o.?.....o.^..j...g..o.E.",
+  "#####..#####..######..##################",
+  "#####..#####..######..##################"]
 }
 ];
 
@@ -464,11 +525,11 @@ var MODS = [
   { k:"long",    n:"Долгая перемена",   d:"времени в полтора раза больше",    m:-25, grp:"easy" },
   { k:"sneak",   n:"Новые кроссовки",   d:"бежишь быстрее, прыгаешь выше",    m:-20, grp:"easy" },
   { k:"empty",   n:"Завуч в отпуске",   d:"завучей нет совсем",               m:-35, grp:"easy" },
-  { k:"mirror",  n:"Зеркало",           d:"управление наоборот",              m: 15, grp:"hard" },
+  { k:"wind",    n:"Сквозняк",          d:"ветер сносит и меняет сторону",    m: 20, grp:"hard" },
   { k:"glass",   n:"Стеклянные доски",  d:"доски рассыпаются под ногами",     m: 25, grp:"hard" },
   { k:"fastgame",n:"Перемена бежит",    d:"вся игра быстрее на 20%",          m: 25, grp:"hard" },
   { k:"nobox",   n:"Шкафчики пусты",    d:"предметов не будет",               m: 20, grp:"hard" },
-  { k:"jumpy",   n:"Прыгучие завучи",   d:"завучи подпрыгивают",              m: 20, grp:"hard" },
+  { k:"alarm",   n:"Учебная тревога",   d:"иногда завучи разом ускоряются",   m: 25, grp:"hard" },
   { k:"dbljump", n:"Двойной прыжок",    d:"второй прыжок в воздухе всегда",   m:-25, grp:"easy" },
   { k:"magnet",  n:"Магнит",            d:"пирожки сами летят в руки",        m:-15, grp:"easy" },
   { k:"startbag",n:"Портфель на старте",d:"каждый уровень начинаешь со щитом",m:-15, grp:"easy" },
@@ -477,7 +538,13 @@ var MODS = [
   { k:"exam",    n:"Контрольная",      d:"зачёт только без единой ошибки",     m: 20, grp:"class" },
   { k:"dbllesson",n:"Двойной урок",    d:"перед каждым этажом два урока",      m: 25, grp:"class" },
   { k:"easyclass",n:"Любимый предмет", d:"зачёт ставят почти за что угодно",   m:-20, grp:"class" },
-  { k:"favorite",n:"Любимчик учителя", d:"за зачёт +30 секунд и 200 очков",    m:-15, grp:"class" }
+  { k:"favorite",n:"Любимчик учителя", d:"за зачёт +30 секунд и 200 очков",    m:-15, grp:"class" },
+  { k:"locked",  n:"Все двери заперты", d:"ключ нужен на каждом этаже",       m: 20, grp:"hard" },
+  { k:"noclock", n:"Часы сломались",    d:"времени не видно, только полоска",  m: 15, grp:"hard" },
+  { k:"hunter",  n:"Завуч-охотник",     d:"один завуч идёт за тобой всегда",   m: 30, grp:"hard" },
+  { k:"float",   n:"Невесомость",       d:"тянет вниз слабее, прыжок дольше",  m:-15, grp:"easy" },
+  { k:"tiny",    n:"Мелкий",            d:"меньше ростом — меньше задеваешь",  m:-10, grp:"easy" },
+  { k:"bounce",  n:"Пружинящие доски",  d:"каждая доска подкидывает",          m:-10, grp:"easy" }
 ];
 var modOn = {};
 
@@ -519,7 +586,7 @@ var THEME_BY_NAME = {
   "Спортзал":"gym", "Библиотека":"library", "Крыша школы":"roof",
   "Первый этаж":"hall", "Раздевалка":"hall", "Актовый зал":"hall", "Рекреация":"hall",
   "Кабинет труда":"boiler", "Чердак":"boiler", "Крыша":"roof", "Школьный двор":"yard",
-  "Кабинет химии":"library"
+  "Кабинет химии":"library", "Учительская":"hall", "Раздевалка":"gym"
 };
 function themeOf(def){
   return THEMES[def.theme || THEME_BY_NAME[def.name] || "yard"] || THEMES.yard;
@@ -551,10 +618,96 @@ function addStars(n, why){
   if(why) toast("+" + n + " пятёрок · " + why);
 }
 
+/* ================== ПРОФИЛЬ ==================
+   Имя, ранг и бейджи. Бейдж не покупается и не выдаётся — он просто
+   загорается, когда игрок сделал то, что за ним стоит. */
+var PROF = { name:"", badge:"", dev:0, helper:0 };
+function profLoad(){
+  try{
+    var raw = JSON.parse(localStorage.getItem("peremena_prof") || "null");
+    if(raw){
+      if(typeof raw.name === "string") PROF.name = raw.name.slice(0, 12);
+      if(typeof raw.badge === "string") PROF.badge = raw.badge;
+      PROF.dev = raw.dev ? 1 : 0;
+      PROF.helper = raw.helper ? 1 : 0;
+    }
+  }catch(e){}
+}
+function profSave(){
+  try{ localStorage.setItem("peremena_prof", JSON.stringify(PROF)); }catch(e){}
+}
+function profName(){ return PROF.name || "Ученик"; }
+function profMark(k){                     // отметить разовое событие профиля
+  if(PROF[k]) return;
+  PROF[k] = 1; profSave();
+}
+var RANKS = [[0,"Первоклашка"], [10,"Новенький"], [25,"Свой в коридорах"],
+             [50,"Староста"], [90,"Гроза завучей"], [150,"Король перемен"],
+             [260,"Легенда школы"]];
+function profRank(){
+  var lv = STATS.levels || 0, i, out = RANKS[0][1];
+  for(i=0;i<RANKS.length;i++) if(lv >= RANKS[i][0]) out = RANKS[i][1];
+  return out;
+}
+function profNext(){                      // сколько этажей до следующего ранга
+  var lv = STATS.levels || 0, i;
+  for(i=0;i<RANKS.length;i++) if(lv < RANKS[i][0]) return { need:RANKS[i][0] - lv, n:RANKS[i][1] };
+  return null;
+}
+var BADGES = [
+  { k:"dev",   n:"DEV",      d:"открыл панель разработчика", c:"#ff8080",
+    ok:function(){ return !!PROF.dev; } },
+  { k:"helper",n:"HELPER",   d:"нарезал подарочный код",     c:"#8bffcf",
+    ok:function(){ return !!PROF.helper; } },
+  { k:"guest", n:"GUEST",    d:"забрал приз события",        c:"#c9a0ff",
+    ok:function(){ return evList().length > 0; } },
+  { k:"day7",  n:"7 DAYS",   d:"семь дней подряд в школе",   c:"#ffd166",
+    ok:function(){ return (STATS.days || 1) >= 7; } },
+  { k:"hard",  n:"HARDCORE", d:"прошёл хардкор до конца",    c:"#ff6b6b",
+    ok:function(){ return (STATS.hardRuns || 0) > 0; } },
+  { k:"fast",  n:"SPRINTER", d:"забег быстрее пяти минут",   c:"#9fd8ff",
+    ok:function(){ return !!STATS.fastRun; } },
+  { k:"skins", n:"STYLE",    d:"собрал все образы",          c:"#ff9ff3",
+    ok:function(){ return STATS.owned.length >= SKINS.length; } },
+  { k:"high",  n:"CLIMBER",  d:"25 этажей в бесконечном",    c:"#5ac8ff",
+    ok:function(){ return (STATS.maxFloor || 0) >= 25; } },
+  { k:"class", n:"TEACHER",  d:"сдал 25 уроков",             c:"#dfffe8",
+    ok:function(){ return (STATS.lessonsOk || 0) >= 25; } },
+  { k:"rich",  n:"RICH",     d:"1000 булок в кармане",       c:"#ffd98a",
+    ok:function(){ return (STATS.buns || 0) >= 1000; } },
+  { k:"clean", n:"CLEAN",    d:"10 этажей подчистую",        c:"#8bffcf",
+    ok:function(){ return (STATS.clean || 0) >= 10; } },
+  { k:"all",   n:"MASTER",   d:"все достижения собраны",     c:"#f0a83a",
+    ok:function(){ return STATS.achs.length >= ACHS.length; } }
+];
+function badgeBy(k){
+  for(var i=0;i<BADGES.length;i++) if(BADGES[i].k === k) return BADGES[i];
+  return null;
+}
+function badgeGot(){
+  var out = [], i;
+  for(i=0;i<BADGES.length;i++) if(BADGES[i].ok()) out.push(BADGES[i]);
+  return out;
+}
+function badgeShown(){                    // выбранный бейдж, если он ещё заслужен
+  var b = badgeBy(PROF.badge);
+  return (b && b.ok()) ? b : null;
+}
+
 /* ================== НОВОСТИ ==================
    Летопись обновлений. Новое отмечается точкой в меню, пока не прочитают. */
-var NEWS_VERSION = "2026-09-20";
+var NEWS_VERSION = "2026-09-21";
 var NEWS = [
+  { v:"2026-09-21", d:"21 сентября", n:"Большая перемена: профили, новая школа",
+    lines:[
+      "Профиль с бейджами: имя, ранг и двенадцать значков за дела, а не за булки.",
+      "Три новых этажа: Раздевалка, Кабинет химии и Учительская.",
+      "Трое новых в школе: охранник в каске, дремлющий завуч и дежурный с журналом.",
+      "Три предмета: свисток, зонтик и магнитик. Два урока: лабораторная и стих наизусть.",
+      "Восемь новых модификаторов; «Зеркало» и «Прыгучие завучи» ушли на покой.",
+      "Перемена стала длиннее: 13 минут на десять этажей, хардкор — 8.",
+      "Слабым устройствам полегчало: «Свет выключили» больше не ест двадцать кадров."
+    ] },
   { v:"2026-09-20", d:"20 сентября", n:"Админ арбуз и подарочные коды",
     lines:[
       "21 сентября — АДМИН АРБУЗ: 500 пирожков и 25 пятёрок каждому.",
@@ -719,6 +872,7 @@ function giftCut(k){                      // админ нарезает нов�
   var kit = giftKit(k);
   if(!kit) return;
   giftLast = { code: giftCode(kit.g), g: kit.g, n: kit.n };
+  profMark("helper");
   sfx.win();
   if(devOn) devSay("Код «" + kit.n + "»: " + giftLast.code);
   copyOut(giftLast.code, "Код нарезан и скопирован", "Код нарезан: " + giftLast.code);
@@ -931,6 +1085,7 @@ function claimDaily(){
 
 function freshStats(){            // единственное место, где перечислены счётчики
   return { runs:0, hardRuns:0, pies:0, buns:0, stomps:0, items:0, clean:0, falls:0,
+           guards:0, wakes:0, dodged:0, chemOk:0, verseOk:0, windLv:0,
            best:0, levels:0, lessonsOk:0, lessonsBad:0, goals:0, bells:0,
            maxFloor:0, bestMult:0, fastRun:0,
            jumps:0, pads:0, lockers:0, keys:0, maxCombo:0, quizOk:0, days:1, lastDay:"",
@@ -1003,6 +1158,18 @@ var ACHS = [
   { k:"tasker2", n:"Староста",        d:"выполнить 25 заданий дня",       s:"tasksDone", v:25,   r:300, st:3 },
   { k:"rich2",   n:"Богатый ученик",  d:"потратить 5000 булок",           s:"spent",     v:5000, r:350, st:3 }
 ];
+/* Новое в школе: охранники, дремлющие, журналы и бейджи. */
+ACHS.push(
+  { k:"helmet",  n:"Мимо каски",        d:"обойти 15 охранников",           s:"guards",  v:15,  r:110, st:1 },
+  { k:"wakeup",  n:"Будильник",         d:"разбудить 10 дремлющих завучей", s:"wakes",   v:10,  r:90 },
+  { k:"dodger",  n:"Уклонист",          d:"пропустить мимо 25 журналов",    s:"dodged",  v:25,  r:120, st:2 },
+  { k:"labrat",  n:"Лаборант",          d:"сдать 10 лабораторных",          s:"chemOk",  v:10,  r:100 },
+  { k:"poet",    n:"Наизусть",          d:"рассказать 10 стихов",           s:"verseOk", v:10,  r:100 },
+  { k:"badged",  n:"С бейджем",         d:"заслужить три бейджа",           s:"badges",  v:3,   r:80 },
+  { k:"badged8", n:"Вся грудь в бейджах",d:"заслужить восемь бейджей",      s:"badges",  v:8,   r:220, st:4 },
+  { k:"windy",   n:"Против ветра",      d:"пройти этаж со сквозняком",      s:"windLv",  v:1,   r:70 }
+);
+
 function stagesAt(n){                       // сколько скинов доросло до этапа n
   var c = 0, i;
   for(i=0;i<SKINS.length;i++) if(skinMaxStage(SKINS[i].k) >= n) c++;
@@ -1010,6 +1177,7 @@ function stagesAt(n){                       // сколько скинов до�
 }
 function achValue(a){
   if(a.s === "skins") return STATS.owned.length;
+  if(a.s === "badges") return badgeGot().length;
   if(a.s === "stage2") return stagesAt(2);
   if(a.s === "stage3") return stagesAt(3);
   return STATS[a.s] || 0;
@@ -1185,11 +1353,14 @@ var LESSON_SUBJ = {
   notes:   ["Русский язык","Литература","Иностранный язык","История"],
   canteen: ["Большая перемена","Обед в столовой","Дежурство по столовой"],
   pushups: ["Физкультура"],
-  sleep:   ["История","Обществознание","Мировая культура","География","Литература"]
+  sleep:   ["История","Обществознание","Мировая культура","География","Литература"],
+  chem:    ["Химия","Физика","Биология"],
+  verse:   ["Литература","Русский язык","Иностранный язык"]
 };
 var LESSON_TAG = {
   copy:"списать у соседа", quiz:"устный опрос", notes:"диктант",
-  canteen:"перемена", pushups:"разминка", sleep:"последний урок"
+  canteen:"перемена", pushups:"разминка", sleep:"последний урок",
+  chem:"лабораторная", verse:"наизусть"
 };
 var QUIZ = [
   /* математика */
@@ -1298,7 +1469,7 @@ function lessonCfg(){
 }
 function startLesson(i, force){
   var r = mulberry(hashSeed(curSeed + "les" + i + curDiff.key));
-  var kinds = ["copy","quiz","notes","canteen","pushups","sleep"];
+  var kinds = ["copy","quiz","notes","canteen","pushups","sleep","chem","verse"];
   var cfg = lessonCfg();
   var kind = force || kinds[Math.floor(r()*kinds.length)];
   var subjList = (kind === "quiz" ? QUIZ_SUBJ : LESSON_SUBJ[kind]) || LESSON_NAMES;
@@ -1329,6 +1500,22 @@ function startLesson(i, force){
     L.tray = VW/2; L.items = []; L.caught = 0; L.bad = 0;
     L.left = L.need + 6;                      // с запасом на тряпки и промахи
     L.spawn = 25; L.fall = cfg.strict ? 3.6 : 2.8;
+  } else if(L.kind === "chem"){
+    /* Лабораторная: метка бегает по шкале, капать надо в зелёной зоне. */
+    L.need = cfg.exam ? 5 : (cfg.easy ? 2 : 4);
+    L.hits = 0; L.miss = 0; L.pos = 0; L.vel = cfg.strict ? 0.017 : 0.013;
+    L.zone = cfg.easy ? 0.22 : (cfg.exam ? 0.12 : 0.17);
+    L.mid = 0.5; L.flashT = 0; L.good = false;
+    L.limit = (cfg.strict ? 22 : 30)*60;
+    L.maxMiss = cfg.exam ? 1 : (cfg.easy ? 5 : 3);
+  } else if(L.kind === "verse"){
+    /* Наизусть: учитель показывает строчку жестами, её надо повторить. */
+    L.seq = []; L.step = 0; L.showI = 0; L.round = 0;
+    L.rounds = cfg.exam ? 4 : (cfg.easy ? 2 : 3);
+    L.len = cfg.strict ? 4 : 3;
+    L.phase = "show"; L.pt = 40; L.bad = 0; L.lit = -1; L.litT = 0;
+    L.maxBad = cfg.exam ? 0 : (cfg.easy ? 3 : 1);
+    L.limit = (cfg.strict ? 26 : 36)*60;
   } else if(L.kind === "pushups"){
     L.reps = 0; L.down = 0; L.next = "left";
     L.limit = (cfg.strict ? 16 : 22)*60;
@@ -1347,6 +1534,8 @@ function lessonEnd(ok){
   if(L.done) return;
   L.done = true; L.ok = ok; L.endT = 100;
   if(ok){ G.timeLeft += L.cfg.bonus; G.bonusPts += L.cfg.pts; stat("lessonsOk");
+          if(L.kind === "chem") stat("chemOk");
+          if(L.kind === "verse") stat("verseOk");
           taskBump("lessons"); sfx.win(); }
   else { G.timeLeft = Math.max(8, G.timeLeft - 10); stat("lessonsBad"); sfx.fail(); }
   statBump();
@@ -1372,6 +1561,42 @@ function lessonPress(k){
       if(L.reps >= L.need) lessonEnd(true);
     } else {
       G.shake = 5; sfx.hurt();
+    }
+    return;
+  }
+  if(L.kind === "chem" && k === "jump"){
+    var d = Math.abs(L.pos - L.mid);
+    if(d <= L.zone/2){
+      L.hits++; L.flashT = 14; L.good = true;
+      L.mid = 0.2 + Math.random()*0.6;            // зона переезжает
+      L.vel *= 1.06;
+      puff(VW/2, 300, 8, "#8bffcf", 2.4);
+      tone(520 + L.hits*40, 0.08, "triangle", 0.05, 90);
+      if(L.hits >= L.need) lessonEnd(true);
+    } else {
+      L.miss++; L.flashT = 14; L.good = false;
+      G.shake = 7; sfx.hurt();
+      if(L.miss >= L.maxMiss) lessonEnd(false);
+    }
+    return;
+  }
+  if(L.kind === "verse" && L.phase === "say" &&
+     (k === "left" || k === "right" || k === "jump")){
+    L.lit = ["left","jump","right"].indexOf(k); L.litT = 12;
+    if(k === L.seq[L.step]){
+      L.step++;
+      tone(520 + L.step*40, 0.06, "triangle", 0.05);
+      if(L.step >= L.seq.length){
+        L.round++;
+        if(L.round >= L.rounds){ lessonEnd(true); return; }
+        L.seq = []; L.phase = "show"; L.pt = 40;
+        pop(VW/2, 220, "ВЕРНО!", "#8bffcf", 18);
+      }
+    } else {
+      L.bad++; G.shake = 8; sfx.hurt();
+      if(L.bad > L.maxBad){ lessonEnd(false); return; }
+      L.seq = []; L.phase = "show"; L.pt = 40; L.step = 0;
+      pop(VW/2, 220, "не та строчка", "#ff8a8a", 15);
     }
     return;
   }
@@ -1466,6 +1691,30 @@ function lessonUpdate(){
       if(it.y > VH + 20) L.items.splice(k2,1);
     }
     if(L.left <= 0 && !L.items.length) lessonEnd(L.caught >= L.need);
+  } else if(L.kind === "chem"){
+    L.pos += L.vel;
+    if(L.pos > 1){ L.pos = 1; L.vel = -L.vel; }
+    if(L.pos < 0){ L.pos = 0; L.vel = -L.vel; }
+    if(L.flashT > 0) L.flashT--;
+    if(--L.limit <= 0) lessonEnd(L.hits >= L.need);
+  } else if(L.kind === "verse"){
+    if(L.litT > 0 && --L.litT <= 0) L.lit = -1;
+    if(L.phase === "show"){
+      if(--L.pt <= 0){
+        if(!L.seq.length){                       // новая строчка
+          var q, abc = ["left","jump","right"];
+          for(q=0;q<L.len + L.round;q++) L.seq.push(abc[Math.floor(Math.random()*3)]);
+          L.showI = 0; L.pt = 26;
+        } else if(L.showI < L.seq.length){
+          L.lit = ["left","jump","right"].indexOf(L.seq[L.showI]);
+          L.litT = 20; L.showI++; L.pt = 30;
+          tone(420 + L.lit*110, 0.09, "triangle", 0.05);
+        } else {
+          L.phase = "say"; L.step = 0; L.pt = 0; L.lit = -1;
+        }
+      }
+    }
+    if(--L.limit <= 0) lessonEnd(L.round >= L.rounds);
   } else if(L.kind === "pushups"){
     if(L.down > 0) L.down--;
     if(--L.limit <= 0) lessonEnd(L.reps >= L.need);
@@ -1499,13 +1748,16 @@ function lessonUpdate(){
    Лежат в школьных шкафчиках. В руках помещается один,
    используется клавишей E (или кнопкой на телефоне). */
 var ITEMS = {
-  soda:  { n:"Газировка", d:"рывок скорости на 6 сек", c:"#ff6b6b", t:360, w:22 },
-  gum:   { n:"Жвачка",    d:"двойной прыжок на 15 сек", c:"#ff9ff3", t:900, w:20 },
-  bag:   { n:"Портфель",  d:"держит один удар",         c:"#9b6bf0", t:0,   w:20 },
-  watch: { n:"Часы",      d:"+20 секунд к перемене",    c:"#8bffcf", t:0,   w:20 },
-  pass:  { n:"Пропуск",   d:"завучи не видят 8 сек",    c:"#ffd166", t:480, w:18 }
+  soda:   { n:"Газировка", d:"рывок скорости на 6 сек",   c:"#ff6b6b", t:360, w:20 },
+  gum:    { n:"Жвачка",    d:"двойной прыжок на 15 сек",  c:"#ff9ff3", t:900, w:18 },
+  bag:    { n:"Портфель",  d:"держит один удар",          c:"#9b6bf0", t:0,   w:18 },
+  watch:  { n:"Часы",      d:"+20 секунд к перемене",     c:"#8bffcf", t:0,   w:18 },
+  pass:   { n:"Пропуск",   d:"завучи не видят 8 сек",     c:"#ffd166", t:480, w:16 },
+  whistle:{ n:"Свисток",   d:"завучи замирают на 7 сек",  c:"#ff9c5a", t:0,   w:14 },
+  umbrella:{n:"Зонтик",    d:"12 сек падаешь медленно",   c:"#5ac8ff", t:720, w:14 },
+  magnetit:{n:"Магнитик",  d:"пирожки летят в руки, 12 сек", c:"#c9a0ff", t:720, w:14 }
 };
-var ITEM_KEYS = ["soda","gum","bag","watch","pass"];
+var ITEM_KEYS = ["soda","gum","bag","watch","pass","whistle","umbrella","magnetit"];
 function rollItem(rnd){
   var total = 0, i, r;
   for(i=0;i<ITEM_KEYS.length;i++) total += ITEMS[ITEM_KEYS[i]].w;
@@ -1541,7 +1793,7 @@ function runMax(){
 function canDouble(){ return mod("dbljump") || POW.air > 0 || (G && G.buff && G.buff.gum > 0); }
 function jumpV(){
   return JUMP_V * (mod("heavy") ? 0.92 : 1) * (mod("sneak") ? 1.06 : 1) * POW.jump
-         * (1 + 0.05*upg("springs"));
+         * (mod("float") ? 1.12 : 1) * (1 + 0.05*upg("springs"));
 }
 function timeLimit(){
   var t = curDiff.time;
@@ -1550,6 +1802,15 @@ function timeLimit(){
   return Math.round(t) + 12*upg("watch");
 }
 function oneLife(){ return curDiff.oneLife || mod("onelife"); }
+/* Сквозняк дует то в одну сторону, то в другую: смена примерно раз в семь секунд,
+   переход плавный, чтобы не выбивало из-под ног на ровном месте. */
+function windNow(){
+  if(!mod("wind") || !G) return 0;
+  var ph = (G.tick % 900) / 900 * 6.2832;
+  return Math.sin(ph) + 0.35*Math.sin(ph*2.3);
+}
+/* Учебная тревога: раз в двадцать секунд четыре секунды все бегут вдвое быстрее. */
+function alarmOn(){ return mod("alarm") && G && (G.tick % 1200) < 240; }
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function overlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -1687,7 +1948,7 @@ function powOn(){
   return POW.jump !== 1 || POW.speed !== 1 || POW.grav !== 1 || POW.air > 0 ||
          POW.magnet > 0 || POW.time !== 1 || POW.fly || POW.ghost || POW.freeze;
 }
-function powGrav(){ return GRAV * POW.grav; }
+function powGrav(){ return GRAV * POW.grav * (mod("float") ? 0.72 : 1); }
 
 function devOpen(from){
   G.back = from || G.state;
@@ -1702,6 +1963,7 @@ function devDigit(d){
   if(G.code.length < 4) return;
   if(codeHash(G.code) === DEV_HASH){
     devOn = true; G.state = "admin"; G.code = ""; G.codeTries = 0;
+    profMark("dev");
     toast("Доступ разработчика открыт");
     sfx.win();
   } else {
@@ -1723,6 +1985,7 @@ function wipeProgress(){               // стираем всё, что игра
   if(G){ G.achQueue.length = 0; G.achT = 0; G.achShow = null; }
   evGot = null; evDates = null;         // календарь и забранные призы тоже стёрлись
   giftLast = null;
+  PROF = { name:"", badge:"", dev:0, helper:0 };
   STATS = freshStats();
   curSkin = "pupil";
   modOn = {};
@@ -1864,6 +2127,7 @@ function devDo(id){
   else if(id === "dev_clear"){
     if(lv && lv.enemies && lv.enemies.length){
       var n = 0;
+      if(lv.shots) lv.shots.length = 0;
       for(i=0;i<lv.enemies.length;i++) if(!lv.enemies[i].dead){
         lv.enemies[i].dead = true; lv.enemies[i].deadT = 0;
         puff(lv.enemies[i].x + 12, lv.enemies[i].y + 14, 10, "#ff9c9c", 2.6);
@@ -1998,6 +2262,24 @@ function doButton(id){
   else if(id === "claim_day"){ claimDaily(); }
   else if(id === "chest"){ claimChest(); }
   else if(id.indexOf("star_") === 0){ buyStar(id.slice(5)); }
+  else if(id === "prof_open"){ G.back = G.state; G.state = "profile"; sfx.key(); }
+  else if(id.indexOf("prof_b_") === 0){
+    var pb = badgeBy(id.slice(7));
+    if(pb && pb.ok()){
+      PROF.badge = (PROF.badge === pb.k) ? "" : pb.k;
+      profSave(); sfx.key();
+    }
+  }
+  else if(id === "prof_clear"){ PROF.badge = ""; profSave(); sfx.key(); }
+  else if(id === "prof_name"){
+    var nm = null;
+    try{ nm = window.prompt("Как тебя звать в школе?", PROF.name || ""); }catch(e){ nm = null; }
+    if(nm !== null){
+      PROF.name = String(nm).replace(/\s+/g, " ").trim().slice(0, 12);
+      profSave();
+      toast(PROF.name ? "Теперь ты " + PROF.name : "Имя стёрто");
+    }
+  }
   else if(id === "news_open"){ G.back = G.state; G.state = "news"; newsRead(); sfx.key(); }
   else if(id === "events_open"){ G.back = G.state; G.state = "events"; sfx.key(); }
   else if(id.indexOf("ev_take_") === 0){ evTake(eventBy(id.slice(8))); }
@@ -2223,7 +2505,8 @@ function buildLevel(def){
              coins:[], enemies:[], pads:[], spikes:[], movers:[], lockers:[], stands:[],
              balls:[], bells:[], door:null,
              crack:{}, broke:{},
-             key:null, needKey:false, start:{x:64,y:64}, coinTotal:0 };
+             shots:[],
+             key:null, needKey: !!mod("locked"), start:{x:64,y:64}, coinTotal:0 };
 
   for(i=0;i<lv.h;i++) for(j=0;j<w;j++){
     var ch = grid[i][j], px = j*TS, py = i*TS;
@@ -2238,8 +2521,11 @@ function buildLevel(def){
     }
     else if(ch === "K"){ lv.key = {x:px+8, y:py+10, w:16, h:14, got:false, ph:0}; lv.needKey=true; grid[i][j]="."; }
     else if(ch === "J"){ lv.pads.push({x:px+2, y:py+18, w:28, h:14, t:0}); grid[i][j]="."; }
-    else if(ch === "x"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, false)); grid[i][j]="."; }
-    else if(ch === "v"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+2, py+6, true)); grid[i][j]="."; }
+    else if(ch === "x"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, "walk")); grid[i][j]="."; }
+    else if(ch === "v"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+2, py+6, "fly")); grid[i][j]="."; }
+    else if(ch === "g"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+2, py+2, "guard")); grid[i][j]="."; }
+    else if(ch === "z"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, "sleep")); grid[i][j]="."; }
+    else if(ch === "j"){ if(!mod("empty")) lv.enemies.push(makeEnemy(px+3, py+4, "throw")); grid[i][j]="."; }
     else if(ch === "^"){ lv.spikes.push({x:px+2, y:py+18, w:28, h:14}); }
     else if(STAND_INFO[ch]){ lv.stands.push({ x:px-6, y:py-40, w:44, h:72, kind:ch }); grid[i][j]="."; }
     else if(ch === "m"){ lv.balls.push({ x:px+6, y:py+8, w:20, h:20, vx:0, vy:0, spin:0, cool:0 }); grid[i][j]="."; }
@@ -2283,6 +2569,11 @@ function buildLevel(def){
     }
     return -1;
   }
+  if(mod("locked") && !lv.key && !lv.stands.length){
+    var klx = freeSpot("lockedkey", 6);
+    if(klx > 0) lv.key = { x:klx*TS+8, y:12*TS+10, w:16, h:14, got:false, ph:0 };
+    else lv.needKey = false;                  // некуда положить — дверь не запираем
+  }
   if(!lv.stands.length){
     if(!lv.balls.length){
       var bx = freeSpot("ball", 5);
@@ -2310,7 +2601,7 @@ function buildLevel(def){
         if(!isSolidChar(grid[cy][cx]) || grid[cy][cx] === "=") continue;
         if(isSolidChar(grid[cy-1][cx]) || isSolidChar(grid[cy-2] ? grid[cy-2][cx] : ".")) continue;
         if(occupied(cx, cy-1)) continue;
-        lv.enemies.push(makeEnemy(cx*TS+3, (cy-1)*TS+4, false));
+        lv.enemies.push(makeEnemy(cx*TS+3, (cy-1)*TS+4, "walk"));
         extra--;
         break;
       }
@@ -2324,15 +2615,43 @@ function buildLevel(def){
       w:m.tw*TS, h:14, axis:m.axis, dist:m.dist*TS, speed:m.speed,
       t:m.phase||0, dx:0, dy:0, isMover:true });
   }
+  if(mod("hunter")){
+    for(i=0;i<lv.enemies.length;i++){
+      var he = lv.enemies[i];
+      if(he.fly || he.kind === "throw") continue;
+      he.hunt = true; he.kind = "walk"; he.wake = 1;
+      he.base = 1.05 * curDiff.enemy * (mod("fast") ? 1.4 : 1);
+      he.vx = he.base;
+      he.range = 999999;
+      break;
+    }
+  }
   lv.uid = ++lvSeq;
   return lv;
 }
 
-function makeEnemy(x, y, fly){
-  return { x:x, y:y, w:fly?28:26, h:fly?18:28,
-           vx: (fly ? 1.5*curDiff.fly : 0.85*curDiff.enemy) * (mod("fast") ? 1.4 : 1), vy:0,
-           fly:fly, homeX:x, range: fly?999999:TS*curDiff.range, dead:false, deadT:0,
-           dir:1, anim:0, hitWall:false };
+/* Виды школьной охраны. Обычный завуч ходит взад-вперёд, остальные —
+   каждый со своим характером: охранник в каске (на голову не прыгнуть),
+   дремлющий стоит, пока не подойдёшь, а дежурный с журналом кидается им. */
+var FOES = {
+  walk:  { w:26, h:28, sp:0.85, tough:false, n:"Завуч" },
+  fly:   { w:28, h:18, sp:1.50, tough:false, n:"Самолётик" },
+  guard: { w:28, h:30, sp:0.58, tough:true,  n:"Охранник" },
+  sleep: { w:26, h:28, sp:0.00, tough:false, n:"Дремлющий завуч" },
+  throw: { w:26, h:28, sp:0.00, tough:false, n:"Дежурный с журналом" }
+};
+function makeEnemy(x, y, kind){
+  if(kind === true) kind = "fly";                 // старый вызов: makeEnemy(x, y, true)
+  if(kind === false || !kind) kind = "walk";
+  var d = FOES[kind] || FOES.walk, fly = kind === "fly";
+  var v = d.sp * (fly ? curDiff.fly : curDiff.enemy) * (mod("fast") ? 1.4 : 1);
+  return { x:x, y:y, w:d.w, h:d.h,
+           vx:v, base:v, vy:0, kind:kind, tough:d.tough,
+           fly:fly, homeX:x,
+           range: fly ? 999999 : TS*curDiff.range*(kind === "guard" ? 0.6 : 1),
+           dead:false, deadT:0,
+           dir:1, anim:0, hitWall:false, hunt:false,
+           wake:0, cool:40 + Math.floor(Math.random()*60) };
 }
 
 /* ================== КОЛЛИЗИИ ================== */
@@ -2421,7 +2740,7 @@ function newGame(){
            shake:0, flash:0, banner:0, hintT:0, cam:0,
            hasKey:false, tick:0, penalty:0, buttons:[], pick:"normal",
            item:null, item2:null, reviveLeft:0, walletPaid:0, dblBuns:false, runBuns:0,
-           buff:{ soda:0, gum:0, pass:0 }, shield:false,
+           buff:{ soda:0, gum:0, pass:0, umbrella:0, magnetit:0 }, shield:false,
            combo:0, comboT:0, comboPts:0, bonusPts:0, allPies:0, toast:"", toastT:0, invul:0, freeze:0 };
 }
 function recKey(dk){ return dk + (curSrc === "seed" ? "_" + curSeed : ""); }
@@ -2541,7 +2860,9 @@ function loadLevel(i){
 function spawnPlayer(){
   if(mod("startbag") || upg("bag")) G.shield = true;
   var s = G.level.start;
-  G.player = { x:s.x, y:s.y, w:20, h:28, vx:0, vy:0, dir:1, grounded:false,
+  var small = mod("tiny");
+  G.player = { x:s.x, y:s.y + (small ? 6 : 0), w:small ? 15 : 20, h:small ? 21 : 28,
+               small:small, vx:0, vy:0, dir:1, grounded:false,
                coyote:0, jumpBuf:0, anim:0, sqx:1, sqy:1, dead:false, deadT:0,
                standing:null, hitWall:false, spawnT:18, jumping:false, air:0, fall:0 };
   G.cam = camTarget();
@@ -2570,6 +2891,13 @@ function useItem(){
   stat("items");
   if(k === "watch"){ G.timeLeft += 20; G.flash = 14; toast("+20 секунд"); }
   else if(k === "bag"){ G.shield = true; toast("Портфель наготове"); }
+  else if(k === "whistle"){                       // свисток слышно на весь этаж
+    G.freeze = Math.max(G.freeze, 420);
+    if(G.level && G.level.shots) G.level.shots.length = 0;
+    G.flash = 10; G.shake = 6;
+    ring(G.player.x+10, G.player.y+14, "rgba(255,156,90,.8)", 90);
+    toast("Свисток! Все замерли");
+  }
   else { G.buff[k] = ITEMS[k].t; toast(ITEMS[k].n + " действует"); }
   puff(G.player.x+10, G.player.y+14, 14, ITEMS[k].c, 3);
   sfx.item();
@@ -2646,7 +2974,7 @@ function updatePlayer(dt){
   p.hitWall = false;
 
   var ix = (input.right?1:0) - (input.left?1:0);
-  if(mod("mirror")) ix = -ix;
+  if(mod("wind")) p.vx += windNow() * 0.09;      // сквозняк тянет всё время
   var slip = mod("ice");
   var acc = slip ? 0.42 : 0.85;
   if(ix){ p.vx += acc*ix; p.dir = ix; }
@@ -2654,6 +2982,7 @@ function updatePlayer(dt){
   p.vx = clamp(p.vx, -runMax(), runMax());
 
   p.vy = Math.min(p.vy + powGrav(), MAXFALL);
+  if(G.buff.umbrella > 0 && p.vy > 1.6) p.vy = 1.6 + (p.vy - 1.6) * 0.18;   // зонтик держит
   if(POW.fly){                                   // полёт: пробел тянет вверх, иначе зависаем
     p.vy = input.jump ? -4.8 : p.vy * 0.55;
     p.jumping = false; p.jumpBuf = 0;
@@ -2715,6 +3044,18 @@ function updatePlayer(dt){
   p.sqy += (1 - p.sqy) * 0.18;
   p.anim += Math.abs(p.vx) * 0.22;
 
+  if(mod("bounce") && p.grounded && wasAir){           // «Пружинящие доски»
+    var by = Math.floor((p.y + p.h + 1)/TS), bc;
+    for(bc = Math.floor((p.x+2)/TS); bc <= Math.floor((p.x+p.w-2)/TS); bc++){
+      if(lv.grid[by] && lv.grid[by][bc] === "="){
+        p.vy = jumpV() * 0.86; p.grounded = false; p.jumping = true;
+        p.sqx = 0.8; p.sqy = 1.26;
+        puff(p.x+p.w/2, p.y+p.h, 7, "#8bffcf", 2.2);
+        sfx.jump();
+        break;
+      }
+    }
+  }
   if(mod("glass") && p.grounded){                      // «Стеклянные доски»
     var fy = Math.floor((p.y + p.h + 1)/TS), cc;
     for(cc = Math.floor((p.x+2)/TS); cc <= Math.floor((p.x+p.w-2)/TS); cc++){
@@ -2756,7 +3097,8 @@ function updatePlayer(dt){
     var c = lv.coins[i];
     if(c.got) continue;
     c.ph += 0.09;
-    var mr = Math.max(mod("magnet") ? 120 : 0, POW.magnet, 60*upg("magnet"));
+    var mr = Math.max(mod("magnet") ? 120 : 0, POW.magnet, 60*upg("magnet"),
+                      G.buff.magnetit > 0 ? 150 : 0);
     if(mr > 0){                                         // магнит: пирожки тянутся к игроку
       var dx = (p.x + p.w/2) - (c.x + 8), dy = (p.y + p.h/2) - (c.y + 8);
       var dist = Math.sqrt(dx*dx + dy*dy);
@@ -2816,7 +3158,7 @@ function updatePlayer(dt){
     if(en.dead) continue;
     if(!overlap(body, en)) continue;
     if(G.buff.pass > 0 || G.invul > 0) continue;        // «Пропуск» и неуязвимость после удара
-    if(!en.fly && !mod("nostomp") && p.vy > 1.2 && (p.y + p.h) - en.y < 18){
+    if(!en.fly && !en.tough && !mod("nostomp") && p.vy > 1.2 && (p.y + p.h) - en.y < 18){
       en.dead = true; en.deadT = 0; stat("stomps"); taskBump("stomps");
       p.vy = -8.4; p.sqx = 1.2; p.sqy = 0.82; p.fall = 0;
       G.shake = 9;
@@ -2925,26 +3267,64 @@ function tickGlass(){
   for(k in lv.broke){ lv.broke[k]--; if(lv.broke[k] <= 0) delete lv.broke[k]; }
 }
 function updateEnemies(){
-  var lv = G.level, i;
+  var lv = G.level, i, p = G.player;
   if(G.freeze > 0) G.freeze--;
+  var rush = alarmOn() ? 1.9 : 1;                      // «Учебная тревога»
   for(i=0;i<lv.enemies.length;i++){
     var e = lv.enemies[i];
     if(e.dead){ e.deadT++; continue; }
     if(G.freeze > 0) continue;                         // звонок: все замерли
     e.hitWall = false;
     e.anim += Math.abs(e.vx) * 0.2;
+
+    if(e.kind === "sleep"){                            // спит, пока не подойдёшь
+      var near = p && !p.dead && Math.abs(p.x - e.x) < 118 && Math.abs(p.y - e.y) < 70;
+      if(!e.wake && near){
+        e.wake = 1;
+        e.vx = e.base = 1.25 * curDiff.enemy * (mod("fast") ? 1.4 : 1);
+        e.vx *= (p.x > e.x) ? 1 : -1;
+        pop(e.x + e.w/2, e.y - 4, "!", "#ff8a8a", 16);
+        stat("wakes");
+        sfx.hurt();
+      }
+      if(!e.wake){ e.vy = Math.min(e.vy + GRAV, MAXFALL); e.y += e.vy; collideTiles(e,"y"); continue; }
+    }
+    if(e.kind === "throw"){                            // стоит и кидается журналом
+      e.vy = Math.min(e.vy + GRAV, MAXFALL); e.y += e.vy; collideTiles(e,"y");
+      if(p && !p.dead) e.dir = (p.x > e.x) ? 1 : -1;
+      if(--e.cool <= 0){
+        e.cool = Math.round((mod("fast") ? 96 : 140) / (alarmOn() ? 1.9 : 1));
+        var seeX = p ? Math.abs(p.x - e.x) : 999;
+        if(seeX < 300 && lv.shots.length < 14){
+          lv.shots.push({ x:e.x + e.w/2 - 7, y:e.y + 6, w:14, h:11,
+                          vx: e.dir * 3.1 * (mod("fast") ? 1.3 : 1), spin:0, life:260 });
+          sfx.key();
+        }
+      }
+      continue;
+    }
+    if(e.hunt && p && !p.dead){                        // охотник правит курс на игрока
+      var want = (p.x > e.x) ? 1 : -1;
+      if(e.vx === 0) e.vx = e.base * want;
+      else if((e.vx > 0) !== (want > 0) && Math.abs(p.x - e.x) > 10) e.vx = -e.vx;
+    }
     e.dir = e.vx > 0 ? 1 : -1;
 
-    e.x += e.vx; collideTiles(e,"x"); collideMovers(e,"x");
+    var step = e.vx * rush;
+    e.x += step; collideTiles(e,"x"); collideMovers(e,"x");
+    if(e.hitWall) e.vx = e.dir * e.base;               // скорость не теряется после стены
     if(!e.fly){
       e.vy = Math.min(e.vy + GRAV, MAXFALL);
       e.grounded = false;
       e.y += e.vy; collideTiles(e,"y"); collideMovers(e,"y");
-      if(mod("jumpy") && e.grounded && (G.tick + i*37) % 130 === 0) e.vy = -7.6;
       var aheadX = e.dir > 0 ? e.x + e.w + 3 : e.x - 3;
       var noFloor = !solidAtPx(aheadX, e.y + e.h + 4);
-      if(e.hitWall || noFloor || Math.abs(e.x - e.homeX) > e.range){
-        e.vx = -e.vx;
+      if(e.tough && !e.passed && p && !p.dead && p.x > e.x + e.w + 6){
+        e.passed = true; stat("guards");
+      }
+      var away = !e.hunt && Math.abs(e.x - e.homeX) > e.range;
+      if(e.hitWall || noFloor || away){
+        e.vx = -e.dir * e.base;
         e.x += e.vx * 1.5;
       }
       if(e.y > lv.h*TS + 60) e.dead = true;
@@ -2955,6 +3335,26 @@ function updateEnemies(){
   }
 }
 
+function updateShots(){                   // брошенные журналы
+  var lv = G.level, p = G.player, i, sh;
+  if(!lv || !lv.shots) return;
+  for(i=lv.shots.length-1;i>=0;i--){
+    sh = lv.shots[i];
+    if(G.freeze > 0) continue;
+    sh.x += sh.vx; sh.spin += sh.vx * 0.09;
+    sh.life--;
+    if(sh.life <= 0 || solidAtPx(sh.x + sh.w/2, sh.y + sh.h/2)){
+      puff(sh.x + sh.w/2, sh.y + sh.h/2, 6, "#e8eef7", 1.8);
+      stat("dodged");
+      lv.shots.splice(i, 1); continue;
+    }
+    if(p && !p.dead && G.buff.pass <= 0 && G.invul <= 0 && overlap(p, sh)){
+      lv.shots.splice(i, 1);
+      hurtPlayer();
+      return;
+    }
+  }
+}
 function updateMovers(){
   var ms = G.level.movers, i;
   for(i=0;i<ms.length;i++){
@@ -3001,6 +3401,7 @@ function endlessPush(){                           // дорисовываем э
 function nextLevel(){
   stat("levels");
   taskBump("levels");
+  if(mod("wind")) stat("windLv");
   if(upg("wallet") && G.coins){             // кошелёк доплачивает за собранное
     var extra = Math.floor(G.coins * 0.25 * upg("wallet")) - G.walletPaid;
     if(extra > 0){
@@ -3087,6 +3488,8 @@ function update(dtSec){
     if(G.buff.soda > 0) G.buff.soda--;
     if(G.buff.gum > 0) G.buff.gum--;
     if(G.buff.pass > 0) G.buff.pass--;
+    if(G.buff.umbrella > 0) G.buff.umbrella--;
+    if(G.buff.magnetit > 0) G.buff.magnetit--;
     tickGlass();
     updateBalls();
     if(!POW.freeze) G.timeLeft -= dtSec;
@@ -3096,6 +3499,7 @@ function update(dtSec){
     updateMovers();
     updatePlayer(dtSec);
     updateEnemies();
+    updateShots();
     updateParts();
     G.cam += (camTarget() - G.cam) * 0.14;
   } else if(G.state === "lesson"){
@@ -3107,7 +3511,7 @@ function update(dtSec){
     updateParts();
     G.cam += (camTarget() - G.cam) * 0.14;
   } else if(G.state === "clear"){
-    updateMovers(); updateEnemies(); updateParts();
+    updateMovers(); updateEnemies(); updateShots(); updateParts();
     G.banner--;
     if(G.banner <= 0){
       if(!curDiff.endless && G.levelIndex + 1 >= LEVELS.length){ finishRun(); }
@@ -3165,12 +3569,20 @@ function hintPlate(str, y, size, col){          // подсказка на св�
   rrect(VW/2 - w/2, y - size - 4, w, size + 14, 9); ctx.fill();
   text(str, VW/2, y, size, col || "#ffffff", "center");
 }
+var fitCache = {}, fitKeys = [];
 function textFit(str, x, y, size, col, align, weight, maxW){
-  var sz = size;                                   // подпись ужимается, а не лезет на соседа
-  while(sz > 7){
-    ctx.font = (weight||700) + " " + sz + "px 'Segoe UI', system-ui, Arial, sans-serif";
-    if(ctx.measureText(str).width <= maxW) break;
-    sz -= 0.5;
+  var key = str + "|" + size + "|" + (weight || 700) + "|" + Math.round(maxW);
+  var sz = fitCache[key];
+  if(sz === undefined){
+    sz = size;                                     // подпись ужимается, а не лезет на соседа
+    while(sz > 7){
+      ctx.font = (weight||700) + " " + sz + "px 'Segoe UI', system-ui, Arial, sans-serif";
+      if(ctx.measureText(str).width <= maxW) break;
+      sz -= 0.5;
+    }
+    fitCache[key] = sz;
+    fitKeys.push(key);
+    if(fitKeys.length > 900) delete fitCache[fitKeys.shift()];
   }
   text(str, x, y, sz, col, align, weight);
 }
@@ -3755,6 +4167,24 @@ function drawDoor(){
                  d.cx, d.y-22, 10, "#ffe9a8", "center", 600);
 }
 
+function drawShots(){
+  var lv = G.level, i, sh;
+  if(!lv || !lv.shots) return;
+  for(i=0;i<lv.shots.length;i++){
+    sh = lv.shots[i];
+    ctx.save();
+    ctx.translate(sh.x + sh.w/2, sh.y + sh.h/2);
+    ctx.rotate(sh.spin);
+    ctx.fillStyle = "rgba(0,0,0,.2)";
+    rrect(-6, -4, 14, 11, 2); ctx.fill();
+    ctx.fillStyle = "#ffd166";
+    rrect(-7, -5.5, 14, 11, 2); ctx.fill();
+    ctx.fillStyle = "#e8b23c"; rrect(-7, -5.5, 4, 11, 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.fillRect(-1, -3, 6, 1.1); ctx.fillRect(-1, -0.5, 6, 1.1); ctx.fillRect(-1, 2, 4, 1.1);
+    ctx.restore();
+  }
+}
 function drawEnemy(e){
   if(e.dead && e.deadT > 26) return;
   if(G.freeze > 0 && !e.dead){
@@ -3777,13 +4207,16 @@ function drawEnemy(e){
     ctx.beginPath(); ctx.arc(6,-1.5,1.6,0,6.2832); ctx.fill();
   } else {
     var wob = Math.sin(e.anim)*1.5, hy = -12 + wob*0.3;
+    var suit = e.kind === "guard" ? "#3f5a46" : (e.kind === "throw" ? "#6b5480" : "#56688c");
+    var doze = e.kind === "sleep" && !e.wake;
+    if(doze) wob = Math.sin(G.tick*0.05)*0.8;
     ctx.fillStyle = "rgba(0,0,0,.18)";
     ctx.beginPath(); ctx.ellipse(0, e.h/2-1, 12, 3.5, 0, 0, 6.2832); ctx.fill();
     ctx.fillStyle = "#2b3850"; /* брюки */
     ctx.fillRect(-8, 6, 6, 9); ctx.fillRect(2, 6, 6, 9);
     ctx.fillStyle = "#1d2635";
     ctx.fillRect(-9, 13, 8, 3); ctx.fillRect(1, 13, 8, 3);
-    ctx.fillStyle = "#56688c"; /* пиджак */
+    ctx.fillStyle = suit; /* пиджак */
     rrect(-10, -5+wob*0.2, 20, 14, 5); ctx.fill();
     ctx.fillStyle = "#e9eef7"; /* рубашка */
     ctx.beginPath(); ctx.moveTo(-3,-5); ctx.lineTo(3,-5); ctx.lineTo(0,4); ctx.closePath(); ctx.fill();
@@ -3810,6 +4243,28 @@ function drawEnemy(e){
     ctx.fillRect(-4, -7, 9, 13); ctx.fillStyle = "#b9c6d8"; ctx.fillRect(-4, -7, 9, 3);
     ctx.fillStyle = "#9fb0c6"; ctx.fillRect(-2.5, -2, 6, 1.2); ctx.fillRect(-2.5, 1, 6, 1.2);
     ctx.restore();
+
+    if(e.kind === "guard"){                       /* каска: на голову не прыгнуть */
+      ctx.fillStyle = "#e0a63c";
+      ctx.beginPath(); ctx.arc(0, hy-1, 10.5, Math.PI, 0); ctx.fill();
+      ctx.fillRect(-11.5, hy-1.5, 23, 3);
+      ctx.fillStyle = "#b9832a"; ctx.fillRect(-1.6, hy-11, 3.2, 9);
+      ctx.fillStyle = "#2b3850";                  /* рация на плече */
+      rrect(-e.dir*12 - 2, -6, 4, 8, 1.5); ctx.fill();
+    }
+    if(doze){                                     /* дремлет: колпак и «з-з-з» */
+      ctx.fillStyle = "#9fd8ff";
+      ctx.beginPath(); ctx.moveTo(-9, hy-5); ctx.lineTo(9, hy-5); ctx.lineTo(2, hy-16); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.55 + 0.35*Math.sin(G.tick*0.08);
+      text("z", 12, hy - 12 - 3*Math.sin(G.tick*0.06), 12, "#dbeaff", "center");
+      ctx.globalAlpha = 1;
+    }
+    if(e.kind === "throw"){                       /* стопка журналов под мышкой */
+      ctx.fillStyle = "#ffd166";
+      rrect(-e.dir*13 - 4, -3, 9, 6, 1.5); ctx.fill();
+      ctx.fillStyle = "#e8b23c";
+      rrect(-e.dir*13 - 4, 0, 9, 3, 1); ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -4151,6 +4606,31 @@ function drawItemIcon(k, x, y, s){
     ctx.fillStyle = "#8bffcf"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 6.2832); ctx.fill();
     ctx.strokeStyle = "#16303f"; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-5); ctx.moveTo(0,0); ctx.lineTo(4,1); ctx.stroke();
+  } else if(k === "whistle"){
+    ctx.fillStyle = "#ff9c5a"; rrect(-9, -4, 14, 9, 3); ctx.fill();
+    ctx.fillStyle = "#d97a38"; ctx.beginPath(); ctx.arc(2, 0.5, 2.4, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = "#c9d5e5"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(-11, -6, 4, -0.6, 2.6); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(7, 0, 4, -0.9, 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(7, 0, 7, -0.7, 0.7); ctx.stroke();
+  } else if(k === "umbrella"){
+    ctx.fillStyle = "#5ac8ff";
+    ctx.beginPath(); ctx.arc(0, 0, 10, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-3,-10); ctx.lineTo(-3,0); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(3,0); ctx.lineTo(3,-10); ctx.lineTo(10,0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#8a6a45"; ctx.fillRect(-1, 0, 2, 10);
+    ctx.strokeStyle = "#8a6a45"; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(-3, 9, 3, 0, Math.PI); ctx.stroke();
+  } else if(k === "magnetit"){
+    ctx.fillStyle = "#c9a0ff";
+    ctx.beginPath(); ctx.arc(0, 1, 9, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#0d1626";
+    ctx.beginPath(); ctx.arc(0, 1, 4.5, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#c9a0ff"; ctx.fillRect(-9, 1, 4.5, 6); ctx.fillRect(4.5, 1, 4.5, 6);
+    ctx.fillStyle = "#ff8a85"; ctx.fillRect(-9, 5, 4.5, 3);
+    ctx.fillStyle = "#9fd8ff"; ctx.fillRect(4.5, 5, 4.5, 3);
   } else {
     ctx.fillStyle = "#ffe9a8"; rrect(-8, -9, 16, 18, 2); ctx.fill();
     ctx.fillStyle = "#c9a44c";
@@ -4184,7 +4664,8 @@ function drawSlot(){
   }
   /* активные эффекты */
   var bx = x, by = y + h + 6, kk, b;
-  var list = [["soda","Скорость"],["gum","Двойной прыжок"],["pass","Пропуск"]];
+  var list = [["soda","Скорость"],["gum","Двойной прыжок"],["pass","Пропуск"],
+              ["umbrella","Зонтик"],["magnetit","Магнитик"]];
   for(kk=0; kk<list.length; kk++){
     b = G.buff[list[kk][0]];
     if(b <= 0) continue;
@@ -4326,7 +4807,36 @@ function drawMenuGlow(){
   ctx.restore();
 }
 
+/* Сквозняк и тревогу надо видеть, а не угадывать по поведению игрока. */
+function drawWeather(){
+  if(mod("wind")){
+    var w = windNow(), i, x, y, len = 18 + Math.abs(w)*22;
+    if(Math.abs(w) > 0.12){
+      ctx.save();
+      ctx.globalAlpha = 0.10 + 0.10*Math.min(1, Math.abs(w));
+      ctx.strokeStyle = "#dbeaff"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+      for(i=0;i<14;i++){
+        x = ((G.tick*w*2.4 + i*137) % (VW + 120)) - 60;
+        y = 30 + ((i*61) % (VH - 90));
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len*(w > 0 ? 1 : -1), y + 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  if(alarmOn()){
+    var k = 0.16 + 0.10*Math.sin(G.tick*0.35);
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.fillStyle = "#ff5f6d";
+    ctx.fillRect(0, 0, VW, 26); ctx.fillRect(0, VH-26, VW, 26);
+    ctx.restore();
+    ctx.globalAlpha = 0.7 + 0.3*Math.sin(G.tick*0.35);
+    text("УЧЕБНАЯ ТРЕВОГА", VW/2, VH - 8, 13, "#ffd0d0", "center", 700);
+    ctx.globalAlpha = 1;
+  }
+}
 function drawHUD(){
+  drawWeather();
   ctx.save();
   ctx.fillStyle = "rgba(9,16,32,.52)";
   rrect(10, 10, VW-20, 40, 12); ctx.fill();
@@ -4343,8 +4853,13 @@ function drawHUD(){
   ctx.fillStyle = bar;
   rrect(22, 36, Math.max(6, 200*frac), 7, 4); ctx.fill();
   drawBellIcon(36, 24, 0.8, col);
-  text(fmtTime(G.timeLeft), 54, 32, 21, col);
-  text("до звонка", 140, 31, 11, "rgba(220,235,255,.65)", "left", 600);
+  if(mod("noclock")){
+    text("часы сломались", 54, 32, 16, col, "left");
+    text("следи за полоской", 190, 31, 11, "rgba(220,235,255,.65)", "left", 600);
+  } else {
+    text(fmtTime(G.timeLeft), 54, 32, 21, col);
+    text("до звонка", 140, 31, 11, "rgba(220,235,255,.65)", "left", 600);
+  }
   if(G.penalty > 0){
     ctx.globalAlpha = Math.min(1, G.penalty/40);
     text("−" + curDiff.deathCost + " сек", 62, 70, 20, "#ff8a8a", "left");
@@ -4514,6 +5029,21 @@ function drawMenu(){
   text(dayLine(), VW/2, 134, 11, "#9fd8ff", "center", 600);
   G.buttons.push({ id:"secret", x:268, y:86, w:264, h:42 });      // четыре нажатия — вход для разработчика
 
+  var pbadge = badgeShown();                                       // визитка игрока
+  ctx.fillStyle = "rgba(255,255,255,.07)";
+  rrect(60, 76, 196, 30, 9); ctx.fill();
+  ctx.strokeStyle = pbadge ? pbadge.c : "rgba(159,216,255,.35)";
+  ctx.lineWidth = 1.3; rrect(60, 76, 196, 30, 9); ctx.stroke();
+  ctx.save();                                                    /* портрет не вылезает за плашку */
+  rrect(60, 76, 196, 30, 9); ctx.clip();
+  drawCharacter({ x:70, y:90, w:12, h:16, dir:1, grounded:true, vx:0,
+                  anim:0, sqx:1, sqy:1, dead:false }, skinView(curSkin), 0.9);
+  ctx.restore();
+  textFit(profName(), 92, 91, 12.5, "#ffffff", "left", 700, pbadge ? 96 : 156);
+  if(pbadge) textFit(pbadge.n, 250, 91, 10, pbadge.c, "right", 700, 60);
+  textFit(profRank(), 92, 102, 9, "rgba(200,220,255,.55)", "left", 600, 156);
+  G.buttons.push({ id:"prof_open", x:60, y:76, w:196, h:30 });
+
   uiButton("mode_normal", 122, 146, 178, 56, "ОБЫЧНЫЙ", DIFFS.normal.tag,
            { sel: G.pick === "normal", size:16, subSize:11 });
   uiButton("mode_hard", 311, 146, 178, 56, "ХАРДКОР", DIFFS.hard.tag,
@@ -4566,7 +5096,7 @@ function drawMenu(){
   if(isTouch) iconBtn("buzz", 700, 120, 36, "buzz");
   else iconBtn("full", 700, 120, 36, "full");
   iconBtn("settings", 700, 162, 36, "gear");
-  if(devOn) uiButton("dev_open", 64, 84, 66, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
+  if(devOn) uiButton("dev_open", 596, 78, 62, 26, "DEV", null, { size:11, selBorder:"#ff8080" });
 }
 
 function modCell(m, x, y, w, h){
@@ -4757,6 +5287,68 @@ function drawLesson(){
     ctx.fillStyle = "#8c9aad"; rrect(L.tray-42, VH-142, 84, 8, 4); ctx.fill();
     hintPlate(isTouch ? "двигай ◀ ▶" : "двигай поднос ← →", VH-42, 13, "rgba(220,235,255,.85)");
   }
+  else if(L.kind === "chem"){
+    text("Лабораторная. Капай реактив, когда метка в зелёном.", VW/2, 116, 15,
+         "rgba(230,240,255,.85)", "center", 600);
+    text("капель " + L.hits + " из " + L.need + "   ·   пролито " + L.miss + " из " + L.maxMiss,
+         VW/2, 142, 13, L.hits >= L.need ? "#8bffcf" : "rgba(255,217,138,.9)", "center", 700);
+
+    var bw = 460, bx = VW/2 - bw/2, by = 190;
+    ctx.fillStyle = "rgba(9,16,32,.6)"; rrect(bx, by, bw, 34, 10); ctx.fill();
+    ctx.fillStyle = "rgba(139,255,207,.32)";                    /* зачётная зона */
+    rrect(bx + bw*(L.mid - L.zone/2), by, bw*L.zone, 34, 8); ctx.fill();
+    ctx.strokeStyle = "#8bffcf"; ctx.lineWidth = 1.6;
+    rrect(bx + bw*(L.mid - L.zone/2) + 0.5, by+0.5, bw*L.zone - 1, 33, 8); ctx.stroke();
+    var mx = bx + bw*L.pos;                                      /* сама метка */
+    ctx.fillStyle = L.flashT > 0 ? (L.good ? "#8bffcf" : "#ff8080") : "#ffd166";
+    rrect(mx - 3, by - 7, 6, 48, 3); ctx.fill();
+    text("капай сюда", VW/2, by + 56, 11, "rgba(200,220,255,.5)", "center", 600);
+
+    /* колба в руках: наполняется по мере успеха */
+    var fh = 46 * Math.min(1, L.hits / L.need);
+    ctx.save(); ctx.translate(VW/2, 340);
+    ctx.fillStyle = "rgba(210,235,255,.25)";
+    ctx.beginPath(); ctx.moveTo(-16, 26); ctx.lineTo(-5, -22); ctx.lineTo(5, -22); ctx.lineTo(16, 26);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = L.flashT > 0 && !L.good ? "#ff8a85" : "#8bffcf";
+    ctx.beginPath(); ctx.moveTo(-16 + (46-fh)*0.24, 26 - fh);
+    ctx.lineTo(16 - (46-fh)*0.24, 26 - fh); ctx.lineTo(16, 26); ctx.lineTo(-16, 26);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#c9d5e5"; ctx.fillRect(-7, -26, 14, 5);
+    ctx.restore();
+    hintPlate(isTouch ? "жми ▲ в зелёной зоне" : "жми ПРОБЕЛ в зелёной зоне", VH-42, 13,
+              "rgba(220,235,255,.85)");
+  }
+  else if(L.kind === "verse"){
+    var say = L.phase === "say";
+    text("Стих наизусть. Учитель показывает — повтори.", VW/2, 116, 15,
+         "rgba(230,240,255,.85)", "center", 600);
+    text("строчка " + Math.min(L.round + 1, L.rounds) + " из " + L.rounds +
+         (say ? "   ·   повторяй" : "   ·   смотри"),
+         VW/2, 142, 13, say ? "#8bffcf" : "rgba(255,217,138,.9)", "center", 700);
+    var keys = ["←", "▲", "→"], kx;
+    for(i=0;i<3;i++){
+      kx = VW/2 + (i-1)*110;
+      var on = L.lit === i && L.litT > 0;
+      ctx.fillStyle = on ? "#ffd166" : "rgba(9,16,32,.5)";
+      rrect(kx - 42, 172, 84, 64, 14); ctx.fill();
+      ctx.strokeStyle = on ? "#fff3c4" : "rgba(255,255,255,.28)";
+      ctx.lineWidth = on ? 3 : 1.6;
+      rrect(kx - 42, 172, 84, 64, 14); ctx.stroke();
+      text(keys[i], kx, 218, 34, on ? "#0d1626" : "rgba(220,235,255,.75)", "center");
+    }
+    for(i=0;i<L.seq.length;i++){                    /* сколько уже повторил */
+      ctx.fillStyle = i < L.step ? "#8bffcf" : "rgba(255,255,255,.2)";
+      ctx.beginPath(); ctx.arc(VW/2 + (i - (L.seq.length-1)/2)*20, 288, 5, 0, 6.2832); ctx.fill();
+    }
+    text("ошибки", VW/2 - 46, 322, 10, "rgba(255,180,180,.7)", "right", 600);
+    for(i=0;i<=L.maxBad;i++){
+      ctx.fillStyle = i < L.bad ? "#ff6b6b" : "rgba(255,255,255,.22)";
+      ctx.beginPath(); ctx.arc(VW/2 - 30 + i*22, 318, 6, 0, 6.2832); ctx.fill();
+    }
+    hintPlate(say ? (isTouch ? "повтори: ◀ ▲ ▶" : "повтори: ← ПРОБЕЛ →")
+                  : "смотри внимательно", VH-42, 13, "rgba(220,235,255,.85)");
+  }
   else if(L.kind === "pushups"){
     text("Физра. Отжимания по команде физрука!", VW/2, 116, 15, "rgba(230,240,255,.85)", "center", 600);
     gradText(L.reps + " / " + L.need, VW/2, 180, 40, "#dfffe8", "#3fd39a");
@@ -4843,7 +5435,8 @@ function drawLesson(){
     ctx.fillStyle = "rgba(4,10,22,.72)"; ctx.fillRect(0,0,VW,VH);
     panel(520, 250, L.ok ? "rgba(139,255,207,.9)" : "rgba(255,120,120,.9)");
     var heads = { copy:"СПИСАЛ!", quiz:"ОТВЕТИЛ!", notes:"ЗАПИСАЛ!",
-                  canteen:"НАЕЛСЯ!", pushups:"ЗАЧЁТ ПО ФИЗРЕ!", sleep:"НЕ УСНУЛ!" };
+                  canteen:"НАЕЛСЯ!", pushups:"ЗАЧЁТ ПО ФИЗРЕ!", sleep:"НЕ УСНУЛ!",
+                  chem:"ОПЫТ УДАЛСЯ!", verse:"РАССКАЗАЛ!" };
     var head = L.ok ? (heads[L.kind] || "ЗАЧЁТ!") : "НЕ ВЫШЛО";
     gradText(head, VW/2, 210, 40, L.ok ? "#dfffe8" : "#ffd9d9", L.ok ? "#3fd39a" : "#e05050");
     text(L.ok ? "Учитель отпустил пораньше" : "Учитель задержал после урока",
@@ -4882,7 +5475,8 @@ function drawHubHUD(){
   }
 }
 
-var ITEM_PRICE = { soda:50, gum:55, bag:70, watch:60, pass:65 };
+var ITEM_PRICE = { soda:50, gum:55, bag:70, watch:60, pass:65,
+                   whistle:90, umbrella:85, magnetit:80 };
 var SHOP_TABS = [["skins","СКИНЫ"], ["upg","УЛУЧШЕНИЯ"], ["items","ПРЕДМЕТЫ"], ["star","ЗА ПЯТЁРКИ"]];
 var SHOP_PER = 16;                        // скинов на страницу витрины
 /* За пятёрки — редкое: два скина и три штуки на один забег. */
@@ -4970,9 +5564,13 @@ function shopSkins(){
     rrect(cx, cy, 180, 70, 12); ctx.stroke();
     ctx.save();
     if(!has) ctx.globalAlpha = 0.45;
-    drawCharacter({ x:cx+14, y:cy+28, w:20, h:28, dir:1, grounded:true, vx:0,
-                    anim:0, sqx:1, sqy:1, dead:false },
-                  has ? skinView(sk.k) : sk, 1);
+    var view = has ? skinView(sk.k) : sk;
+    var pic = cachedImg("face" + sk.k + "_" + (has ? skinStage(sk.k) : 0) + (has ? 1 : 0),
+                        56, 56, function(){
+      drawCharacter({ x:18, y:12, w:20, h:28, dir:1, grounded:true, vx:0,
+                      anim:0, sqx:1, sqy:1, dead:false }, view, 1);
+    });
+    ctx.drawImage(pic, cx - 4, cy + 16);
     ctx.restore();
     textFit(sk.n, cx+52, cy+20, 13, has ? "#ffffff" : "rgba(230,240,255,.7)", "left", 700, 120);
     textFit(sk.d, cx+52, cy+34, 9.5, "rgba(200,220,255,.5)", "left", 600, 120);
@@ -5035,30 +5633,30 @@ function shopItems(){
   var i, k, it, cx, cy, price, picked;
   for(i=0;i<ITEM_KEYS.length;i++){
     k = ITEM_KEYS[i]; it = ITEMS[k];
-    cx = 40 + (i % 3) * 240; cy = 124 + Math.floor(i / 3) * 104;
+    cx = 28 + (i % 4) * 187; cy = 118 + Math.floor(i / 4) * 100;
     price = ITEM_PRICE[k]; picked = (startItem === k);
-    var hv = hovered(cx, cy, 224, 92);
+    var hv = hovered(cx, cy, 176, 90);
     if(hv) G.uiHover = true;
     ctx.fillStyle = picked ? "rgba(139,255,207,.16)" : (hv ? "rgba(255,255,255,.16)" : "rgba(255,255,255,.07)");
-    rrect(cx, cy, 224, 92, 12); ctx.fill();
+    rrect(cx, cy, 176, 90, 12); ctx.fill();
     ctx.strokeStyle = picked ? "#8bffcf" : "rgba(255,255,255,.2)";
     ctx.lineWidth = picked ? 2.4 : 1.4;
-    rrect(cx, cy, 224, 92, 12); ctx.stroke();
-    drawItemIcon(k, cx+28, cy+32, 1.1);
-    text(it.n, cx+52, cy+28, 15, "#ffffff", "left", 700);
-    textFit(it.d, cx+52, cy+46, 10, "rgba(185,205,232,.8)", "left", 600, 160);
-    if(picked) text("уже в портфеле", cx+52, cy+70, 12, "#8bffcf", "left", 700);
+    rrect(cx, cy, 176, 90, 12); ctx.stroke();
+    drawItemIcon(k, cx+26, cy+30, 1.05);
+    textFit(it.n, cx+48, cy+26, 14, "#ffffff", "left", 700, 120);
+    textFit(it.d, cx+14, cy+54, 10, "rgba(185,205,232,.8)", "left", 600, 150);
+    if(picked) text("уже в портфеле", cx+14, cy+76, 12, "#8bffcf", "left", 700);
     else {
-      drawBun(cx+22, cy+68, 0.6);
-      text(price + "", cx+36, cy+74, 14,
+      drawBun(cx+22, cy+72, 0.6);
+      text(price + "", cx+36, cy+78, 14,
            STATS.buns >= price ? "#ffd98a" : "rgba(255,150,150,.8)", "left", 700);
     }
-    G.buttons.push({ id:"item_" + k, x:cx, y:cy, w:224, h:92 });
+    G.buttons.push({ id:"item_" + k, x:cx, y:cy, w:176, h:90 });
   }
-  if(startItem) text("на старте: " + ITEMS[startItem].n, VW/2, 340, 13, "#8bffcf", "center", 700);
+  if(startItem) text("на старте: " + ITEMS[startItem].n, VW/2, 344, 13, "#8bffcf", "center", 700);
   if(upg("pockets"))
     text("карманы большие — в забеге поместится ещё один предмет",
-         VW/2, 362, 11, "rgba(170,195,225,.7)", "center", 600);
+         VW/2, 366, 11, "rgba(170,195,225,.7)", "center", 600);
 }
 
 function drawSkins(){                    // магазин: скины, улучшения и предметы
@@ -5094,6 +5692,65 @@ function drawStar(x, y, s){               // пятёрка: кружок с ц�
   ctx.beginPath(); ctx.arc(-3, -3, 4, 0, 6.2832); ctx.fill();
   text("5", 0, 5, 13, "#fff2f2", "center", 700);
   ctx.restore();
+}
+
+function drawBadge(b, x, y, w, h, got, sel){
+  ctx.fillStyle = got ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.04)";
+  rrect(x, y, w, h, 10); ctx.fill();
+  ctx.strokeStyle = sel ? "#ffd166" : (got ? b.c : "rgba(255,255,255,.12)");
+  ctx.lineWidth = sel ? 2.6 : (got ? 1.8 : 1.2);
+  rrect(x, y, w, h, 10); ctx.stroke();
+  ctx.save();
+  if(!got) ctx.globalAlpha = 0.38;
+  ctx.fillStyle = got ? b.c : "rgba(200,220,255,.5)";
+  rrect(x + 10, y + 9, 8, 8, 2); ctx.fill();
+  textFit(b.n, x + 24, y + 17, 12, got ? "#ffffff" : "rgba(220,235,255,.6)", "left", 700, w - 34);
+  textFit(b.d, x + 10, y + 32, 9.5, "rgba(200,220,255,.55)", "left", 600, w - 20);
+  ctx.restore();
+}
+function drawProfile(){
+  ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
+  panel(760, 430, "rgba(159,216,255,.9)");
+  gradText("ПРОФИЛЬ", VW/2, 44, 24, "#e4f3ff", "#5aa8e0");
+
+  var got = badgeGot(), shown = badgeShown(), i, b;
+
+  /* карточка слева: кто ты в этой школе */
+  ctx.fillStyle = "rgba(255,255,255,.06)";
+  rrect(40, 66, 250, 178, 12); ctx.fill();
+  ctx.strokeStyle = shown ? shown.c : "rgba(159,216,255,.45)";
+  ctx.lineWidth = 1.8; rrect(40, 66, 250, 178, 12); ctx.stroke();
+  drawCharacter({ x:70, y:96, w:30, h:42, dir:1, grounded:true, vx:0,
+                  anim:0, sqx:1, sqy:1, dead:false }, skinView(curSkin), 1.5);
+  textFit(profName(), 128, 104, 20, "#ffffff", "left", 700, 150);
+  if(shown){
+    ctx.fillStyle = "rgba(255,255,255,.12)"; rrect(128, 112, 94, 20, 6); ctx.fill();
+    ctx.strokeStyle = shown.c; ctx.lineWidth = 1.4; rrect(128, 112, 94, 20, 6); ctx.stroke();
+    textFit(shown.n, 175, 126, 11, shown.c, "center", 700, 84);
+  } else
+    text("бейдж не выбран", 128, 126, 11, "rgba(200,220,255,.45)", "left", 600);
+  text(profRank(), 128, 150, 13, "#ffd98a", "left", 700);
+  var nx = profNext();
+  text(nx ? "до «" + nx.n + "» — " + nx.need + " этажей" : "выше уже некуда",
+       58, 176, 10.5, "rgba(200,220,255,.5)", "left", 600);
+  text("этажей пройдено: " + (STATS.levels || 0), 58, 196, 11, "rgba(220,235,255,.7)", "left", 600);
+  text("бейджей: " + got.length + " из " + BADGES.length, 58, 214, 11, "rgba(220,235,255,.7)", "left", 600);
+  text("забегов до конца: " + (STATS.runs || 0), 58, 232, 11, "rgba(220,235,255,.7)", "left", 600);
+
+  /* сетка бейджей */
+  text("БЕЙДЖИ · нажми, чтобы поставить рядом с именем", 310, 78, 10.5,
+       "rgba(200,220,255,.55)", "left", 700);
+  for(i=0;i<BADGES.length;i++){
+    b = BADGES[i];
+    var bx = 310 + (i % 2) * 226, by = 88 + Math.floor(i / 2) * 44;
+    var has = b.ok();
+    drawBadge(b, bx, by, 216, 40, has, shown === b);
+    if(has) G.buttons.push({ id:"prof_b_" + b.k, x:bx, y:by, w:216, h:40 });
+  }
+
+  uiButton("prof_name", 40, 256, 250, 34, "СМЕНИТЬ ИМЯ", null, { size:13, selBorder:"#8bffcf" });
+  if(shown) uiButton("prof_clear", 40, 296, 250, 30, "убрать бейдж", null, { size:12 });
+  uiButton("back", 315, 386, 170, 34, "НАЗАД", null, { size:14, sel:true });
 }
 
 function drawNews(){
@@ -5207,23 +5864,26 @@ function drawTasks(){
 
 function drawItemInfo(){
   ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
-  panel(700, 410);
-  gradText("ПРЕДМЕТЫ", VW/2, 74, 26, "#dfffe8", "#3fd39a");
+  panel(780, 430);
+  gradText("ПРЕДМЕТЫ", VW/2, 70, 26, "#dfffe8", "#3fd39a");
   text("Лежат в школьных шкафчиках. В руках помещается один — " +
        (isTouch ? "жми кнопку «ПРЕДМЕТ»" : "применяй клавишей E"),
        VW/2, 96, 12, "rgba(210,228,255,.7)", "center", 600);
   var i, k, y;
+  var half = Math.ceil(ITEM_KEYS.length / 2), cx2;
   for(i=0;i<ITEM_KEYS.length;i++){
-    k = ITEM_KEYS[i]; y = 124 + i*50;
+    k = ITEM_KEYS[i];
+    cx2 = (i < half) ? 60 : 410;
+    y = 124 + (i % half) * 54;
     ctx.fillStyle = "rgba(255,255,255,.06)";
-    rrect(120, y, 560, 42, 10); ctx.fill();
-    drawItemIcon(k, 148, y+21, 1);
-    text(ITEMS[k].n, 178, y+19, 15, "#ffffff", "left", 700);
-    text(ITEMS[k].d, 178, y+35, 11, "rgba(200,220,255,.6)", "left", 600);
+    rrect(cx2, y, 330, 46, 10); ctx.fill();
+    drawItemIcon(k, cx2+26, y+23, 1);
+    textFit(ITEMS[k].n, cx2+50, y+20, 14, "#ffffff", "left", 700, 210);
+    textFit(ITEMS[k].d, cx2+50, y+36, 10.5, "rgba(200,220,255,.6)", "left", 600, 250);
     ctx.fillStyle = ITEMS[k].c;
-    rrect(660, y+14, 8, 14, 3); ctx.fill();
+    rrect(cx2+316, y+16, 7, 14, 3); ctx.fill();
   }
-  uiButton("back", 315, 388, 170, 36, "НАЗАД", null, { size:14, sel:true });
+  uiButton("back", 315, 390, 170, 36, "НАЗАД", null, { size:14, sel:true });
 }
 
 function drawRecords(){
@@ -5782,6 +6442,58 @@ function drawPaused(){
 }
 
 /* ================== КАДР ================== */
+/* Состояния, где панель закрывает весь экран (фон под ней не виден). */
+var COVERED = { skins:1, records:1, iteminfo:1, mods:1, profile:1,
+                news:1, events:1, settings:1, seedin:1, admin:1 };
+function drawWorld(cam){
+  drawBackground(cam);
+  if(!G.level) return;
+  ctx.save();
+  var sh = G.shake * shakeK();
+  ctx.translate(-Math.round(cam) + (sh>0.4?rnd(-sh,sh):0), (sh>0.4?rnd(-sh,sh):0));
+  drawTiles(cam);
+  drawMovers();
+  drawSpikes();
+  if(G.state === "hub" || G.back === "hub") drawStands();
+  drawBells();
+  drawLockers();
+  drawBalls();
+  drawPads();
+  drawCoins();
+  drawKey();
+  drawDoor();
+  for(var wi=0; wi<G.level.enemies.length; wi++) drawEnemy(G.level.enemies[wi]);
+  drawShots();
+  drawParts();
+  drawTrail();
+  if(G.player) drawPlayer();
+  drawRings();
+  drawPops();
+  if(devBox) drawHitboxes();
+  ctx.restore();
+}
+var snapCv = null, snapFor = "", snapGen = 0, snapState = "";
+function drawSnap(cam){
+  /* Снимок переснимается при входе на экран, а не когда дрогнула камера:
+     под панелью её всё равно не видно, а пересъёмка каждый кадр — это
+     ровно та работа, от которой мы избавляемся. */
+  if(G.state !== snapState){ snapState = G.state; snapGen++; }
+  var key = G.state + "|" + (G.back || "") + "|" + snapGen;
+  if(!snapCv){
+    snapCv = document.createElement("canvas");
+    snapCv.width = VW; snapCv.height = VH;
+  }
+  if(snapFor !== key){
+    var real = ctx;
+    ctx = snapCv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, VW, VH);
+    drawWorld(cam);
+    ctx = real;
+    snapFor = key;
+  }
+  ctx.drawImage(snapCv, 0, 0);
+}
 function render(){
   var dpr = cv.width / VW;              // масштаб задаёт tvResize, а не браузер
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -5790,40 +6502,36 @@ function render(){
   G.uiHover = false;
 
   var cam = G.level ? G.cam : 0;
-  drawBackground(cam);
-
-  if(G.level){
-    ctx.save();
-    var sh = G.shake * shakeK();
-    ctx.translate(-Math.round(cam) + (sh>0.4?rnd(-sh,sh):0), (sh>0.4?rnd(-sh,sh):0));
-    drawTiles(cam);
-    drawMovers();
-    drawSpikes();
-    if(G.state === "hub") drawStands();
-    drawBells();
-    drawLockers();
-    drawBalls();
-    drawPads();
-    drawCoins();
-    drawKey();
-    drawDoor();
-    for(var i=0;i<G.level.enemies.length;i++) drawEnemy(G.level.enemies[i]);
-    drawParts();
-    drawTrail();
-    if(G.player) drawPlayer();
-    drawRings();
-    drawPops();
-    if(devBox) drawHitboxes();
-    ctx.restore();
+  /* Под панелью школа не меняется — её хватает нарисовать один раз и дальше
+     копировать снимок: на слабом устройстве это разница между 27 и 60 кадрами. */
+  if(COVERED[G.state]){
+    drawSnap(cam);
+  } else {
+    snapFor = ""; snapState = "";
+    drawWorld(cam);
   }
 
   if(mod("dark") && G.player && (G.state === "play" || G.state === "clear" || G.state === "paused")){
+    /* Круг света — картинка (градиент считается один раз), а темнота вокруг —
+       четыре сплошные заливки: полноэкранный градиент каждый кадр стоил
+       двадцати кадров в секунду на слабом устройстве. */
     var lx = G.player.x + G.player.w/2 - G.cam, ly = G.player.y + G.player.h/2;
-    var lg = ctx.createRadialGradient(lx, ly, 30, lx, ly, 200);
-    lg.addColorStop(0, "rgba(5,9,18,0)");
-    lg.addColorStop(0.5, "rgba(5,9,18,.55)");
-    lg.addColorStop(1, "rgba(5,9,18,.94)");
-    ctx.fillStyle = lg; ctx.fillRect(0, 0, VW, VH);
+    var R = 200, D2 = R*2;
+    var lamp = cachedImg("lamp" + R, D2, D2, function(){
+      var lg = ctx.createRadialGradient(R, R, 30, R, R, R);
+      lg.addColorStop(0, "rgba(5,9,18,0)");
+      lg.addColorStop(0.5, "rgba(5,9,18,.55)");
+      lg.addColorStop(1, "rgba(5,9,18,.94)");
+      ctx.fillStyle = lg; ctx.fillRect(0, 0, D2, D2);
+    });
+    var x0 = Math.round(lx - R), y0 = Math.round(ly - R);
+    ctx.drawImage(lamp, x0, y0);
+    ctx.fillStyle = "rgba(5,9,18,.94)";
+    var ty = clamp(y0, 0, VH), by = clamp(y0 + D2, 0, VH);
+    if(ty > 0) ctx.fillRect(0, 0, VW, ty);
+    if(by < VH) ctx.fillRect(0, by, VW, VH - by);
+    if(x0 > 0) ctx.fillRect(0, ty, Math.min(x0, VW), by - ty);
+    if(x0 + D2 < VW) ctx.fillRect(x0 + D2, ty, VW - (x0 + D2), by - ty);
   }
   drawWipe();
   if(G.flash > 0){
@@ -5857,9 +6565,11 @@ function render(){
     drawMods(); drawToast(); drawAch(); drawCursor(); return;
   }
   if(G.state === "skins"){ drawHubHUD(); drawSkins(); drawToast(); drawAch(); return; }
-  if(G.state === "news" || G.state === "events"){
+  if(G.state === "news" || G.state === "events" || G.state === "profile"){
     if(G.back === "hub") drawHubHUD(); else drawMenu();
-    if(G.state === "news") drawNews(); else drawEvents();
+    if(G.state === "news") drawNews();
+    else if(G.state === "profile") drawProfile();
+    else drawEvents();
     drawToast(); drawAch(); drawCursor();
     return;
   }
@@ -6184,7 +6894,7 @@ window.PEREMENA_DEBUG = {
   lesson: startLesson, answer: lessonAnswer, quiz: function(){ return QUIZ; },
   ach: achCheck, achs: function(){ return ACHS; },
   stage: skinStage, maxStage: skinMaxStage, setStage: setStage,
-  end: lessonEnd,
+  end: lessonEnd, press: lessonPress,
   set: function(){ return SET; }, muted: function(){ return muted; }, fancy: fancy,
   daily: function(){ return DAILY; }, taskBy: taskBy, upg: upg, skins: function(){ return SKINS; },
   devLog: function(){ return devLog; }, lesson: startLesson,
@@ -6201,11 +6911,14 @@ window.PEREMENA_DEBUG = {
   giftLast: function(){ return giftLast; }, giftKits: function(){ return GIFT_KITS; },
   evTaken: evTaken, evReady: evReady, eventBy: eventBy,
   evRun: evRun, evSched: evSched, evFree: evFree,
+  prof: function(){ return PROF; }, badges: function(){ return BADGES; },
+  badgeGot: badgeGot, rank: profRank,
   evDate: evDate, evShifted: evShifted
 };
 
 modLoad();
 statLoad();
+profLoad();
 setLoad();
 startItemLoad();
 starBuffLoad();
