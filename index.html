@@ -781,14 +781,14 @@ function badgeShown(){                    // выбранный бейдж, ес
 
 /* ================== НОВОСТИ ==================
    Летопись обновлений. Новое отмечается точкой в меню, пока не прочитают. */
-var NEWS_VERSION = "2026-09-21c";
+var NEWS_VERSION = "2026-09-21d";
 var NEWS = [
-  { v:"2026-09-21c", d:"21 сентября", n:"Завтра — День контента",
+  { v:"2026-09-21d", d:"21 сентября", n:"Завтра — CONTENT CONTENT CONTENT",
     lines:[
-      "22 сентября: ДЕНЬ КОНТЕНТА. Весь день каждый пирожок считается за два.",
-      "Приз дня: 300 пирожков, 300 булок и 10 пятёрок — забрать можно один раз.",
-      "А 23-го будет CONTENT CONTENT CONTENT, так что календарь плотный.",
-      "Экран СОБЫТИЯ показывает теперь три карточки и сортирует их по близости."
+      "22 сентября, уже завтра: CONTENT CONTENT CONTENT. Дата переехала с 23-го.",
+      "Весь этот день каждый собранный пирожок считается за два.",
+      "Приз дня: 300 пирожков, 500 булок и 15 пятёрок — забрать можно один раз.",
+      "Экран СОБЫТИЯ показывает до трёх карточек и сортирует их по близости."
     ] },
   { v:"2026-09-21b", d:"21 сентября", n:"Последний звонок и новый профиль",
     lines:[
@@ -846,20 +846,13 @@ var EVENTS = [
            "Код работает у любого — хоть по ссылке, хоть с бумажки."],
     gift:{ p:500, s:25 },
     prize:"500 пирожков и 25 пятёрок" },
-  { k:"day22", n:"ДЕНЬ КОНТЕНТА", date:"2026-09-22",
-    d:"Целый день про контент — и он уже завозится.",
-    lines:["Двойные булки за весь день: каждый пирожок считается за два.",
-           "Приз забирается здесь же, один раз, как обычно.",
-           "А 23-го контента станет совсем много — см. следующую карточку."],
-    gift:{ p:300, b:300, s:10 },
-    prize:"300 пирожков, 300 булок и 10 пятёрок" },
-  { k:"content", n:"CONTENT CONTENT CONTENT", date:"2026-09-23",
+  { k:"content", n:"CONTENT CONTENT CONTENT", date:"2026-09-22",
     d:"День, когда контента станет слишком много.",
-    lines:["В этот день бесконечный режим уходит на покой.",
+    lines:["Весь день двойные булки: каждый пирожок считается за два.",
            "Достижения бесконечного остаются с тобой навсегда.",
-           "Загляни в новости — там будет, что почитать."],
-    gift:{ b:500, s:5 },
-    prize:"500 булок и 5 пятёрок" }
+           "Приз забирается здесь же, один раз."],
+    gift:{ p:300, b:500, s:15 },
+    prize:"300 пирожков, 500 булок и 15 пятёрок" }
 ];
 var evDates = null;                       // сдвинутые из админки даты, кэш на кадр
 function evDateAll(){
@@ -1057,8 +1050,8 @@ function evFree(ev){                      // разрешить забрать �
   toast("Приз «" + ev.n + "» снова можно забрать");
   sfx.key();
 }
-function evDouble(){                      // «День контента»: булки идут вдвойне
-  var ev = eventBy("day22");
+function evDouble(){                      // в день контента булки идут вдвойне
+  var ev = eventBy("content");
   return !!ev && eventDays(ev) === 0;
 }
 function evReady(){                       // есть ли приз, который можно забрать
@@ -1285,7 +1278,7 @@ ACHS.push(
   { k:"badged8", n:"Вся грудь в бейджах",d:"заслужить восемь бейджей",      s:"badges",  v:8,   r:220, st:4 },
   { k:"windy",   n:"Против ветра",      d:"пройти этаж со сквозняком",      s:"windLv",  v:1,   r:70 },
   { k:"lastone", n:"Последний звонок",   d:"пережить самый злой режим",      s:"lastRuns", v:1,  r:250, st:5 },
-  { k:"lastfew", n:"Не в первый раз",    d:"три раза пережить «Последний звонок»", s:"lastRuns", v:3, r:400, st:8 }
+  { k:"lastfew", n:"Не в первый раз",    d:"пережить его трижды",             s:"lastRuns", v:3, r:400, st:8 }
 );
 
 function stagesAt(n){                       // сколько скинов доросло до этапа n
@@ -3616,8 +3609,10 @@ function update(dtSec){
   if(G.penalty > 0) G.penalty--;
 
   if(G.toastT > 0) G.toastT--;
-  if(G.achT > 0) G.achT--;
-  else if(G.achQueue.length){ G.achShow = G.achQueue.shift(); G.achT = 150; }
+  if(!COVERED[G.state]){                   // под панелью очередь достижений ждёт
+    if(G.achT > 0) G.achT--;
+    else if(G.achQueue.length){ G.achShow = G.achQueue.shift(); G.achT = 150; }
+  }
   if(G.invul > 0) G.invul--;
   if(G.state === "play"){
     if(G.comboT > 0){ G.comboT--; if(!G.comboT) G.combo = 0; }
@@ -4871,7 +4866,9 @@ function achBanner(){        /* плашка висит под шапкой за
 }
 function drawAch(){
   if(G.achT <= 0 || !G.achShow) return;
-  if(G.state === "admin" || G.state === "code") return;      // панель показывает счёт сама
+  /* На экранах-панелях плашка падала прямо на заголовок. Пусть подождёт,
+     пока игрок выйдет: достижение всё равно уже засчитано. */
+  if(COVERED[G.state]) return;
   var a = G.achShow, k = Math.min(1, (200 - G.achT) / 12);
   var x = VW/2 - 190, y = (achBanner() ? 58 : 16) - (1-k)*40;
   ctx.save();
@@ -5078,7 +5075,7 @@ function drawHUD(){
     rrect(cx3+0.5, cy3+0.5, cw-1, 21, 8); ctx.stroke();
     text("СЕРИЯ ×" + G.combo, VW/2, cy3 + 15, 12, "#8bffcf", "center", 700);
   }
-  var info = (evDouble() ? "ДЕНЬ КОНТЕНТА ×2  ·  " : "") +
+  var info = (evDouble() ? "КОНТЕНТ ×2  ·  " : "") +
              curDiff.name + (modCount() ? "  ×" + modMult().toFixed(2) : "") +
              (curSrc === "seed" ? "  сид " + curSeed : "") +
              (G.deaths ? "  падений " + G.deaths : "");
@@ -6235,9 +6232,10 @@ function drawRecords(){
          VW/2, 386, 12, "rgba(220,235,255,.6)", "center", 600);
   } else {
     var from = (G.achPage || 0) * perPage, to = Math.min(ACHS.length, from + perPage);
+    var half = Math.ceil((to - from) / 2);          /* последняя страница делится поровну */
     for(i=from;i<to;i++){
       var j = i - from, a2 = ACHS[i], ok = achDone(a2);
-      var ax = (j < 10) ? 44 : 404, ay = 104 + (j % 10) * 26;
+      var ax = (j < half) ? 44 : 404, ay = 104 + (j % half) * 26;
       var val = achValue(a2), near = !ok && val > 0;
       ctx.fillStyle = ok ? "rgba(139,255,207,.12)" : (near ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.04)");
       rrect(ax, ay, 352, 23, 7); ctx.fill();
@@ -6257,7 +6255,7 @@ function drawRecords(){
       ctx.font = "700 10.5px 'Segoe UI', system-ui, Arial, sans-serif";
       var pw = ctx.measureText(prog).width;
       textFit(a2.n, ax+25, ay+15, 11, ok ? "#ffffff" : "rgba(230,240,255,.65)", "left", 700, 120);
-      textFit(a2.d, ax+148, ay+15, 9.5, "rgba(200,220,255,.45)", "left", 600, 182 - pw);
+      textFit(a2.d, ax+148, ay+15, 9.5, "rgba(200,220,255,.45)", "left", 600, 176 - pw);
       text(prog, ax+344, ay+15, 10.5, ok ? "#ffd98a" : "rgba(200,220,255,.5)", "right", 700);
     }
     text("собрано " + done + " из " + ACHS.length + "   ·   булок за достижения " + achBuns(),
