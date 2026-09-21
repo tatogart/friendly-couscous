@@ -781,8 +781,15 @@ function badgeShown(){                    // выбранный бейдж, ес
 
 /* ================== НОВОСТИ ==================
    Летопись обновлений. Новое отмечается точкой в меню, пока не прочитают. */
-var NEWS_VERSION = "2026-09-21b";
+var NEWS_VERSION = "2026-09-21c";
 var NEWS = [
+  { v:"2026-09-21c", d:"21 сентября", n:"Завтра — День контента",
+    lines:[
+      "22 сентября: ДЕНЬ КОНТЕНТА. Весь день каждый пирожок считается за два.",
+      "Приз дня: 300 пирожков, 300 булок и 10 пятёрок — забрать можно один раз.",
+      "А 23-го будет CONTENT CONTENT CONTENT, так что календарь плотный.",
+      "Экран СОБЫТИЯ показывает теперь три карточки и сортирует их по близости."
+    ] },
   { v:"2026-09-21b", d:"21 сентября", n:"Последний звонок и новый профиль",
     lines:[
       "Новый режим «Последний звонок»: 6 минут, одна жизнь, пустые шкафчики.",
@@ -839,6 +846,13 @@ var EVENTS = [
            "Код работает у любого — хоть по ссылке, хоть с бумажки."],
     gift:{ p:500, s:25 },
     prize:"500 пирожков и 25 пятёрок" },
+  { k:"day22", n:"ДЕНЬ КОНТЕНТА", date:"2026-09-22",
+    d:"Целый день про контент — и он уже завозится.",
+    lines:["Двойные булки за весь день: каждый пирожок считается за два.",
+           "Приз забирается здесь же, один раз, как обычно.",
+           "А 23-го контента станет совсем много — см. следующую карточку."],
+    gift:{ p:300, b:300, s:10 },
+    prize:"300 пирожков, 300 булок и 10 пятёрок" },
   { k:"content", n:"CONTENT CONTENT CONTENT", date:"2026-09-23",
     d:"День, когда контента станет слишком много.",
     lines:["В этот день бесконечный режим уходит на покой.",
@@ -1042,6 +1056,10 @@ function evFree(ev){                      // разрешить забрать �
   try{ localStorage.setItem("peremena_evgift", was.join(",")); }catch(e){}
   toast("Приз «" + ev.n + "» снова можно забрать");
   sfx.key();
+}
+function evDouble(){                      // «День контента»: булки идут вдвойне
+  var ev = eventBy("day22");
+  return !!ev && eventDays(ev) === 0;
 }
 function evReady(){                       // есть ли приз, который можно забрать
   var i, ev;
@@ -3225,7 +3243,8 @@ function updatePlayer(dt){
     }
     if(overlap(p, c)){
       c.got = true; G.coins++; stat("pies");
-      stat("buns", G.dblBuns ? 2 : 1); G.runBuns += G.dblBuns ? 2 : 1;
+      var mul = (G.dblBuns || evDouble()) ? 2 : 1;
+      stat("buns", mul); G.runBuns += mul;
       G.combo = (G.comboT > 0) ? Math.min(5, G.combo + 1) : 1;
       G.comboT = 110;
       G.comboPts += 10 * (G.combo - 1);
@@ -5059,7 +5078,8 @@ function drawHUD(){
     rrect(cx3+0.5, cy3+0.5, cw-1, 21, 8); ctx.stroke();
     text("СЕРИЯ ×" + G.combo, VW/2, cy3 + 15, 12, "#8bffcf", "center", 700);
   }
-  var info = curDiff.name + (modCount() ? "  ×" + modMult().toFixed(2) : "") +
+  var info = (evDouble() ? "ДЕНЬ КОНТЕНТА ×2  ·  " : "") +
+             curDiff.name + (modCount() ? "  ×" + modMult().toFixed(2) : "") +
              (curSrc === "seed" ? "  сид " + curSeed : "") +
              (G.deaths ? "  падений " + G.deaths : "");
   text(info, VW-24, 46, 10.5,
@@ -6025,41 +6045,65 @@ function drawNews(){
 function drawEvents(){
   uiTop();
   ctx.fillStyle = "rgba(4,10,22,.9)"; ctx.fillRect(0,0,VW,VH);
-  var i, j, ev, d, stt, col, cardH = 142;
-  var shown = Math.max(1, Math.min(EVENTS.length, 2));
-  var H = clamp(148 + shown*(cardH + 12), 240, 456), top = VH/2 - H/2;
+  var i, j, ev, d, stt, col;
+  /* Показываем то, что ближе: сегодняшнее, потом ближайшее, потом прошедшее. */
+  var list = EVENTS.slice().sort(function(a, b){
+    var da = eventDays(a), db = eventDays(b);
+    var wa = da === 0 ? -1 : (da > 0 ? da : 1000 - da);
+    var wb = db === 0 ? -1 : (db > 0 ? db : 1000 - db);
+    return wa - wb;
+  });
+  var shown = Math.max(1, Math.min(list.length, 3));
+  var cardH = shown >= 3 ? 98 : 142, tight = cardH < 130;
+  var H = clamp(148 + shown*(cardH + 12), 240, 462), top = VH/2 - H/2;
   panel(760, H, "rgba(201,160,255,.9)");
   gradText("СОБЫТИЯ", VW/2, top + 36, 24, "#efe3ff", "#a06be8");
   text("школьный календарь", VW/2, top + 56, 11, "rgba(200,220,255,.6)", "center", 600);
   var y = top + 76;
-  for(i=0;i<EVENTS.length && i<shown;i++){
-    ev = EVENTS[i]; d = eventDays(ev); stt = eventState(ev);
+  for(i=0;i<list.length && i<shown;i++){
+    ev = list[i]; d = eventDays(ev); stt = eventState(ev);
     col = stt === "сегодня" ? "#8bffcf" : (stt === "скоро" ? "#c9a0ff" : "rgba(255,255,255,.3)");
     ctx.fillStyle = "rgba(255,255,255,.06)";
     rrect(40, y, 680, cardH, 12); ctx.fill();
     ctx.strokeStyle = col; ctx.lineWidth = stt === "прошло" ? 1.2 : 2;
     rrect(40, y, 680, cardH, 12); ctx.stroke();
-    gradText(ev.n, VW/2, y + 30, 22, "#ffffff", col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
-    text(ev.d, VW/2, y + 50, 12, "rgba(220,235,255,.7)", "center", 600);
-    for(j=0;j<ev.lines.length;j++)
-      textFit("• " + ev.lines[j], 70, y + 72 + j*18, 11.5,
+
+    if(tight){                                /* тесная карточка: заголовок слева */
+      gradText(ev.n, 70, y + 26, 17, "#ffffff",
+               col === "rgba(255,255,255,.3)" ? "#8899aa" : col, "left");
+      textFit(ev.d, 70, y + 43, 10.5, "rgba(220,235,255,.6)", "left", 600, 420);
+    } else {
+      gradText(ev.n, VW/2, y + 30, 22, "#ffffff",
+               col === "rgba(255,255,255,.3)" ? "#8899aa" : col);
+      text(ev.d, VW/2, y + 50, 12, "rgba(220,235,255,.7)", "center", 600);
+    }
+    var bMax = tight ? 2 : 3, bTop = tight ? y + 62 : y + 72;
+    for(j=0;j<ev.lines.length && j<bMax;j++)
+      textFit("• " + ev.lines[j], 70, bTop + j*17, 11,
               "rgba(220,235,255,.65)", "left", 600, 420);
+
+    var pillY = tight ? y + 10 : y + 50;
     ctx.fillStyle = "rgba(0,0,0,.3)";
-    rrect(508, y + 50, 196, 32, 9); ctx.fill();
+    rrect(508, pillY, 196, 30, 9); ctx.fill();
     text(stt === "скоро" ? "через " + d + " дн." : (stt === "сегодня" ? "СЕГОДНЯ!" : "уже прошло"),
-         606, y + 71, 15, col, "center", 700);
-    drawStar(520, y + 91, 0.66);            /* награда держится внутри карточки */
-    textFit("приз: " + ev.prize, 534, y + 96, 12, "rgba(255,217,138,.9)", "left", 600, 170);
+         606, pillY + 20, 14, col, "center", 700);
+    var przY = tight ? y + 52 : y + 91;
+    drawStar(520, przY, 0.62);                /* награда держится внутри карточки */
+    textFit("приз: " + ev.prize, 533, przY + 5, 11, "rgba(255,217,138,.9)", "left", 600, 172);
+    var btnY = tight ? y + 62 : y + 104;
     if(ev.gift && d <= 0 && !evTaken(ev.k))
-      uiButton("ev_take_" + ev.k, 508, y + 104, 196, 30, "ЗАБРАТЬ ПРИЗ", null,
-               { size:13, sel:true, selBorder:"#8bffcf" });
+      uiButton("ev_take_" + ev.k, 508, btnY, 196, tight ? 26 : 30, "ЗАБРАТЬ ПРИЗ", null,
+               { size:12, sel:true, selBorder:"#8bffcf" });
     else if(ev.gift && evTaken(ev.k))
-      text("приз уже забран", 606, y + 124, 12, "#8bffcf", "center", 700);
+      text("приз уже забран", 606, btnY + (tight ? 18 : 20), 11.5, "#8bffcf", "center", 700);
     else if(ev.gift)
-      text("приз откроется в этот день", 606, y + 124, 11, "rgba(200,220,255,.45)", "center", 600);
+      text("приз откроется в этот день", 606, btnY + (tight ? 18 : 20), 10.5,
+           "rgba(200,220,255,.45)", "center", 600);
     y += cardH + 12;
   }
-  text("код подарка работает у любого — хоть по ссылке, хоть с бумажки",
+  text(list.length > shown
+         ? "в календаре ещё " + (list.length - shown) + " — покажутся, когда подойдёт срок"
+         : "код подарка работает у любого — хоть по ссылке, хоть с бумажки",
        VW/2, top + H - 62, 11, "rgba(200,220,255,.45)", "center", 600);
   uiButton("gift_in", 176, top + H - 50, 200, 38, "ВВЕСТИ КОД", null,
            { size:15, selBorder:"#ffd166" });
@@ -6917,7 +6961,7 @@ window.PEREMENA_DEBUG = {
   giftCode: giftCode, giftRead: giftRead, giftLink: giftLink, giftClaim: giftClaim,
   giftLast: function(){ return giftLast; }, giftKits: function(){ return GIFT_KITS; },
   evTaken: evTaken, evReady: evReady, eventBy: eventBy,
-  evRun: evRun, evSched: evSched, evFree: evFree,
+  evRun: evRun, evSched: evSched, evFree: evFree, evDouble: evDouble,
   uiBase: function(){ return uiBase; },
   prof: function(){ return PROF; }, badges: function(){ return BADGES; },
   badgeGot: badgeGot, rank: profRank,
