@@ -6765,29 +6765,32 @@ function admRes(){
 }
 
 function admRun(){
+  /* Предметов восемь — в одну строку они не влезают, поэтому 4×2
+     по той же сетке, что и остальные ряды панели. */
   devRow("ПРЕДМЕТ В РУКИ", 118, "rgba(139,255,207,.8)");
   for(var i=0;i<ITEM_KEYS.length;i++)
-    uiButton("dev_item_" + ITEM_KEYS[i], 40 + i*146, 118, 136, 40,
-             ITEMS[ITEM_KEYS[i]].n, null, { size:13, sel: G.item === ITEM_KEYS[i] });
+    uiButton("dev_item_" + ITEM_KEYS[i], 40 + (i % 4) * 178, 118 + Math.floor(i / 4) * 42,
+             172, 38, ITEMS[ITEM_KEYS[i]].n, null,
+             { size:13, sel: G.item === ITEM_KEYS[i] });
 
-  devRow("ВРЕМЯ И ЭТАЖ", 192, "rgba(159,216,255,.8)");
-  uiButton("dev_time",   40, 192, 172, 40, "+60 секунд", null, { size:14 });
-  uiButton("dev_coins", 218, 192, 172, 40, "Все пирожки", null, { size:14 });
-  uiButton("dev_skip",  396, 192, 172, 40, "Пропустить этаж", null, { size:13 });
-  uiButton("dev_shield",574, 192, 172, 40, "Выдать портфель", null, { size:13 });
+  devRow("ВРЕМЯ И ЭТАЖ", 228, "rgba(159,216,255,.8)");
+  uiButton("dev_time",   40, 228, 172, 40, "+60 секунд", null, { size:14 });
+  uiButton("dev_coins", 218, 228, 172, 40, "Все пирожки", null, { size:14 });
+  uiButton("dev_skip",  396, 228, 172, 40, "Пропустить этаж", null, { size:13 });
+  uiButton("dev_shield",574, 228, 172, 40, "Выдать портфель", null, { size:13 });
 
-  devRow("ПОМОЩЬ НА ЭТАЖЕ", 266, "rgba(255,209,102,.8)");
-  uiButton("dev_teleport", 40, 266, 172, 40, "К двери", null, { size:14 });
-  uiButton("dev_key",     218, 266, 172, 40, "Выдать ключ", null, { size:14 });
-  uiButton("dev_clear",   396, 266, 172, 40, "Убрать завучей", null, { size:13 });
-  uiButton("pw_freeze",   574, 266, 172, 40, POW.freeze ? "Время: СТОП" : "Стоп-время", null,
+  devRow("ПОМОЩЬ НА ЭТАЖЕ", 302, "rgba(255,209,102,.8)");
+  uiButton("dev_teleport", 40, 302, 172, 40, "К двери", null, { size:14 });
+  uiButton("dev_key",     218, 302, 172, 40, "Выдать ключ", null, { size:14 });
+  uiButton("dev_clear",   396, 302, 172, 40, "Убрать завучей", null, { size:13 });
+  uiButton("pw_freeze",   574, 302, 172, 40, POW.freeze ? "Время: СТОП" : "Стоп-время", null,
            { size:13, sel: POW.freeze, selBorder:"#9fd8ff" });
 
   text(inRun() ? "этаж " + (curDiff.endless ? (G.floor || 1) : (G.levelIndex + 1)) +
                  " · " + (G.level ? G.level.name : "?") +
                  "   ·   до звонка " + fmtTime(Math.max(0, G.timeLeft))
                 : "кнопки этого раздела работают во время забега",
-       VW/2, 340, 12, "rgba(220,235,255,.55)", "center", 600);
+       VW/2, 370, 12, "rgba(220,235,255,.55)", "center", 600);
 }
 
 function powLine(k, y){
